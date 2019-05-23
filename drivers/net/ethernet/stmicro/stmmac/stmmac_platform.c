@@ -229,6 +229,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
 		pr_warn("force_sf_dma_mode is ignored if force_thresh_dma_mode is set.");
 	}
 
+	plat->bugged_tx_coe = of_property_read_bool(np, "rockchip,bugged_tx_coe");
 	return plat;
 }
 #else

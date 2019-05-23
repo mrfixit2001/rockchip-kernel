@@ -49,9 +49,14 @@
 #include <asm/barrier.h>
 
 extern int rcu_expedited; /* for sysctl */
+extern int rcu_normal;    /* also for sysctl */
 
 #ifdef CONFIG_TINY_RCU
 /* Tiny RCU doesn't expedite, as its purpose in life is instead to be tiny. */
+static inline bool rcu_gp_is_normal(void)  /* Internal RCU use. */
+{
+	return true;
+}
 static inline bool rcu_gp_is_expedited(void)  /* Internal RCU use. */
 {
 	return false;
@@ -65,6 +70,7 @@ static inline void rcu_unexpedite_gp(void)
 {
 }
 #else /* #ifdef CONFIG_TINY_RCU */
+bool rcu_gp_is_normal(void);     /* Internal RCU use. */
 bool rcu_gp_is_expedited(void);  /* Internal RCU use. */
 void rcu_expedite_gp(void);
 void rcu_unexpedite_gp(void);
@@ -325,6 +331,7 @@ void rcu_end_inkernel_boot(void);
 void rcu_sched_qs(void);
 void rcu_bh_qs(void);
 void rcu_check_callbacks(int user);
+void rcu_cpu_starting(unsigned int cpu);
 struct notifier_block;
 int rcu_cpu_notify(struct notifier_block *self,
 		   unsigned long action, void *hcpu);
@@ -379,9 +386,9 @@ static inline void rcu_init_nohz(void)
  */
 #define RCU_NONIDLE(a) \
 	do { \
-		rcu_irq_enter(); \
+		rcu_irq_enter_irqson(); \
 		do { a; } while (0); \
-		rcu_irq_exit(); \
+		rcu_irq_exit_irqson(); \
 	} while (0)
 
 /*

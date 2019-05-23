@@ -2479,12 +2479,16 @@ static int handle_tx_event(struct xhci_hcd *xhci,
 		 */
 		if (list_empty(&ep_ring->td_list)) {
 			/*
-			 * A stopped endpoint may generate an extra completion
-			 * event if the device was suspended.  Don't print
-			 * warnings.
+			 * Don't print wanings if it's due to a stopped endpoint
+			 * generating an extra completion event if the device
+			 * was suspended. Or, a event for the last TRB of a
+			 * short TD we already got a short event for.
+			 * The short TD is already removed from the TD list.
 			 */
+
 			if (!(trb_comp_code == COMP_STOP ||
-						trb_comp_code == COMP_STOP_INVAL)) {
+			      trb_comp_code == COMP_STOP_INVAL ||
+			      ep_ring->last_td_was_short)) {
 				xhci_warn(xhci, "WARN Event TRB for slot %d ep %d with no TDs queued?\n",
 						TRB_TO_SLOT_ID(le32_to_cpu(event->flags)),
 						ep_index);
@@ -3145,6 +3149,7 @@ static int queue_bulk_sg_tx(struct xhci_hcd *xhci, gfp_t mem_flags,
 	int last_trb_num;
 	u64 addr;
 	bool more_trbs_coming;
+	bool en_trb_ent;
 
 	struct xhci_generic_trb *start_trb;
 	int start_cycle;
@@ -3207,6 +3212,17 @@ static int queue_bulk_sg_tx(struct xhci_hcd *xhci, gfp_t mem_flags,
 	if (trb_buff_len > urb->transfer_buffer_length)
 		trb_buff_len = urb->transfer_buffer_length;
 
+	/*
+	 * Don't enable the ENT flag in the TRB in the following cases:
+	 * 1. The transfer length of the first TRB isn't an integer
+	 *    multiple of the EP maxpacket.
+	 * 2. The EP support bulk streaming protocol.
+	 */
+	if (trb_buff_len % usb_endpoint_maxp(&urb->ep->desc) || urb->stream_id)
+		en_trb_ent = false;
+	else
+		en_trb_ent = true;
+
 	first_trb = true;
 	last_trb_num = zero_length_needed ? 2 : 1;
 	/* Queue the first TRB, even if it's zero-length */
@@ -3228,6 +3244,8 @@ static int queue_bulk_sg_tx(struct xhci_hcd *xhci, gfp_t mem_flags,
 		 */
 		if (num_trbs > last_trb_num) {
 			field |= TRB_CHAIN;
+			if (xhci->quirks & XHCI_TRB_ENT_QUIRK && en_trb_ent)
+				field |= TRB_ENT;
 		} else if (num_trbs == last_trb_num) {
 			td->last_trb = ep_ring->enqueue;
 			field |= TRB_IOC;
@@ -3312,6 +3330,7 @@ int xhci_queue_bulk_tx(struct xhci_hcd *xhci, gfp_t mem_flags,
 	int last_trb_num;
 	bool more_trbs_coming;
 	bool zero_length_needed;
+	bool en_trb_ent;
 	int start_cycle;
 	u32 field, length_field;
 
@@ -3384,6 +3403,17 @@ int xhci_queue_bulk_tx(struct xhci_hcd *xhci, gfp_t mem_flags,
 	if (trb_buff_len > urb->transfer_buffer_length)
 		trb_buff_len = urb->transfer_buffer_length;
 
+	/*
+	 * Don't enable the ENT flag in the TRB in the following cases:
+	 * 1. The transfer length of the first TRB isn't an integer
+	 *    multiple of the EP maxpacket.
+	 * 2. The EP support bulk streaming protocol.
+	 */
+	if (trb_buff_len % usb_endpoint_maxp(&urb->ep->desc) || urb->stream_id)
+		en_trb_ent = false;
+	else
+		en_trb_ent = true;
+
 	first_trb = true;
 	last_trb_num = zero_length_needed ? 2 : 1;
 	/* Queue the first TRB, even if it's zero-length */
@@ -3404,6 +3434,8 @@ int xhci_queue_bulk_tx(struct xhci_hcd *xhci, gfp_t mem_flags,
 		 */
 		if (num_trbs > last_trb_num) {
 			field |= TRB_CHAIN;
+			if (xhci->quirks & XHCI_TRB_ENT_QUIRK && en_trb_ent)
+				field |= TRB_ENT;
 		} else if (num_trbs == last_trb_num) {
 			td->last_trb = ep_ring->enqueue;
 			field |= TRB_IOC;

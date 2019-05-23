@@ -1,6 +1,8 @@
 #ifndef _LINUX_IRQDESC_H
 #define _LINUX_IRQDESC_H
 
+#include <linux/mutex.h>
+
 /*
  * Core internal functions to deal with irq descriptors
  */
@@ -40,6 +42,7 @@ struct pt_regs;
  *			IRQF_NO_SUSPEND set
  * @force_resume_depth:	number of irqactions on a irq descriptor with
  *			IRQF_FORCE_RESUME set
+ * @request_mutex:	mutex to protect request/free before locking desc->lock
  * @dir:		/proc/irq/ procfs entry
  * @name:		flow handler name for /proc/interrupts output
  */
@@ -83,6 +86,7 @@ struct irq_desc {
 #ifdef CONFIG_PROC_FS
 	struct proc_dir_entry	*dir;
 #endif
+	struct mutex		request_mutex;
 	int			parent_irq;
 	struct module		*owner;
 	const char		*name;

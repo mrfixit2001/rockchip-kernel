@@ -885,7 +885,7 @@ static int vpu_drm_create(struct vpu_iommu_info *iommu_info)
 			goto err_put_cookie;
 		}
 	}
-	iommu_dma_init_domain(drm_info->domain, 0x10000000, SZ_2G);
+	iommu_dma_init_domain_orig(drm_info->domain, 0x10000000, SZ_2G);
 	iommu_group_put(group);
 
 	return 0;

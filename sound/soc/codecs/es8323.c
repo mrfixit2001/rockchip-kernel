@@ -91,9 +91,11 @@ static int es8323_set_gpio(int gpio, bool level)
 		return 0;
 	}
 
+	printk("ES8323: requested GPIO %d to %d\n", es8323->spk_ctl_gpio, level);
 	if ((gpio & ES8323_CODEC_SET_SPK) && es8323
 	    && es8323->spk_ctl_gpio != INVALID_GPIO) {
 		gpio_set_value(es8323->spk_ctl_gpio, level);
+		printk("ES8323: successful\n");
 	}
 
 	return 0;
@@ -107,6 +109,9 @@ static irqreturn_t hp_det_irq_handler(int irq, void *dev_id)
 		es8323->hp_inserted = 0;
 	else
 		es8323->hp_inserted = 1;
+
+	printk("ES8323: hp_inserted=%d\n", es8323->hp_inserted);
+	printk("ES8323: muted=%d\n", es8323->muted);
 
 	if (es8323->muted == 0) {
 		if (es8323->hp_det_level != es8323->hp_inserted)
@@ -665,6 +670,9 @@ static int es8323_mute(struct snd_soc_dai *dai, int mute)
 	struct snd_soc_codec *codec = dai->codec;
 	struct es8323_priv *es8323 = snd_soc_codec_get_drvdata(codec);
 
+	printk("ES8323: hp_inserted=%d\n", es8323->hp_inserted);
+	printk("ES8323: mute=%d\n", mute);
+
 	es8323->muted = mute;
 	if (mute) {
 		es8323_set_gpio(ES8323_CODEC_SET_SPK, !es8323->spk_gpio_level);
@@ -936,7 +944,6 @@ static int es8323_i2c_probe(struct i2c_client *i2c,
 			dev_err(&i2c->dev, "Failed to request spk_ctl_gpio\n");
 			return ret;
 		}
-		es8323_set_gpio(ES8323_CODEC_SET_SPK, !es8323->spk_gpio_level);
 	}
 
 	es8323->hp_det_gpio = of_get_named_gpio_flags(i2c->dev.of_node, "hp-det-gpio", 0, &flags);
@@ -964,6 +971,12 @@ static int es8323_i2c_probe(struct i2c_client *i2c,
 	ret = snd_soc_register_codec(&i2c->dev,
 				     &soc_codec_dev_es8323,
 				     &es8323_dai, 1);
+
+	if (es8323->muted || es8323->hp_inserted)
+		es8323_set_gpio(ES8323_CODEC_SET_SPK, !es8323->spk_gpio_level);
+	else
+		es8323_set_gpio(ES8323_CODEC_SET_SPK, es8323->spk_gpio_level);
+
 	return ret;
 }
 

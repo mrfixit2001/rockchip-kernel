@@ -14,6 +14,7 @@
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
+#include <linux/pci.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/usb/phy.h>
@@ -57,6 +58,14 @@ static void xhci_plat_quirks(struct device *dev, struct xhci_hcd *xhci)
 
 	if (pdata && pdata->usb3_warm_reset_on_resume)
 		xhci->quirks |= XHCI_WARM_RESET_ON_RESUME;
+
+	/*
+	 * On some xHCI controllers (e.g. Rockchip RK3399/RK3328/RK1808),
+	 * they need to enable the ENT flag in the TRB data structure to
+	 * force xHC to pre-fetch the next TRB of a TD.
+	 */
+	if (pdata && pdata->xhci_trb_ent)
+		xhci->quirks |= XHCI_TRB_ENT_QUIRK;
 }
 
 /* called during probe() after chip reset completes */
@@ -91,6 +100,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	struct device_node	*node = pdev->dev.of_node;
 	struct usb_xhci_pdata	*pdata = dev_get_platdata(&pdev->dev);
 	const struct hc_driver	*driver;
+	struct device		*sysdev;
 	struct xhci_hcd		*xhci;
 	struct resource         *res;
 	struct usb_hcd		*hcd;
@@ -107,22 +117,39 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (irq < 0)
 		return irq;
 
+	/*
+	 * sysdev must point to a device that is known to the system firmware
+	 * or PCI hardware. We handle these three cases here:
+	 * 1. xhci_plat comes from firmware
+	 * 2. xhci_plat is child of a device from firmware (dwc3-plat)
+	 * 3. xhci_plat is grandchild of a pci device (dwc3-pci)
+	 */
+	sysdev = &pdev->dev;
+	if (sysdev->parent && !sysdev->of_node && sysdev->parent->of_node)
+		sysdev = sysdev->parent;
+#ifdef CONFIG_PCI
+	else if (sysdev->parent && sysdev->parent->parent &&
+		 sysdev->parent->parent->bus == &pci_bus_type)
+		sysdev = sysdev->parent->parent;
+#endif
+
 	/* Try to set 64-bit DMA first */
-	if (WARN_ON(!pdev->dev.dma_mask))
+	if (WARN_ON(!sysdev->dma_mask))
 		/* Platform did not initialize dma_mask */
-		ret = dma_coerce_mask_and_coherent(&pdev->dev,
+		ret = dma_coerce_mask_and_coherent(sysdev,
 						   DMA_BIT_MASK(64));
 	else
-		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+		ret = dma_set_mask_and_coherent(sysdev, DMA_BIT_MASK(64));
 
 	/* If seting 64-bit DMA mask fails, fall back to 32-bit DMA mask */
 	if (ret) {
-		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+		ret = dma_set_mask_and_coherent(sysdev, DMA_BIT_MASK(32));
 		if (ret)
 			return ret;
 	}
 
-	hcd = usb_create_hcd(driver, &pdev->dev, dev_name(&pdev->dev));
+	hcd = __usb_create_hcd(driver, sysdev, &pdev->dev,
+			       dev_name(&pdev->dev), NULL);
 	if (!hcd)
 		return -ENOMEM;
 
@@ -164,15 +191,14 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	xhci = hcd_to_xhci(hcd);
 	xhci->clk = clk;
 	xhci->main_hcd = hcd;
-	xhci->shared_hcd = usb_create_shared_hcd(driver, &pdev->dev,
+	xhci->shared_hcd = __usb_create_hcd(driver, sysdev, &pdev->dev,
 			dev_name(&pdev->dev), hcd);
 	if (!xhci->shared_hcd) {
 		ret = -ENOMEM;
 		goto disable_clk;
 	}
 
-	if ((node && of_property_read_bool(node, "usb3-lpm-capable")) ||
-			(pdata && pdata->usb3_lpm_capable))
+	if (device_property_read_bool(sysdev, "usb3-lpm-capable"))
 		xhci->quirks |= XHCI_LPM_SUPPORT;
 
 	if (pdata && pdata->usb3_disable_autosuspend)
@@ -187,7 +213,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		xhci->shared_hcd->usb_phy = NULL;
 	}
 
-	hcd->usb_phy = devm_usb_get_phy_by_phandle(&pdev->dev, "usb-phy", 0);
+	hcd->usb_phy = devm_usb_get_phy_by_phandle(sysdev, "usb-phy", 0);
 	if (IS_ERR(hcd->usb_phy)) {
 		ret = PTR_ERR(hcd->usb_phy);
 		if (ret == -EPROBE_DEFER)

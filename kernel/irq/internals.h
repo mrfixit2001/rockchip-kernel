@@ -65,7 +65,14 @@ extern int __irq_set_trigger(struct irq_desc *desc, unsigned long flags);
 extern void __disable_irq(struct irq_desc *desc);
 extern void __enable_irq(struct irq_desc *desc);
 
-extern int irq_startup(struct irq_desc *desc, bool resend);
+#define IRQ_RESEND	true
+#define IRQ_NORESEND	false
+
+#define IRQ_START_FORCE	true
+#define IRQ_START_COND	false
+
+extern int irq_startup(struct irq_desc *desc, bool resend, bool force);
+
 extern void irq_shutdown(struct irq_desc *desc);
 extern void irq_enable(struct irq_desc *desc);
 extern void irq_disable(struct irq_desc *desc);
@@ -105,12 +112,20 @@ static inline void unregister_handler_proc(unsigned int irq,
 					   struct irqaction *action) { }
 #endif
 
-extern int irq_select_affinity_usr(unsigned int irq, struct cpumask *mask);
+extern bool irq_can_set_affinity_usr(unsigned int irq);
+
+extern int irq_select_affinity_usr(unsigned int irq);
 
 extern void irq_set_thread_affinity(struct irq_desc *desc);
 
 extern int irq_do_set_affinity(struct irq_data *data,
 			       const struct cpumask *dest, bool force);
+
+#ifdef CONFIG_SMP
+extern int irq_setup_affinity(struct irq_desc *desc);
+#else
+static inline int irq_setup_affinity(struct irq_desc *desc) { return 0; }
+#endif
 
 /* Inline functions for support of irq chips on slow busses */
 static inline void chip_bus_lock(struct irq_desc *desc)
@@ -173,6 +188,16 @@ static inline void irqd_clr_move_pending(struct irq_data *d)
 	__irqd_to_state(d) &= ~IRQD_SETAFFINITY_PENDING;
 }
 
+static inline void irqd_set_managed_shutdown(struct irq_data *d)
+{
+	__irqd_to_state(d) |= IRQD_MANAGED_SHUTDOWN;
+}
+
+static inline void irqd_clr_managed_shutdown(struct irq_data *d)
+{
+	__irqd_to_state(d) &= ~IRQD_MANAGED_SHUTDOWN;
+}
+
 static inline void irqd_clear(struct irq_data *d, unsigned int mask)
 {
 	__irqd_to_state(d) &= ~mask;
@@ -225,3 +250,49 @@ irq_pm_install_action(struct irq_desc *desc, struct irqaction *action) { }
 static inline void
 irq_pm_remove_action(struct irq_desc *desc, struct irqaction *action) { }
 #endif
+
+#ifdef CONFIG_GENERIC_PENDING_IRQ
+static inline bool irq_can_move_pcntxt(struct irq_data *data)
+{
+	return irqd_can_move_in_process_context(data);
+}
+static inline bool irq_move_pending(struct irq_data *data)
+{
+	return irqd_is_setaffinity_pending(data);
+}
+static inline void
+irq_copy_pending(struct irq_desc *desc, const struct cpumask *mask)
+{
+	cpumask_copy(desc->pending_mask, mask);
+}
+static inline void
+irq_get_pending(struct cpumask *mask, struct irq_desc *desc)
+{
+	cpumask_copy(mask, desc->pending_mask);
+}
+static inline struct cpumask *irq_desc_get_pending_mask(struct irq_desc *desc)
+{
+	return desc->pending_mask;
+}
+#else /* CONFIG_GENERIC_PENDING_IRQ */
+static inline bool irq_can_move_pcntxt(struct irq_data *data)
+{
+	return true;
+}
+static inline bool irq_move_pending(struct irq_data *data)
+{
+	return false;
+}
+static inline void
+irq_copy_pending(struct irq_desc *desc, const struct cpumask *mask)
+{
+}
+static inline void
+irq_get_pending(struct cpumask *mask, struct irq_desc *desc)
+{
+}
+static inline struct cpumask *irq_desc_get_pending_mask(struct irq_desc *desc)
+{
+	return NULL;
+}
+#endif /* !CONFIG_GENERIC_PENDING_IRQ */

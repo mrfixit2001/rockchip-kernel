@@ -134,6 +134,9 @@ struct irq_domain;
  * @node:		node index useful for balancing
  * @handler_data:	per-IRQ data for the irq_chip methods
  * @affinity:		IRQ affinity on SMP
+ * @effective_affinity:	The effective IRQ affinity on SMP as some irq
+ *			chips do not allow multi CPU destinations.
+ *			A subset of @affinity.
  * @msi_desc:		MSI descriptor
  */
 struct irq_common_data {
@@ -144,6 +147,9 @@ struct irq_common_data {
 	void			*handler_data;
 	struct msi_desc		*msi_desc;
 	cpumask_var_t		affinity;
+#ifdef CONFIG_GENERIC_IRQ_EFFECTIVE_AFF_MASK
+	cpumask_var_t		effective_affinity;
+#endif
 };
 
 /**
@@ -191,6 +197,11 @@ struct irq_data {
  * IRQD_IRQ_INPROGRESS		- In progress state of the interrupt
  * IRQD_WAKEUP_ARMED		- Wakeup mode armed
  * IRQD_FORWARDED_TO_VCPU	- The interrupt is forwarded to a VCPU
+ * IRQD_AFFINITY_MANAGED	- Affinity is auto-managed by the kernel
+ * IRQD_IRQ_STARTED		- Startup state of the interrupt
+ * IRQD_MANAGED_SHUTDOWN	- Interrupt was shutdown due to empty affinity
+ *				  mask. Applies only to affinity managed irqs.
+ * IRQD_SINGLE_TARGET		- IRQ allows only a single affinity target
  */
 enum {
 	IRQD_TRIGGER_MASK		= 0xf,
@@ -206,7 +217,10 @@ enum {
 	IRQD_IRQ_INPROGRESS		= (1 << 18),
 	IRQD_WAKEUP_ARMED		= (1 << 19),
 	IRQD_FORWARDED_TO_VCPU		= (1 << 20),
+	IRQD_AFFINITY_MANAGED		= (1 << 21),
 	IRQD_IRQ_STARTED		= (1 << 22),
+	IRQD_MANAGED_SHUTDOWN		= (1 << 23),
+	IRQD_SINGLE_TARGET		= (1 << 24),
 };
 
 #define __irqd_to_state(d)		((d)->common->state_use_accessors)
@@ -253,6 +267,20 @@ static inline void irqd_set_trigger_type(struct irq_data *d, u32 type)
 static inline bool irqd_is_level_type(struct irq_data *d)
 {
 	return __irqd_to_state(d) & IRQD_LEVEL;
+}
+
+/*
+ * Must only be called of irqchip.irq_set_affinity() or low level
+ * hieararchy domain allocation functions.
+ */
+static inline void irqd_set_single_target(struct irq_data *d)
+{
+	__irqd_to_state(d) |= IRQD_SINGLE_TARGET;
+}
+
+static inline bool irqd_is_single_target(struct irq_data *d)
+{
+	return __irqd_to_state(d) & IRQD_SINGLE_TARGET;
 }
 
 static inline bool irqd_is_wakeup_set(struct irq_data *d)
@@ -303,6 +331,16 @@ static inline void irqd_clr_forwarded_to_vcpu(struct irq_data *d)
 static inline bool irqd_is_started(struct irq_data *d)
 {
 	return __irqd_to_state(d) & IRQD_IRQ_STARTED;
+}
+
+static inline bool irqd_affinity_is_managed(struct irq_data *d)
+{
+	return __irqd_to_state(d) & IRQD_AFFINITY_MANAGED;
+}
+
+static inline bool irqd_is_managed_and_shutdown(struct irq_data *d)
+{
+	return __irqd_to_state(d) & IRQD_MANAGED_SHUTDOWN;
 }
 
 static inline irq_hw_number_t irqd_to_hwirq(struct irq_data *d)
@@ -445,14 +483,26 @@ extern int irq_set_affinity_locked(struct irq_data *data,
 				   const struct cpumask *cpumask, bool force);
 extern int irq_set_vcpu_affinity(unsigned int irq, void *vcpu_info);
 
+#if defined(CONFIG_SMP) && defined(CONFIG_GENERIC_IRQ_MIGRATION)
 extern void irq_migrate_all_off_this_cpu(void);
+extern int irq_affinity_online_cpu(unsigned int cpu);
+#else
+# define irq_affinity_online_cpu	NULL
+#endif
 
 #if defined(CONFIG_SMP) && defined(CONFIG_GENERIC_PENDING_IRQ)
 void irq_move_irq(struct irq_data *data);
 void irq_move_masked_irq(struct irq_data *data);
+void irq_force_complete_move(struct irq_desc *desc);
+bool irq_fixup_move_pending(struct irq_desc *desc, bool force_clear);
 #else
 static inline void irq_move_irq(struct irq_data *data) { }
 static inline void irq_move_masked_irq(struct irq_data *data) { }
+static inline void irq_force_complete_move(struct irq_desc *desc) { }
+static inline bool irq_fixup_move_pending(struct irq_desc *desc, bool fclear)
+{
+	return false;
+}
 #endif
 
 extern int no_irq_affinity;
@@ -690,6 +740,29 @@ static inline struct cpumask *irq_data_get_affinity_mask(struct irq_data *d)
 {
 	return d->common->affinity;
 }
+
+#ifdef CONFIG_GENERIC_IRQ_EFFECTIVE_AFF_MASK
+static inline
+struct cpumask *irq_data_get_effective_affinity_mask(struct irq_data *d)
+{
+	return d->common->effective_affinity;
+}
+static inline void irq_data_update_effective_affinity(struct irq_data *d,
+						      const struct cpumask *m)
+{
+	cpumask_copy(d->common->effective_affinity, m);
+}
+#else
+static inline void irq_data_update_effective_affinity(struct irq_data *d,
+						      const struct cpumask *m)
+{
+}
+static inline
+struct cpumask *irq_data_get_effective_affinity_mask(struct irq_data *d)
+{
+	return d->common->affinity;
+}
+#endif
 
 unsigned int arch_dynirq_lower_bound(unsigned int from);
 

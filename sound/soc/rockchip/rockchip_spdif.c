@@ -111,34 +111,16 @@ static int rk_spdif_hw_params(struct snd_pcm_substream *substream,
 {
 	struct rk_spdif_dev *spdif = snd_soc_dai_get_drvdata(dai);
 	unsigned int val = SPDIF_CFGR_HALFWORD_ENABLE;
-	int srate, mclk;
+	int mclk;
 	int ret;
 
-	srate = params_rate(params);
-	mclk = srate * 128;
-
-	switch (params_format(params)) {
-	case SNDRV_PCM_FORMAT_S16_LE:
-		val |= SPDIF_CFGR_VDW_16;
-		break;
-	case SNDRV_PCM_FORMAT_S20_3LE:
-		val |= SPDIF_CFGR_VDW_20;
-		break;
-	case SNDRV_PCM_FORMAT_S24_LE:
-		val |= SPDIF_CFGR_VDW_24;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	/* Set clock and calculate divider */
+	/* bmc = 128fs */
+	mclk = 128 * params_rate(params);
 	ret = clk_set_rate(spdif->mclk, mclk);
-	if (ret != 0) {
-		dev_err(spdif->dev, "Failed to set module clock rate: %d\n",
-			ret);
+	if (ret)
 		return ret;
-	}
 
+	val |= SPDIF_CFGR_CLK_DIV(0);
 	ret = regmap_update_bits(spdif->regmap, SPDIF_CFGR,
 		SPDIF_CFGR_CLK_DIV_MASK | SPDIF_CFGR_HALFWORD_ENABLE |
 		SDPIF_CFGR_VDW_MASK,

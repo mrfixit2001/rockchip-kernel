@@ -3927,10 +3927,13 @@ void dw_hdmi_suspend(struct device *dev)
 {
 	struct dw_hdmi *hdmi = dev_get_drvdata(dev);
 
-	mutex_lock(&hdmi->mutex);
+	if (!hdmi) {
+		dev_warn(dev, "Hdmi has not been initialized\n");
+		return;
+	}
+
 	if (hdmi->irq)
 		disable_irq(hdmi->irq);
-	mutex_unlock(&hdmi->mutex);
 	cancel_delayed_work(&hdmi->work);
 	flush_workqueue(hdmi->workqueue);
 	pinctrl_pm_select_sleep_state(dev);
@@ -3940,6 +3943,11 @@ EXPORT_SYMBOL_GPL(dw_hdmi_suspend);
 void dw_hdmi_resume(struct device *dev)
 {
 	struct dw_hdmi *hdmi = dev_get_drvdata(dev);
+
+	if (!hdmi) {
+		dev_warn(dev, "Hdmi has not been initialized\n");
+		return;
+	}
 
 	pinctrl_pm_select_default_state(dev);
 	mutex_lock(&hdmi->mutex);

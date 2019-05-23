@@ -147,8 +147,8 @@ static void __init rcu_bootup_announce(void)
  * the corresponding expedited grace period will also be the end of the
  * normal grace period.
  */
-static void rcu_preempt_ctxt_queue(struct rcu_node *rnp, struct rcu_data *rdp,
-				   unsigned long flags) __releases(rnp->lock)
+static void rcu_preempt_ctxt_queue(struct rcu_node *rnp, struct rcu_data *rdp)
+	__releases(rnp->lock) /* But leaves rrupts disabled. */
 {
 	int blkd_state = (rnp->gp_tasks ? RCU_GP_TASKS : 0) +
 			 (rnp->exp_tasks ? RCU_EXP_TASKS : 0) +
@@ -236,7 +236,7 @@ static void rcu_preempt_ctxt_queue(struct rcu_node *rnp, struct rcu_data *rdp,
 		rnp->gp_tasks = &t->rcu_node_entry;
 	if (!rnp->exp_tasks && (blkd_state & RCU_EXP_BLKD))
 		rnp->exp_tasks = &t->rcu_node_entry;
-	raw_spin_unlock(&rnp->lock);
+	raw_spin_unlock(&rnp->lock); /* rrupts remain disabled. */
 
 	/*
 	 * Report the quiescent state for the expedited GP.  This expedited
@@ -251,7 +251,6 @@ static void rcu_preempt_ctxt_queue(struct rcu_node *rnp, struct rcu_data *rdp,
 	} else {
 		WARN_ON_ONCE(t->rcu_read_unlock_special.b.exp_need_qs);
 	}
-	local_irq_restore(flags);
 }
 
 /*
@@ -286,12 +285,11 @@ static void rcu_preempt_qs(void)
  * predating the current grace period drain, in other words, until
  * rnp->gp_tasks becomes NULL.
  *
- * Caller must disable preemption.
+ * Caller must disable interrupts.
  */
 static void rcu_preempt_note_context_switch(void)
 {
 	struct task_struct *t = current;
-	unsigned long flags;
 	struct rcu_data *rdp;
 	struct rcu_node *rnp;
 
@@ -301,8 +299,7 @@ static void rcu_preempt_note_context_switch(void)
 		/* Possibly blocking in an RCU read-side critical section. */
 		rdp = this_cpu_ptr(rcu_state_p->rda);
 		rnp = rdp->mynode;
-		raw_spin_lock_irqsave(&rnp->lock, flags);
-		smp_mb__after_unlock_lock();
+		raw_spin_lock_rcu_node(rnp);
 		t->rcu_read_unlock_special.b.blocked = true;
 		t->rcu_blocked_node = rnp;
 
@@ -318,7 +315,7 @@ static void rcu_preempt_note_context_switch(void)
 				       (rnp->qsmask & rdp->grpmask)
 				       ? rnp->gpnum
 				       : rnp->gpnum + 1);
-		rcu_preempt_ctxt_queue(rnp, rdp, flags);
+		rcu_preempt_ctxt_queue(rnp, rdp);
 	} else if (t->rcu_read_lock_nesting < 0 &&
 		   t->rcu_read_unlock_special.s) {
 
@@ -457,8 +454,7 @@ void rcu_read_unlock_special(struct task_struct *t)
 		 */
 		for (;;) {
 			rnp = t->rcu_blocked_node;
-			raw_spin_lock(&rnp->lock);  /* irqs already disabled. */
-			smp_mb__after_unlock_lock();
+			raw_spin_lock_rcu_node(rnp); /* irqs already disabled. */
 			if (rnp == t->rcu_blocked_node)
 				break;
 			WARN_ON_ONCE(1);
@@ -527,7 +523,7 @@ static void rcu_print_detail_task_stall_rnp(struct rcu_node *rnp)
 	unsigned long flags;
 	struct task_struct *t;
 
-	raw_spin_lock_irqsave(&rnp->lock, flags);
+	raw_spin_lock_irqsave_rcu_node(rnp, flags);
 	if (!rcu_preempt_blocked_readers_cgp(rnp)) {
 		raw_spin_unlock_irqrestore(&rnp->lock, flags);
 		return;
@@ -748,6 +744,12 @@ void synchronize_rcu_expedited(void)
 	struct rcu_state *rsp = rcu_state_p;
 	unsigned long s;
 
+	/* If expedited grace periods are prohibited, fall back to normal. */
+	if (rcu_gp_is_normal()) {
+		wait_rcu_gp(call_rcu);
+		return;
+	}
+
 	s = rcu_exp_gp_seq_snap(rsp);
 
 	rnp_unlock = exp_funnel_lock(rsp, s);
@@ -788,7 +790,7 @@ EXPORT_SYMBOL_GPL(rcu_barrier);
  */
 static void __init __rcu_init_preempt(void)
 {
-	rcu_init_one(rcu_state_p, rcu_data_p);
+	rcu_init_one(rcu_state_p);
 }
 
 /*
@@ -989,8 +991,7 @@ static int rcu_boost(struct rcu_node *rnp)
 	    READ_ONCE(rnp->boost_tasks) == NULL)
 		return 0;  /* Nothing left to boost. */
 
-	raw_spin_lock_irqsave(&rnp->lock, flags);
-	smp_mb__after_unlock_lock();
+	raw_spin_lock_irqsave_rcu_node(rnp, flags);
 
 	/*
 	 * Recheck under the lock: all tasks in need of boosting
@@ -1176,8 +1177,7 @@ static int rcu_spawn_one_boost_kthread(struct rcu_state *rsp,
 			   "rcub/%d", rnp_index);
 	if (IS_ERR(t))
 		return PTR_ERR(t);
-	raw_spin_lock_irqsave(&rnp->lock, flags);
-	smp_mb__after_unlock_lock();
+	raw_spin_lock_irqsave_rcu_node(rnp, flags);
 	rnp->boost_kthread_task = t;
 	raw_spin_unlock_irqrestore(&rnp->lock, flags);
 	sp.sched_priority = kthread_prio;
@@ -1567,8 +1567,7 @@ static void rcu_prepare_for_idle(void)
 		if (!*rdp->nxttail[RCU_DONE_TAIL])
 			continue;
 		rnp = rdp->mynode;
-		raw_spin_lock(&rnp->lock); /* irqs already disabled. */
-		smp_mb__after_unlock_lock();
+		raw_spin_lock_rcu_node(rnp); /* irqs already disabled. */
 		needwake = rcu_accelerate_cbs(rsp, rnp, rdp);
 		raw_spin_unlock(&rnp->lock); /* irqs remain disabled. */
 		if (needwake)
@@ -2068,8 +2067,7 @@ static void rcu_nocb_wait_gp(struct rcu_data *rdp)
 	bool needwake;
 	struct rcu_node *rnp = rdp->mynode;
 
-	raw_spin_lock_irqsave(&rnp->lock, flags);
-	smp_mb__after_unlock_lock();
+	raw_spin_lock_irqsave_rcu_node(rnp, flags);
 	needwake = rcu_start_future_gp(rnp, rdp, &c);
 	raw_spin_unlock_irqrestore(&rnp->lock, flags);
 	if (needwake)

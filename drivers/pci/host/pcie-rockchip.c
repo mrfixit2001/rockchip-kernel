@@ -465,6 +465,7 @@ static int rockchip_pcie_wr_other_conf(struct rockchip_pcie *rockchip,
 		dev_warn(dev, "invalid bus requested %d\n", bus->number);
 		return PCIBIOS_DEVICE_NOT_FOUND;
 	}
+	// NOTE: there's a commit that limits below "busdev >= SZ_1M" - DO NOT add this
 	if (!IS_ALIGNED(busdev, size))
 		return PCIBIOS_BAD_REGISTER_NUMBER;
 
@@ -639,15 +640,21 @@ static int rockchip_pcie_init_port(struct rockchip_pcie *rockchip)
 		return err;
 	}
 
-	dev_info(dev, "advertising gen1 training\n");
-	rockchip_pcie_write(rockchip, PCIE_CLIENT_GEN_SEL_1,
-			    PCIE_CLIENT_CONFIG);
+	if (rockchip->link_gen == 2) {
+		dev_info(dev, "advertising gen2/1 training\n");
+		rockchip_pcie_write(rockchip, PCIE_CLIENT_GEN_SEL_2,
+				    PCIE_CLIENT_CONFIG);
+	} else {
+		dev_info(dev, "advertising gen1 training\n");
+		rockchip_pcie_write(rockchip, PCIE_CLIENT_GEN_SEL_1,
+				    PCIE_CLIENT_CONFIG);
+	}
 
 	rockchip_pcie_write(rockchip,
-			    PCIE_CLIENT_CONF_ENABLE |
 			    PCIE_CLIENT_LINK_TRAIN_ENABLE |
 			    PCIE_CLIENT_ARI_ENABLE |
 			    PCIE_CLIENT_CONF_LANE_NUM(rockchip->lanes) |
+			    PCIE_CLIENT_CONF_ENABLE |
 			    PCIE_CLIENT_MODE_RC,
 			    PCIE_CLIENT_CONFIG);
 
@@ -733,10 +740,6 @@ static int rockchip_pcie_init_port(struct rockchip_pcie *rockchip)
 		 * Enable retrain for gen2. This should be configured only after
 		 * gen1 finished.
 		 */
-		dev_info(dev, "advertising gen2 training\n");
-		rockchip_pcie_write(rockchip, PCIE_CLIENT_GEN_SEL_2,
-				    PCIE_CLIENT_CONFIG);
-
 		status = rockchip_pcie_read(rockchip, PCIE_RC_CONFIG_LCS);
 		status |= PCI_EXP_LNKCTL_RL;
 		rockchip_pcie_write(rockchip, status, PCIE_RC_CONFIG_LCS);
@@ -745,7 +748,9 @@ static int rockchip_pcie_init_port(struct rockchip_pcie *rockchip)
 					 status, PCIE_LINK_IS_GEN2(status), 20,
 					 timeouts * USEC_PER_MSEC);
 		if (err)
-			dev_dbg(dev, "PCIe link training gen2 timeout, fall back to gen1!\n");
+			dev_info(dev, "PCIe link training gen2 timeout, fall back to gen1!\n");
+		else
+			dev_info(dev, "PCIe Gen2 link training completed!\n");
 	}
 
 	/* Check the final link width from negotiated lane counter from MGMT */
@@ -1564,12 +1569,19 @@ static int rockchip_pcie_really_probe(struct platform_device *pdev, struct rockc
 		goto err_unmapio;
 	}
 
+
 	bus = pci_scan_root_bus(dev, 0, &rockchip_pcie_ops,
 				rockchip, &rockchip->resources);
 	if (!bus) {
-		dev_err(dev, "scan root bus failed\n");
-		err = -EINVAL;
-		goto err_unmapio;
+		// Nuumio discovered that sometimes a delay is needed - try once more after 1 second
+		msleep(1000);
+		bus = pci_scan_root_bus(dev, 0, &rockchip_pcie_ops,
+				rockchip, &rockchip->resources);
+		if (!bus) {
+			dev_err(dev, "scan root bus failed\n");
+			err = -EINVAL;
+			goto err_unmapio;
+		}
 	}
 	rockchip->root_bus = bus;
 

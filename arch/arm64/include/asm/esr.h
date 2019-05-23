@@ -86,6 +86,7 @@
 #define ESR_ELx_SRT_MASK	(UL(0x1F) << ESR_ELx_SRT_SHIFT)
 #define ESR_ELx_SF 		(UL(1) << 15)
 #define ESR_ELx_AR 		(UL(1) << 14)
+#define ESR_ELx_FnV		(UL(1) << 10)
 #define ESR_ELx_EA 		(UL(1) << 9)
 #define ESR_ELx_CM 		(UL(1) << 8)
 #define ESR_ELx_S1PTW 		(UL(1) << 7)

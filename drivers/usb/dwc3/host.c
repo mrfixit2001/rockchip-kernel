@@ -17,6 +17,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/usb/xhci_pdriver.h>
+#include <linux/of_device.h>
 
 #include "core.h"
 
@@ -73,11 +74,7 @@ int dwc3_host_init(struct dwc3 *dwc)
 		return -ENOMEM;
 	}
 
-	dma_set_coherent_mask(&xhci->dev, dwc->dev->coherent_dma_mask);
-
 	xhci->dev.parent	= dwc->dev;
-	xhci->dev.dma_mask	= dwc->dev->dma_mask;
-	xhci->dev.dma_parms	= dwc->dev->dma_parms;
 	xhci->dev.archdata      = dwc->dev->archdata;
 
 	dwc->xhci = xhci;
@@ -94,6 +91,7 @@ int dwc3_host_init(struct dwc3 *dwc)
 	pdata.usb3_disable_autosuspend = dwc->dis_u3_autosuspend_quirk;
 	pdata.usb3_lpm_capable = dwc->usb3_lpm_capable;
 	pdata.xhci_slow_suspend = dwc->xhci_slow_suspend_quirk;
+	pdata.xhci_trb_ent = dwc->xhci_trb_ent_quirk;
 	pdata.usb3_warm_reset_on_resume = dwc->usb3_warm_reset_on_resume_quirk;
 
 	ret = platform_device_add_data(xhci, &pdata, sizeof(pdata));
@@ -106,6 +104,15 @@ int dwc3_host_init(struct dwc3 *dwc)
 			  dev_name(&xhci->dev));
 	phy_create_lookup(dwc->usb3_generic_phy, "usb3-phy",
 			  dev_name(&xhci->dev));
+
+	if (IS_ENABLED(CONFIG_OF) && dwc->dev->of_node) {
+		of_dma_configure(&xhci->dev, dwc->dev->of_node);
+	} else {
+		dma_set_coherent_mask(&xhci->dev, dwc->dev->coherent_dma_mask);
+
+		xhci->dev.dma_mask	= dwc->dev->dma_mask;
+		xhci->dev.dma_parms	= dwc->dev->dma_parms;
+	}
 
 	ret = platform_device_add(xhci);
 	if (ret) {

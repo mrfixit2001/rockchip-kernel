@@ -54,6 +54,15 @@
 	model = "ROCK PI 4B";
 	compatible = "rockchip,rockpi","rockchip,rk3399";
 
+	dc_12v: dc-12v {
+		compatible = "regulator-fixed";
+		regulator-name = "dc_12v";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <12000000>;
+		regulator-max-microvolt = <12000000>;
+	};
+
 	vcc1v8_s0: vcc1v8-s0 {
 		compatible = "regulator-fixed";
 		regulator-name = "vcc1v8_s0";
@@ -68,6 +77,7 @@
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 		regulator-always-on;
+		vin-supply = <&dc_12v>;
 	};
 
 	vcc_phy: vcc-phy-regulator {
@@ -98,6 +108,30 @@
 		vin-supply = <&vcc3v3_sys>;
 	};
 
+	vcc12v_pcie: vcc12v-pcie-regulator {
+		compatible = "regulator-fixed";
+		regulator-min-microvolt = <12000000>;
+		regulator-max-microvolt = <12000000>;
+		regulator-name = "vcc12v_pcie";
+		vin-supply = <&dc_12v>;
+	};
+
+	vcc1v8_pcie: vcc1v8-pcie {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc1v8_pcie";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		vin-supply = <&vcca_1v8>;
+	};
+
+	vcc0v9_pcie: vcc0v9-pcie {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc0v9_pcie";
+		regulator-min-microvolt = <900000>;
+		regulator-max-microvolt = <900000>;
+		vin-supply = <&vcc3v3_sys>;
+	};
+
 	vcc5v0_host: vcc5v0-host-regulator {
 		compatible = "regulator-fixed";
 		enable-active-high;
@@ -121,6 +155,7 @@
 	vdd_log: vdd-log {
 		compatible = "pwm-regulator";
 		pwms = <&pwm2 0 25000 1>;
+		pwm-supply = <&vcc_sys>;
 		regulator-name = "vdd_log";
 		regulator-min-microvolt = <800000>;
 		regulator-max-microvolt = <1400000>;
@@ -233,6 +268,23 @@
 		status = "okay";
 	};
 
+	gpio-leds {
+		compatible = "gpio-leds";
+		status = "okay";
+
+		user-led1 {
+			gpios = <&gpio3 28 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			mode = <0x23>;
+		};
+
+		user-led2 {
+			gpios = <&gpio3 29 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "disk-activity";
+			mode = <0x23>;
+		};
+	};
+
 	test-power {
 		status = "okay";
 	};
@@ -282,6 +334,7 @@
 	num-slots = <1>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&sdio0_bus4 &sdio0_cmd &sdio0_clk>;
+	defer_pcie = <3500>;		/* wait 3500 ms (max) for PCIe driver to load */
 	sd-uhs-sdr104;
 	status = "okay";
 };
@@ -350,11 +403,13 @@
 		compatible = "silergy,syr828";
 		reg = <0x41>;
 		regulator-compatible = "fan53555-reg";
+		pinctrl-names = "default";
 		pinctrl-0 = <&vsel2_gpio>;
 		vsel-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
 		regulator-name = "vdd_gpu";
 		regulator-min-microvolt = <712500>;
 		regulator-max-microvolt = <1500000>;
+		regulator-enable-ramp-delay = <300>;
 		regulator-ramp-delay = <1000>;
 		fcs,suspend-voltage-selector = <1>;
 		regulator-always-on;
@@ -438,7 +493,7 @@
 			};
 
 			vcc1v8_dvp: LDO_REG1 {
-				regulator-name = "vcc1v8_codec";
+				regulator-name = "vcc1v8_dvp";
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <1800000>;
 				regulator-always-on;
@@ -579,10 +634,6 @@
 		reg = <0x38>;
 	};
 
-};
-
-&i2c7 {
-	status = "okay";
 };
 
 &i2c4 {
@@ -777,7 +828,7 @@
 };
 
 &uart4 {
-	status = "okay";
+	status = "disabled";
 };
 
 &usb_host0_ehci {
@@ -984,15 +1035,21 @@
 };
 
 &pcie0 {
+	assigned-clocks = <&cru SCLK_PCIEPHY_REF>;
+	assigned-clock-parents = <&cru SCLK_PCIEPHY_REF100M>;
+	assigned-clock-rates = <100000000>;
 	ep-gpios = <&gpio4 27 GPIO_ACTIVE_HIGH>;
 	num-lanes = <4>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pcie_clkreqnb_cpm>;
+	vpcie12v-supply = <&vcc12v_pcie>;
+	vpcie3v3-supply = <&vcc3v3_pcie>;
+	vpcie1v8-supply = <&vcc1v8_pcie>;
+	vpcie0v9-supply = <&vcc0v9_pcie>;
 	status = "okay";
 };
 
 &pinctrl {
-
 	sdio0 {
 		sdio0_bus1: sdio0-bus1 {
 			rockchip,pins =
@@ -1105,6 +1162,14 @@
 			rockchip,pins =
 				<1 12 RK_FUNC_1 &pcfg_pull_up>,
 				<1 11 RK_FUNC_1 &pcfg_pull_up>;
+		};
+	};
+
+	i2s0 {
+		i2s0_8ch_bus: i2s0-8ch-bus {
+			rockchip,pins =
+				<3 28 0 &pcfg_pull_none>,
+				<3 29 0 &pcfg_pull_none>;
 		};
 	};
 };

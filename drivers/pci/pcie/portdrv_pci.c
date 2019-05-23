@@ -79,20 +79,6 @@ static int pcie_portdrv_restore_config(struct pci_dev *dev)
 }
 
 #ifdef CONFIG_PM
-static int pcie_port_resume_noirq(struct device *dev)
-{
-	struct pci_dev *pdev = to_pci_dev(dev);
-
-	/*
-	 * Some BIOSes forget to clear Root PME Status bits after system wakeup
-	 * which breaks ACPI-based runtime wakeup on PCI Express, so clear those
-	 * bits now just in case (shouldn't hurt).
-	 */
-	if (pci_pcie_type(pdev) == PCI_EXP_TYPE_ROOT_PORT)
-		pcie_clear_root_pme_status(pdev);
-	return 0;
-}
-
 static const struct dev_pm_ops pcie_portdrv_pm_ops = {
 	.suspend	= pcie_port_device_suspend,
 	.resume		= pcie_port_device_resume,
@@ -100,7 +86,6 @@ static const struct dev_pm_ops pcie_portdrv_pm_ops = {
 	.thaw		= pcie_port_device_resume,
 	.poweroff	= pcie_port_device_suspend,
 	.restore	= pcie_port_device_resume,
-	.resume_noirq	= pcie_port_resume_noirq,
 };
 
 #define PCIE_PORTDRV_PM_OPS	(&pcie_portdrv_pm_ops)

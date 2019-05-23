@@ -883,7 +883,8 @@ void pci_msi_shutdown(struct pci_dev *dev)
 	desc = first_pci_msi_entry(dev);
 
 	pci_msi_set_enable(dev, 0);
-	pci_intx_for_msi(dev, 1);
+	if (system_state == SYSTEM_RUNNING || system_state == SYSTEM_BOOTING)
+		pci_intx_for_msi(dev, 1);
 	dev->msi_enabled = 0;
 
 	/* Return the device with MSI unmasked as initial states */
@@ -992,7 +993,8 @@ void pci_msix_shutdown(struct pci_dev *dev)
 	}
 
 	pci_msix_clear_and_set_ctrl(dev, PCI_MSIX_FLAGS_ENABLE, 0);
-	pci_intx_for_msi(dev, 1);
+	if (system_state == SYSTEM_RUNNING || system_state == SYSTEM_BOOTING)
+		pci_intx_for_msi(dev, 1);
 	dev->msix_enabled = 0;
 	pcibios_alloc_irq(dev);
 }

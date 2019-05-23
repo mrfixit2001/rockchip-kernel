@@ -2421,6 +2421,10 @@ static netdev_features_t stmmac_fix_features(struct net_device *dev,
 	if (priv->plat->bugged_jumbo && (dev->mtu > ETH_DATA_LEN))
 		features &= ~NETIF_F_ALL_CSUM;
 
+	/* Including very small MTUs of 1498 for Rockchip devices */
+	if (priv->plat->bugged_tx_coe && (dev->mtu > ETH_DATA_LEN - 2))
+		features &= ~NETIF_F_ALL_CSUM;
+
 	return features;
 }
 
