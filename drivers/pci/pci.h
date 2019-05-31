@@ -82,6 +82,8 @@ void pci_pm_init(struct pci_dev *dev);
 void pci_ea_init(struct pci_dev *dev);
 void pci_allocate_cap_save_buffers(struct pci_dev *dev);
 void pci_free_cap_save_buffers(struct pci_dev *dev);
+void pci_bridge_d3_device_changed(struct pci_dev *dev);
+void pci_bridge_d3_device_removed(struct pci_dev *dev);
 
 static inline void pci_wakeup_event(struct pci_dev *dev)
 {
@@ -92,6 +94,15 @@ static inline void pci_wakeup_event(struct pci_dev *dev)
 static inline bool pci_has_subordinate(struct pci_dev *pci_dev)
 {
 	return !!(pci_dev->subordinate);
+}
+
+static inline bool pci_power_manageable(struct pci_dev *pci_dev)
+{
+	/*
+	 * Currently we allow normal PCI devices and PCI bridges transition
+	 * into D3 if their bridge_d3 is set.
+	 */
+	return !pci_has_subordinate(pci_dev) || pci_dev->bridge_d3;
 }
 
 struct pci_vpd_ops {
@@ -264,9 +275,79 @@ struct pci_sriov {
 	resource_size_t barsz[PCI_SRIOV_NUM_BARS];	/* VF BAR size */
 };
 
+/**
+ * pci_dev_set_io_state - Set the new error state if possible.
+ *
+ * @dev - pci device to set new error_state
+ * @new - the state we want dev to be in
+ *
+ * Must be called with device_lock held.
+ *
+ * Returns true if state has been changed to the requested state.
+ */
+static inline bool pci_dev_set_io_state(struct pci_dev *dev,
+					pci_channel_state_t new)
+{
+	bool changed = false;
+
+	device_lock_assert(&dev->dev);
+	switch (new) {
+	case pci_channel_io_perm_failure:
+		switch (dev->error_state) {
+		case pci_channel_io_frozen:
+		case pci_channel_io_normal:
+		case pci_channel_io_perm_failure:
+			changed = true;
+			break;
+		}
+		break;
+	case pci_channel_io_frozen:
+		switch (dev->error_state) {
+		case pci_channel_io_frozen:
+		case pci_channel_io_normal:
+			changed = true;
+			break;
+		}
+		break;
+	case pci_channel_io_normal:
+		switch (dev->error_state) {
+		case pci_channel_io_frozen:
+		case pci_channel_io_normal:
+			changed = true;
+			break;
+		}
+		break;
+	}
+	if (changed)
+		dev->error_state = new;
+	return changed;
+}
+
+static inline int pci_dev_set_disconnected(struct pci_dev *dev, void *unused)
+{
+	device_lock(&dev->dev);
+	pci_dev_set_io_state(dev, pci_channel_io_perm_failure);
+	device_unlock(&dev->dev);
+
+	return 0;
+}
+
 static inline bool pci_dev_is_disconnected(const struct pci_dev *dev)
 {
 	return dev->error_state == pci_channel_io_perm_failure;
+}
+
+/* pci_dev priv_flags */
+#define PCI_DEV_ADDED 0
+
+static inline void pci_dev_assign_added(struct pci_dev *dev, bool added)
+{
+	assign_bit(PCI_DEV_ADDED, &dev->priv_flags, added);
+}
+
+static inline bool pci_dev_is_added(const struct pci_dev *dev)
+{
+	return test_bit(PCI_DEV_ADDED, &dev->priv_flags);
 }
 
 #ifdef CONFIG_PCI_ATS

@@ -670,6 +670,8 @@
 #define PCI_EXT_CAP_ID_SECPCI	0x19	/* Secondary PCIe Capability */
 #define PCI_EXT_CAP_ID_PMUX	0x1A	/* Protocol Multiplexing */
 #define PCI_EXT_CAP_ID_PASID	0x1B	/* Process Address Space ID */
+#define PCI_EXT_CAP_ID_DPC	0x1D	/* Downstream Port Containment */
+#define PCI_EXT_CAP_ID_L1SS	0x1E	/* L1 PM Substates */
 #define PCI_EXT_CAP_ID_MAX	PCI_EXT_CAP_ID_PASID
 
 #define PCI_EXT_CAP_DSN_SIZEOF	12
@@ -734,6 +736,7 @@
 #define PCI_ERR_ROOT_FIRST_FATAL	0x00000010	/* First Fatal */
 #define PCI_ERR_ROOT_NONFATAL_RCV	0x00000020	/* Non-Fatal Received */
 #define PCI_ERR_ROOT_FATAL_RCV		0x00000040	/* Fatal Received */
+#define PCI_ERR_ROOT_AER_IRQ		0xf8000000 /* Advanced Error Interrupt Message Number */
 #define PCI_ERR_ROOT_ERR_SRC	52	/* Error Source Identification */
 
 /* Virtual Channel */
@@ -947,5 +950,52 @@
 #define PCI_TPH_CAP_ST_MASK	0x07FF0000	/* st table mask */
 #define PCI_TPH_CAP_ST_SHIFT	16	/* st table shift */
 #define PCI_TPH_BASE_SIZEOF	12	/* size with no st table */
+
+/* Downstream Port Containment */
+#define PCI_EXP_DPC_CAP			4	/* DPC Capability */
+#define PCI_EXP_DPC_IRQ			0x001F	/* Interrupt Message Number */
+#define  PCI_EXP_DPC_CAP_RP_EXT		0x0020	/* Root Port Extensions */
+#define  PCI_EXP_DPC_CAP_POISONED_TLP	0x0040	/* Poisoned TLP Egress Blocking Supported */
+#define  PCI_EXP_DPC_CAP_SW_TRIGGER	0x0080	/* Software Triggering Supported */
+#define  PCI_EXP_DPC_RP_PIO_LOG_SIZE	0x0F00	/* RP PIO Log Size */
+#define  PCI_EXP_DPC_CAP_DL_ACTIVE	0x1000	/* ERR_COR signal on DL_Active supported */
+
+#define PCI_EXP_DPC_CTL			6	/* DPC control */
+#define  PCI_EXP_DPC_CTL_EN_FATAL	0x0001	/* Enable trigger on ERR_FATAL message */
+#define  PCI_EXP_DPC_CTL_EN_NONFATAL	0x0002	/* Enable trigger on ERR_NONFATAL message */
+#define  PCI_EXP_DPC_CTL_INT_EN		0x0008	/* DPC Interrupt Enable */
+
+#define PCI_EXP_DPC_STATUS		8	/* DPC Status */
+#define  PCI_EXP_DPC_STATUS_TRIGGER	    0x0001 /* Trigger Status */
+#define  PCI_EXP_DPC_STATUS_TRIGGER_RSN	    0x0006 /* Trigger Reason */
+#define  PCI_EXP_DPC_STATUS_INTERRUPT	    0x0008 /* Interrupt Status */
+#define  PCI_EXP_DPC_RP_BUSY		    0x0010 /* Root Port Busy */
+#define  PCI_EXP_DPC_STATUS_TRIGGER_RSN_EXT 0x0060 /* Trig Reason Extension */
+
+#define PCI_EXP_DPC_SOURCE_ID		10	/* DPC Source Identifier */
+
+#define PCI_EXP_DPC_RP_PIO_STATUS	 0x0C	/* RP PIO Status */
+#define PCI_EXP_DPC_RP_PIO_MASK		 0x10	/* RP PIO Mask */
+#define PCI_EXP_DPC_RP_PIO_SEVERITY	 0x14	/* RP PIO Severity */
+#define PCI_EXP_DPC_RP_PIO_SYSERROR	 0x18	/* RP PIO SysError */
+#define PCI_EXP_DPC_RP_PIO_EXCEPTION	 0x1C	/* RP PIO Exception */
+#define PCI_EXP_DPC_RP_PIO_HEADER_LOG	 0x20	/* RP PIO Header Log */
+#define PCI_EXP_DPC_RP_PIO_IMPSPEC_LOG	 0x30	/* RP PIO ImpSpec Log */
+#define PCI_EXP_DPC_RP_PIO_TLPPREFIX_LOG 0x34	/* RP PIO TLP Prefix Log */
+
+/* L1 PM Substates */
+#define PCI_L1SS_CAP		    4	/* capability register */
+#define  PCI_L1SS_CAP_PCIPM_L1_2	 1	/* PCI PM L1.2 Support */
+#define  PCI_L1SS_CAP_PCIPM_L1_1	 2	/* PCI PM L1.1 Support */
+#define  PCI_L1SS_CAP_ASPM_L1_2		 4	/* ASPM L1.2 Support */
+#define  PCI_L1SS_CAP_ASPM_L1_1		 8	/* ASPM L1.1 Support */
+#define  PCI_L1SS_CAP_L1_PM_SS		16	/* L1 PM Substates Support */
+#define PCI_L1SS_CTL1		    8	/* Control Register 1 */
+#define  PCI_L1SS_CTL1_PCIPM_L1_2	1	/* PCI PM L1.2 Enable */
+#define  PCI_L1SS_CTL1_PCIPM_L1_1	2	/* PCI PM L1.1 Support */
+#define  PCI_L1SS_CTL1_ASPM_L1_2	4	/* ASPM L1.2 Support */
+#define  PCI_L1SS_CTL1_ASPM_L1_1	8	/* ASPM L1.1 Support */
+#define  PCI_L1SS_CTL1_L1SS_MASK	0x0000000F
+#define PCI_L1SS_CTL2		    0xC	/* Control Register 2 */
 
 #endif /* LINUX_PCI_REGS_H */

@@ -317,12 +317,13 @@ void pci_bus_add_device(struct pci_dev *dev)
 	pci_fixup_device(pci_fixup_final, dev);
 	pci_create_sysfs_dev_files(dev);
 	pci_proc_attach_device(dev);
+	pci_bridge_d3_device_changed(dev);
 
 	dev->match_driver = true;
 	retval = device_attach(&dev->dev);
 	WARN_ON(retval < 0);
 
-	dev->is_added = 1;
+	pci_dev_assign_added(dev, true);
 }
 EXPORT_SYMBOL_GPL(pci_bus_add_device);
 
@@ -339,13 +340,14 @@ void pci_bus_add_devices(const struct pci_bus *bus)
 
 	list_for_each_entry(dev, &bus->devices, bus_list) {
 		/* Skip already-added devices */
-		if (dev->is_added)
+		if (pci_dev_is_added(dev))
 			continue;
 		pci_bus_add_device(dev);
 	}
 
 	list_for_each_entry(dev, &bus->devices, bus_list) {
-		BUG_ON(!dev->is_added);
+		if (!pci_dev_is_added(dev))
+			continue;
 		child = dev->subordinate;
 		if (child)
 			pci_bus_add_devices(child);

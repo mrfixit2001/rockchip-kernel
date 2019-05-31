@@ -11,6 +11,7 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/pm.h>
+#include <linux/pm_runtime.h>
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/pcieport_if.h>
@@ -42,203 +43,158 @@ static void release_pcie_device(struct device *dev)
 	kfree(to_pcie_device(dev));
 }
 
-/**
- * pcie_port_msix_add_entry - add entry to given array of MSI-X entries
- * @entries: Array of MSI-X entries
- * @new_entry: Index of the entry to add to the array
- * @nr_entries: Number of entries already in the array
- *
- * Return value: Position of the added entry in the array
+/*
+ * Fill in *pme, *aer, *dpc with the relevant Interrupt Message Numbers if
+ * services are enabled in "mask".  Return the number of MSI/MSI-X vectors
+ * required to accommodate the largest Message Number.
  */
-static int pcie_port_msix_add_entry(
-	struct msix_entry *entries, int new_entry, int nr_entries)
+static int pcie_message_numbers(struct pci_dev *dev, int mask,
+				u32 *pme, u32 *aer, u32 *dpc)
 {
-	int j;
+	u32 nvec = 0, pos, reg32;
+	u16 reg16;
 
-	for (j = 0; j < nr_entries; j++)
-		if (entries[j].entry == new_entry)
-			return j;
+	/*
+	 * The Interrupt Message Number indicates which vector is used, i.e.,
+	 * the MSI-X table entry or the MSI offset between the base Message
+	 * Data and the generated interrupt message.  See PCIe r3.1, sec
+	 * 7.8.2, 7.10.10, 7.31.2.
+	 */
 
-	entries[j].entry = new_entry;
-	return j;
+	if (mask & (PCIE_PORT_SERVICE_PME | PCIE_PORT_SERVICE_HP)) {
+		pcie_capability_read_word(dev, PCI_EXP_FLAGS, &reg16);
+		*pme = (reg16 & PCI_EXP_FLAGS_IRQ) >> 9;
+		nvec = *pme + 1;
+	}
+
+	if (mask & PCIE_PORT_SERVICE_AER) {
+		pos = pci_find_ext_capability(dev, PCI_EXT_CAP_ID_ERR);
+		if (pos) {
+			pci_read_config_dword(dev, pos + PCI_ERR_ROOT_STATUS,
+					      &reg32);
+			*aer = (reg32 & PCI_ERR_ROOT_AER_IRQ) >> 27;
+			nvec = max(nvec, *aer + 1);
+		}
+	}
+
+	if (mask & PCIE_PORT_SERVICE_DPC) {
+		pos = pci_find_ext_capability(dev, PCI_EXT_CAP_ID_DPC);
+		if (pos) {
+			pci_read_config_word(dev, pos + PCI_EXP_DPC_CAP,
+					     &reg16);
+			*dpc = reg16 & 0x1f;
+			nvec = max(nvec, *dpc + 1);
+		}
+	}
+
+	return nvec;
 }
 
 /**
- * pcie_port_enable_msix - try to set up MSI-X as interrupt mode for given port
+ * pcie_port_enable_irq_vec - try to set up MSI-X or MSI as interrupt mode
+ * for given port
  * @dev: PCI Express port to handle
- * @vectors: Array of interrupt vectors to populate
+ * @irqs: Array of interrupt vectors to populate
  * @mask: Bitmask of port capabilities returned by get_port_device_capability()
  *
  * Return value: 0 on success, error code on failure
  */
-static int pcie_port_enable_msix(struct pci_dev *dev, int *vectors, int mask)
+static int pcie_port_enable_irq_vec(struct pci_dev *dev, int *irqs, int mask)
 {
-	struct msix_entry *msix_entries;
-	int idx[PCIE_PORT_DEVICE_MAXSERVICES];
-	int nr_entries, status, pos, i, nvec;
-	u16 reg16;
-	u32 reg32;
+	int nr_entries, nvec;
+	u32 pme = 0, aer = 0, dpc = 0;
 
-	nr_entries = pci_msix_vec_count(dev);
+	/* Allocate the maximum possible number of MSI/MSI-X vectors */
+	nr_entries = pci_alloc_irq_vectors(dev, 1, PCIE_PORT_MAX_MSI_ENTRIES,
+			PCI_IRQ_MSIX | PCI_IRQ_MSI);
 	if (nr_entries < 0)
 		return nr_entries;
-	BUG_ON(!nr_entries);
-	if (nr_entries > PCIE_PORT_MAX_MSIX_ENTRIES)
-		nr_entries = PCIE_PORT_MAX_MSIX_ENTRIES;
 
-	msix_entries = kzalloc(sizeof(*msix_entries) * nr_entries, GFP_KERNEL);
-	if (!msix_entries)
-		return -ENOMEM;
+	/* See how many and which Interrupt Message Numbers we actually use */
+	nvec = pcie_message_numbers(dev, mask, &pme, &aer, &dpc);
+	if (nvec > nr_entries) {
+		pci_free_irq_vectors(dev);
+		return -EIO;
+	}
 
 	/*
-	 * Allocate as many entries as the port wants, so that we can check
-	 * which of them will be useful.  Moreover, if nr_entries is correctly
-	 * equal to the number of entries this port actually uses, we'll happily
-	 * go through without any tricks.
+	 * If we allocated more than we need, free them and reallocate fewer.
+	 *
+	 * Reallocating may change the specific vectors we get, so
+	 * pci_irq_vector() must be done *after* the reallocation.
+	 *
+	 * If we're using MSI, hardware is *allowed* to change the Interrupt
+	 * Message Numbers when we free and reallocate the vectors, but we
+	 * assume it won't because we allocate enough vectors for the
+	 * biggest Message Number we found.
 	 */
-	for (i = 0; i < nr_entries; i++)
-		msix_entries[i].entry = i;
+	if (nvec != nr_entries) {
+		pci_free_irq_vectors(dev);
 
-	status = pci_enable_msix_exact(dev, msix_entries, nr_entries);
-	if (status)
-		goto Exit;
+		nr_entries = pci_alloc_irq_vectors(dev, nvec, nvec,
+				PCI_IRQ_MSIX | PCI_IRQ_MSI);
+		if (nr_entries < 0)
+			return nr_entries;
+	}
 
-	for (i = 0; i < PCIE_PORT_DEVICE_MAXSERVICES; i++)
-		idx[i] = -1;
-	status = -EIO;
-	nvec = 0;
-
+	/* PME and hotplug share an MSI/MSI-X vector */
 	if (mask & (PCIE_PORT_SERVICE_PME | PCIE_PORT_SERVICE_HP)) {
-		int entry;
+		irqs[PCIE_PORT_SERVICE_PME_SHIFT] = pci_irq_vector(dev, pme);
+		irqs[PCIE_PORT_SERVICE_HP_SHIFT] = pci_irq_vector(dev, pme);
 
-		/*
-		 * The code below follows the PCI Express Base Specification 2.0
-		 * stating in Section 6.1.6 that "PME and Hot-Plug Event
-		 * interrupts (when both are implemented) always share the same
-		 * MSI or MSI-X vector, as indicated by the Interrupt Message
-		 * Number field in the PCI Express Capabilities register", where
-		 * according to Section 7.8.2 of the specification "For MSI-X,
-		 * the value in this field indicates which MSI-X Table entry is
-		 * used to generate the interrupt message."
-		 */
-		pcie_capability_read_word(dev, PCI_EXP_FLAGS, &reg16);
-		entry = (reg16 & PCI_EXP_FLAGS_IRQ) >> 9;
-		if (entry >= nr_entries)
-			goto Error;
-
-		i = pcie_port_msix_add_entry(msix_entries, entry, nvec);
-		if (i == nvec)
-			nvec++;
-
-		idx[PCIE_PORT_SERVICE_PME_SHIFT] = i;
-		idx[PCIE_PORT_SERVICE_HP_SHIFT] = i;
 	}
 
-	if (mask & PCIE_PORT_SERVICE_AER) {
-		int entry;
+	if (mask & PCIE_PORT_SERVICE_AER)
+		irqs[PCIE_PORT_SERVICE_AER_SHIFT] = pci_irq_vector(dev, aer);
 
-		/*
-		 * The code below follows Section 7.10.10 of the PCI Express
-		 * Base Specification 2.0 stating that bits 31-27 of the Root
-		 * Error Status Register contain a value indicating which of the
-		 * MSI/MSI-X vectors assigned to the port is going to be used
-		 * for AER, where "For MSI-X, the value in this register
-		 * indicates which MSI-X Table entry is used to generate the
-		 * interrupt message."
-		 */
-		pos = pci_find_ext_capability(dev, PCI_EXT_CAP_ID_ERR);
-		pci_read_config_dword(dev, pos + PCI_ERR_ROOT_STATUS, &reg32);
-		entry = reg32 >> 27;
-		if (entry >= nr_entries)
-			goto Error;
+	if (mask & PCIE_PORT_SERVICE_DPC)
+		irqs[PCIE_PORT_SERVICE_DPC_SHIFT] = pci_irq_vector(dev, dpc);
 
-		i = pcie_port_msix_add_entry(msix_entries, entry, nvec);
-		if (i == nvec)
-			nvec++;
-
-		idx[PCIE_PORT_SERVICE_AER_SHIFT] = i;
-	}
-
-	/*
-	 * If nvec is equal to the allocated number of entries, we can just use
-	 * what we have.  Otherwise, the port has some extra entries not for the
-	 * services we know and we need to work around that.
-	 */
-	if (nvec == nr_entries) {
-		status = 0;
-	} else {
-		/* Drop the temporary MSI-X setup */
-		pci_disable_msix(dev);
-
-		/* Now allocate the MSI-X vectors for real */
-		status = pci_enable_msix_exact(dev, msix_entries, nvec);
-		if (status)
-			goto Exit;
-	}
-
-	for (i = 0; i < PCIE_PORT_DEVICE_MAXSERVICES; i++)
-		vectors[i] = idx[i] >= 0 ? msix_entries[idx[i]].vector : -1;
-
- Exit:
-	kfree(msix_entries);
-	return status;
-
- Error:
-	pci_disable_msix(dev);
-	goto Exit;
+	return 0;
 }
 
 /**
- * init_service_irqs - initialize irqs for PCI Express port services
+ * pcie_init_service_irqs - initialize irqs for PCI Express port services
  * @dev: PCI Express port to handle
  * @irqs: Array of irqs to populate
  * @mask: Bitmask of port capabilities returned by get_port_device_capability()
  *
  * Return value: Interrupt mode associated with the port
  */
-static int init_service_irqs(struct pci_dev *dev, int *irqs, int mask)
+static int pcie_init_service_irqs(struct pci_dev *dev, int *irqs, int mask)
 {
-	int i, irq = -1;
+	int ret, i;
+
+	for (i = 0; i < PCIE_PORT_DEVICE_MAXSERVICES; i++)
+		irqs[i] = -1;
 
 	/*
-	 * If MSI cannot be used for PCIe PME or hotplug, we have to use
-	 * INTx or other interrupts, e.g. system shared interrupt.
+	 * If we support PME or hotplug, but we can't use MSI/MSI-X for
+	 * them, we have to fall back to INTx or other interrupts, e.g., a
+	 * system shared interrupt.
 	 */
-	if (((mask & PCIE_PORT_SERVICE_PME) && pcie_pme_no_msi()) ||
-	    ((mask & PCIE_PORT_SERVICE_HP) && pciehp_no_msi())) {
-		if (dev->irq)
-			irq = dev->irq;
-		goto no_msi;
-	}
+	if ((mask & PCIE_PORT_SERVICE_PME) && pcie_pme_no_msi())
+		goto legacy_irq;
 
-	/* Try to use MSI-X if supported */
-	if (!pcie_port_enable_msix(dev, irqs, mask))
+	if ((mask & PCIE_PORT_SERVICE_HP) && pciehp_no_msi())
+		goto legacy_irq;
+
+	/* Try to use MSI-X or MSI if supported */
+	if (pcie_port_enable_irq_vec(dev, irqs, mask) == 0)
 		return 0;
 
-	/*
-	 * We're not going to use MSI-X, so try MSI and fall back to INTx.
-	 * If neither MSI/MSI-X nor INTx available, try other interrupt.  On
-	 * some platforms, root port doesn't support MSI/MSI-X/INTx in RC mode.
-	 */
-	if (!pci_enable_msi(dev) || dev->irq)
-		irq = dev->irq;
-
- no_msi:
-	for (i = 0; i < PCIE_PORT_DEVICE_MAXSERVICES; i++)
-		irqs[i] = irq;
-	irqs[PCIE_PORT_SERVICE_VC_SHIFT] = -1;
-
-	if (irq < 0)
+legacy_irq:
+	/* fall back to legacy IRQ */
+	ret = pci_alloc_irq_vectors(dev, 1, 1, PCI_IRQ_LEGACY);
+	if (ret < 0)
 		return -ENODEV;
-	return 0;
-}
 
-static void cleanup_service_irqs(struct pci_dev *dev)
-{
-	if (dev->msix_enabled)
-		pci_disable_msix(dev);
-	else if (dev->msi_enabled)
-		pci_disable_msi(dev);
+	for (i = 0; i < PCIE_PORT_DEVICE_MAXSERVICES; i++) {
+		if (i != PCIE_PORT_SERVICE_VC_SHIFT)
+			irqs[i] = pci_irq_vector(dev, 0);
+	}
+
+	return 0;
 }
 
 /**
@@ -256,7 +212,6 @@ static int get_port_device_capability(struct pci_dev *dev)
 	int services = 0;
 	u32 reg32;
 	int cap_mask = 0;
-	int err;
 
 	if (pcie_ports_disabled)
 		return 0;
@@ -266,11 +221,8 @@ static int get_port_device_capability(struct pci_dev *dev)
 	if (pci_aer_available())
 		cap_mask |= PCIE_PORT_SERVICE_AER;
 
-	if (pcie_ports_auto) {
-		err = pcie_port_platform_notify(dev, &cap_mask);
-		if (err)
-			return 0;
-	}
+	if (pcie_ports_auto)
+		pcie_port_platform_notify(dev, &cap_mask);
 
 	/* Hot-Plug Capable */
 	if ((cap_mask & PCIE_PORT_SERVICE_HP) &&
@@ -350,6 +302,8 @@ static int pcie_device_init(struct pci_dev *pdev, int service, int irq)
 		return retval;
 	}
 
+	pm_runtime_no_callbacks(device);
+
 	return 0;
 }
 
@@ -383,7 +337,7 @@ int pcie_port_device_register(struct pci_dev *dev)
 	 * that can be used in the absence of irqs.  Allow them to determine
 	 * if that is to be used.
 	 */
-	status = init_service_irqs(dev, irqs, capabilities);
+	status = pcie_init_service_irqs(dev, irqs, capabilities);
 	if (status) {
 		capabilities &= PCIE_PORT_SERVICE_VC | PCIE_PORT_SERVICE_HP;
 		if (!capabilities)
@@ -406,7 +360,7 @@ int pcie_port_device_register(struct pci_dev *dev)
 	return 0;
 
 error_cleanup_irqs:
-	cleanup_service_irqs(dev);
+	pci_free_irq_vectors(dev);
 error_disable:
 	pci_disable_device(dev);
 	return status;
@@ -447,6 +401,12 @@ static int resume_iter(struct device *dev, void *data)
 	return 0;
 }
 
+int pcie_port_device_resume_noirq(struct device *dev)
+{
+	size_t off = offsetof(struct pcie_port_service_driver, resume_noirq);
+	return device_for_each_child(dev, &off, suspend_iter);
+}
+
 /**
  * pcie_port_device_resume - resume port services associated with a PCIe port
  * @dev: PCI Express port to handle
@@ -454,6 +414,26 @@ static int resume_iter(struct device *dev, void *data)
 int pcie_port_device_resume(struct device *dev)
 {
 	return device_for_each_child(dev, NULL, resume_iter);
+}
+
+/**
+ * pcie_port_device_runtime_suspend - runtime suspend port services
+ * @dev: PCI Express port to handle
+ */
+int pcie_port_device_runtime_suspend(struct device *dev)
+{
+	size_t off = offsetof(struct pcie_port_service_driver, runtime_suspend);
+	return device_for_each_child(dev, &off, suspend_iter);
+}
+
+/**
+ * pcie_port_device_runtime_resume - runtime resume port services
+ * @dev: PCI Express port to handle
+ */
+int pcie_port_device_runtime_resume(struct device *dev)
+{
+	size_t off = offsetof(struct pcie_port_service_driver, runtime_resume);
+	return device_for_each_child(dev, &off, suspend_iter);
 }
 #endif /* PM */
 
@@ -474,7 +454,7 @@ static int remove_iter(struct device *dev, void *data)
 void pcie_port_device_remove(struct pci_dev *dev)
 {
 	device_for_each_child(&dev->dev, NULL, remove_iter);
-	cleanup_service_irqs(dev);
+	pci_free_irq_vectors(dev);
 	pci_disable_device(dev);
 }
 
