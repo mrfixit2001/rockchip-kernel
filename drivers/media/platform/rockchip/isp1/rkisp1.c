@@ -32,6 +32,7 @@
  * SOFTWARE.
  */
 
+#include <linux/clk.h>
 #include <linux/iopoll.h>
 #include <linux/pm_runtime.h>
 #include <linux/videodev2.h>
@@ -381,6 +382,7 @@ static int rkisp1_config_cif(struct rkisp1_device *dev)
 static int rkisp1_isp_stop(struct rkisp1_device *dev)
 {
 	void __iomem *base = dev->base_addr;
+	unsigned long old_rate, safe_rate;
 	u32 val;
 
 	v4l2_dbg(1, rkisp1_debug, &dev->v4l2_dev,
@@ -421,7 +423,23 @@ static int rkisp1_isp_stop(struct rkisp1_device *dev)
 		 readl(base + CIF_ISP_CTRL),
 		 readl(base + CIF_MIPI_CTRL));
 
-	writel(CIF_IRCL_CIF_SW_RST, base + CIF_IRCL);
+	if (!in_interrupt()) {
+		/* normal case */
+		/* check the isp_clk before isp reset operation */
+		old_rate = clk_get_rate(dev->clks[0]);
+		safe_rate = dev->clk_rate_tbl[0] * 1000000UL;
+		if (old_rate > safe_rate) {
+			clk_set_rate(dev->clks[0], safe_rate);
+			udelay(100);
+		}
+		writel(CIF_IRCL_CIF_SW_RST, base + CIF_IRCL);
+		/* restore the old ispclk after reset */
+		if (old_rate != safe_rate)
+			clk_set_rate(dev->clks[0], old_rate);
+	} else {
+		/* abnormal case, in irq function */
+		writel(CIF_IRCL_CIF_SW_RST, base + CIF_IRCL);
+	}
 
 	return 0;
 }

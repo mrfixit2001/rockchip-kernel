@@ -383,12 +383,12 @@
 
 	opp-200000000 {
 		opp-hz = /bits/ 64 <200000000>;
-		opp-microvolt = <825000>;
+		opp-microvolt = <900000>;
 		status = "disabled";
 	};
 	opp-300000000 {
 		opp-hz = /bits/ 64 <300000000>;
-		opp-microvolt = <850000>;
+		opp-microvolt = <900000>;
 		status = "disabled";
 	};
 	opp-400000000 {
@@ -515,6 +515,10 @@
 		vcc11-supply = <&vcc_sys>;
 		vcc12-supply = <&vcc3v3_sys>;
 		vddio-supply = <&vcc_1v8>;
+
+		rtc {
+			status = "okay";
+		};
 
 		regulators {
 			vdd_center: DCDC_REG1 {
@@ -703,18 +707,14 @@
 		reg = <0x22>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&fusb0_int>;
-		vbus-5v-gpios = <&gpio1 RK_PA3 GPIO_ACTIVE_LOW>;
+		vbus-5v-gpios = <&gpio1 RK_PA3 GPIO_ACTIVE_HIGH>;
 		int-n-gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 };
 
-&i2s0 {
+&i2c8 {
 	status = "okay";
-	rockchip,i2s-broken-burst-len;
-	rockchip,playback-channels = <8>;
-	rockchip,capture-channels = <8>;
-	#sound-dai-cells = <0>;
 };
 
 &i2s1 {

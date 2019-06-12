@@ -265,7 +265,8 @@ static void u3phy_disconnect_det_work(struct work_struct *work)
 	mutex_lock(&rockchip->lock);
 
 	if (hcd->state != HC_STATE_HALT) {
-		usb_remove_hcd(shared_hcd);
+		if (shared_hcd)
+			usb_remove_hcd(shared_hcd);
 		usb_remove_hcd(hcd);
 	}
 
@@ -282,9 +283,11 @@ static void u3phy_disconnect_det_work(struct work_struct *work)
 	}
 
 	if (hcd->state == HC_STATE_HALT) {
-		xhci->shared_hcd = shared_hcd;
 		usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
-		usb_add_hcd(shared_hcd, hcd->irq, IRQF_SHARED);
+		if (shared_hcd) {
+			xhci->shared_hcd = shared_hcd;
+			usb_add_hcd(shared_hcd, hcd->irq, IRQF_SHARED);
+		}
 	}
 
 	if (rockchip->phy)

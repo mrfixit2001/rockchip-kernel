@@ -1123,7 +1123,7 @@ static u32 xhci_find_real_port_number(struct xhci_hcd *xhci,
 	struct usb_device *top_dev;
 	struct usb_hcd *hcd;
 
-	if (udev->speed >= USB_SPEED_SUPER)
+	if (udev->speed >= USB_SPEED_SUPER && xhci->shared_hcd)
 		hcd = xhci->shared_hcd;
 	else
 		hcd = xhci->main_hcd;

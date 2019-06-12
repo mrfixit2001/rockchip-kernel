@@ -1562,7 +1562,7 @@ static void handle_port_status(struct xhci_hcd *xhci,
 
 	/* Find the right roothub. */
 	hcd = xhci_to_hcd(xhci);
-	if ((major_revision == 0x03) != (hcd->speed >= HCD_USB3))
+	if ((major_revision == 0x03) != (hcd->speed >= HCD_USB3) && xhci->shared_hcd)
 		hcd = xhci->shared_hcd;
 
 	if (major_revision == 0) {
@@ -2716,7 +2716,8 @@ static int xhci_handle_event(struct xhci_hcd *xhci)
 	/* Any of the above functions may drop and re-acquire the lock, so check
 	 * to make sure a watchdog timer didn't mark the host as non-responsive.
 	 */
-	if (xhci->xhc_state & XHCI_STATE_DYING) {
+	if (xhci->xhc_state & XHCI_STATE_DYING ||
+	    xhci->xhc_state & XHCI_STATE_HALTED) {
 		xhci_dbg(xhci, "xHCI host dying, returning from "
 				"event handler.\n");
 		return 0;

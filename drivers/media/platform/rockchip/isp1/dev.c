@@ -510,7 +510,7 @@ static const char * const rk3399_isp_clks[] = {
 
 /* isp clock adjustment table (MHz) */
 static const unsigned int rk3288_isp_clk_rate[] = {
-	384, 500, 594
+	150, 384, 500, 594
 };
 
 /* isp clock adjustment table (MHz) */

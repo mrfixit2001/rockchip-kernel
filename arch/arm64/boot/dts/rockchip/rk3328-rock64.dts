@@ -99,7 +99,7 @@
 
 	vcc_host_5v: vcc_otg_5v: vcc-host-5v-regulator {
 		compatible = "regulator-fixed";
-		gpio = <&gpio0 RK_PD3 GPIO_ACTIVE_LOW>;
+		gpio = <&gpio0 RK_PA2 GPIO_ACTIVE_LOW>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&usb_host_drv>;
 		regulator-name = "vcc_host_5v";
@@ -508,7 +508,7 @@
 
 	usb {
 		usb_host_drv: usb-host-drv {
-			rockchip,pins = <0 RK_PD3 RK_FUNC_GPIO &pcfg_pull_none>;
+			rockchip,pins = <0 RK_PA2 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 };

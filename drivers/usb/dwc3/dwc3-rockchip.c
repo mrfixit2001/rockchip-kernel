@@ -555,7 +555,8 @@ static void dwc3_rockchip_otg_extcon_evt_work(struct work_struct *work)
 
 		if (hcd->state == HC_STATE_HALT) {
 			usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
-			usb_add_hcd(hcd->shared_hcd, hcd->irq, IRQF_SHARED);
+			if (hcd->shared_hcd)
+				usb_add_hcd(hcd->shared_hcd, hcd->irq, IRQF_SHARED);
 		}
 
 		rockchip->connected = true;
@@ -621,7 +622,8 @@ disconnect:
 					usleep_range(10000, 11000);
 #endif
 
-				usb_remove_hcd(hcd->shared_hcd);
+				if (hcd->shared_hcd)
+					usb_remove_hcd(hcd->shared_hcd);
 				usb_remove_hcd(hcd);
 			}
 
@@ -726,7 +728,8 @@ static void dwc3_rockchip_async_probe(void *data, async_cookie_t cookie)
 
 	if (rockchip->edev || rockchip->dwc->dr_mode == USB_DR_MODE_OTG) {
 		if (hcd && hcd->state != HC_STATE_HALT) {
-			usb_remove_hcd(hcd->shared_hcd);
+			if (hcd->shared_hcd)
+				usb_remove_hcd(hcd->shared_hcd);
 			usb_remove_hcd(hcd);
 		}
 
@@ -925,7 +928,8 @@ static int dwc3_rockchip_remove(struct platform_device *pdev)
 		 */
 		if (hcd->state == HC_STATE_HALT) {
 			usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
-			usb_add_hcd(hcd->shared_hcd, hcd->irq, IRQF_SHARED);
+			if (hcd->shared_hcd)
+				usb_add_hcd(hcd->shared_hcd, hcd->irq, IRQF_SHARED);
 		}
 	}
 
