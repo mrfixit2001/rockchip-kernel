@@ -601,6 +601,12 @@ static void cw_bat_work(struct work_struct *work)
 			   msecs_to_jiffies(cw_bat->monitor_sec));
 }
 
+static bool cw_battery_valid_time_to_empty(struct cw_battery *cw_bat)
+{
+	return cw_bat->time_to_empty > 0 && cw_bat->time_to_empty < 0x1FFF &&
+		cw_bat->status == POWER_SUPPLY_STATUS_DISCHARGING;
+}
+
 static int cw_battery_get_property(struct power_supply *psy,
 				   enum power_supply_property psp,
 				   union power_supply_propval *val)
@@ -637,7 +643,11 @@ static int cw_battery_get_property(struct power_supply *psy,
 		break;
 
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW:
-		val->intval = cw_bat->time_to_empty;
+		if (cw_battery_valid_time_to_empty(cw_bat)) {
+			val->intval = cw_bat->time_to_empty;
+		} else {
+			val->intval = 0;
+		}
 		if (cw_bat->bat_mode == MODE_VIRTUAL)
 			val->intval = VIRTUAL_TIME2EMPTY;
 		break;
@@ -650,8 +660,28 @@ static int cw_battery_get_property(struct power_supply *psy,
 		val->intval = cw_bat->charge_count;
 		break;
 
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		val->intval = cw_bat->plat_data.design_capacity * 1000;
+		break;
+
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = VIRTUAL_TEMPERATURE;
+		break;
+
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		if (cw_battery_valid_time_to_empty(cw_bat)) {
+			// calculate remaining capacity
+			val->intval = cw_bat->plat_data.design_capacity * 1000;
+			val->intval = val->intval * cw_bat->capacity / 100;
+
+			// estimate current based on time to empty (in minutes)
+			val->intval = 60 * val->intval / cw_bat->time_to_empty;
+		} else {
+			val->intval = 0;
+		}
+
+		if (cw_bat->bat_mode == MODE_VIRTUAL)
+			val->intval = VIRTUAL_CURRENT;
 		break;
 
 	default:
@@ -669,7 +699,9 @@ static enum power_supply_property cw_battery_properties[] = {
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_CURRENT_NOW,
 };
 
 static const struct power_supply_desc cw2015_bat_desc = {
@@ -777,6 +809,14 @@ static int cw2015_parse_dt(struct cw_battery *cw_bat)
 		dev_err(dev, "monitor_sec missing!\n");
 	else
 		cw_bat->monitor_sec = value * TIMER_MS_COUNTS;
+
+	ret = of_property_read_u32(node, "design_capacity", &value);
+	if (ret < 0) {
+		dev_err(dev, "design_capacity missing!\n");
+		data->design_capacity = 2000;
+	} else {
+		data->design_capacity = value;
+	}
 
 	return 0;
 }

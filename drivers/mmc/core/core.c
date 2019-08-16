@@ -135,6 +135,7 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 
 	/* Trigger the LED (if available) */
 	ledtrig_disk_activity();
+	ledtrig_disk_activity_inverted();
 
 	/* Flag re-tuning needed on CRC errors */
 	if ((cmd->opcode != MMC_SEND_TUNING_BLOCK &&

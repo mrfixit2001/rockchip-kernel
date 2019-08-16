@@ -204,7 +204,12 @@ static void dw_hdmi_i2s_audio_shutdown(struct device *dev, void *data)
 
 	dw_hdmi_audio_disable(hdmi);
 
-	hdmi_write(audio, HDMI_AUD_CONF0_SW_RESET, HDMI_AUD_CONF0);
+	hdmi_update_bits(audio,
+			 HDMI_AUD_CONF0_SW_RESET |
+				(HDMI_AUD_CONF0_I2S_ALL_ENABLE ^
+				 HDMI_AUD_CONF0_I2S_SELECT_MASK),
+			 HDMI_AUD_CONF0_SW_RESET,
+			 HDMI_AUD_CONF0);
 	hdmi_write(audio, (u8)~HDMI_MC_SWRSTZ_I2S_RESET_MSK, HDMI_MC_SWRSTZ);
 }
 

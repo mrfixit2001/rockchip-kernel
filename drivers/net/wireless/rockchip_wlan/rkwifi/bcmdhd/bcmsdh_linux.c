@@ -222,6 +222,7 @@ int bcmsdh_get_total_wake(bcmsdh_info_t *bcmsdh)
 
 int bcmsdh_set_get_wake(bcmsdh_info_t *bcmsdh, int flag)
 {
+#if defined(OOB_INTR_ONLY)
 	bcmsdh_os_info_t *bcmsdh_osinfo = bcmsdh->os_cxt;
 	unsigned long flags;
 	int ret;
@@ -234,6 +235,9 @@ int bcmsdh_set_get_wake(bcmsdh_info_t *bcmsdh, int flag)
 
 	spin_unlock_irqrestore(&bcmsdh_osinfo->oob_irq_spinlock, flags);
 	return ret;
+#else
+	return 0;
+#endif
 }
 #endif /* DHD_WAKE_STATUS */
 

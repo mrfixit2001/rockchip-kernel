@@ -1426,11 +1426,56 @@ unsigned long to_ratio(u64 period, u64 runtime);
 extern void init_entity_runnable_average(struct sched_entity *se);
 extern void post_init_entity_util_avg(struct sched_entity *se);
 
+#ifdef CONFIG_HIMA_HOTPLUG
+struct nr_stats_s {
+        /* time-based average load */
+        u64 nr_last_stamp;
+        unsigned int ave_nr_running;
+        seqcount_t ave_seqcnt;
+};
+
+#define NR_AVE_PERIOD_EXP       28
+#define NR_AVE_SCALE(x)         ((x) << FSHIFT)
+#define NR_AVE_PERIOD           (1 << NR_AVE_PERIOD_EXP)
+#define NR_AVE_DIV_PERIOD(x)    ((x) >> NR_AVE_PERIOD_EXP)
+
+DECLARE_PER_CPU(struct nr_stats_s, runqueue_stats);
+
+static inline unsigned int do_avg_nr_running(struct rq *rq)
+{
+
+        struct nr_stats_s *nr_stats = &per_cpu(runqueue_stats, rq->cpu);
+        unsigned int ave_nr_running = nr_stats->ave_nr_running;
+        s64 nr, deltax;
+
+        deltax = rq->clock_task - nr_stats->nr_last_stamp;
+        nr = NR_AVE_SCALE(rq->nr_running);
+
+        if (deltax > NR_AVE_PERIOD)
+                ave_nr_running = nr;
+        else
+                ave_nr_running +=
+                        NR_AVE_DIV_PERIOD(deltax * (nr - ave_nr_running));
+
+        return ave_nr_running;
+}
+#endif
+
 static inline void __add_nr_running(struct rq *rq, unsigned count)
 {
 	unsigned prev_nr = rq->nr_running;
+#ifdef CONFIG_HIMA_HOTPLUG
+        struct nr_stats_s *nr_stats = &per_cpu(runqueue_stats, rq->cpu);
+        write_seqcount_begin(&nr_stats->ave_seqcnt);
+        nr_stats->ave_nr_running = do_avg_nr_running(rq);
+        nr_stats->nr_last_stamp = rq->clock_task;
+#endif
 
 	rq->nr_running = prev_nr + count;
+
+#ifdef CONFIG_HIMA_HOTPLUG
+        write_seqcount_end(&nr_stats->ave_seqcnt);
+#endif
 
 	if (prev_nr < 2 && rq->nr_running >= 2) {
 #ifdef CONFIG_SMP

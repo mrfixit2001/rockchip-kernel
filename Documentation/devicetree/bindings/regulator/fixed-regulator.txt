@@ -5,6 +5,7 @@ Required properties:
 
 Optional properties:
 - gpio: gpio to use for enable control
+- gpios: list of gpios to use for enable control - only used when gpio property is not used
 - startup-delay-us: startup time in microseconds
 - enable-active-high: Polarity of GPIO is Active high
 If this property is missing, the default assumed is Active low.

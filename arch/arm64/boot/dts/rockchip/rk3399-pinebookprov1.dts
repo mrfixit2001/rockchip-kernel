@@ -838,15 +838,15 @@
 };
 
 &threshold {
-	temperature = <80000>;
+	temperature = <75000>;
 };
 
 &target {
-	temperature = <95000>;
+	temperature = <80000>;
 };
 
 &soc_crit {
-	temperature = <100000>;
+	temperature = <85000>;
 };
 
 &tcphy0 {

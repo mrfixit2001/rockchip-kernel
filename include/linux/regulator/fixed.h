@@ -26,6 +26,7 @@ struct regulator_init_data;
  * @microvolts:		Output voltage of regulator
  * @gpio:		GPIO to use for enable control
  * 			set to -EINVAL if not used
+ * @gpios:		array of GPIOs for enabling, only used if gpio property is not used
  * @startup_delay:	Start-up time in microseconds
  * @gpio_is_open_drain: Gpio pin is open drain or normal type.
  *			If it is open drain type then HIGH will be set
@@ -50,6 +51,8 @@ struct fixed_voltage_config {
 	const char *input_supply;
 	int microvolts;
 	int gpio;
+	struct gpio *gpios;
+	int nr_gpios;
 	unsigned startup_delay;
 	unsigned gpio_is_open_drain:1;
 	unsigned enable_high:1;

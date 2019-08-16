@@ -1,6 +1,6 @@
 obj-$(CONFIG_LEDS_TRIGGER_TIMER)	+= ledtrig-timer.o
 obj-$(CONFIG_LEDS_TRIGGER_ONESHOT)	+= ledtrig-oneshot.o
-obj-$(CONFIG_LEDS_TRIGGER_DISK)		+= ledtrig-disk.o
+obj-$(CONFIG_LEDS_TRIGGER_DISK)		+= ledtrig-disk.o ledtrig-disk-invert.o
 obj-$(CONFIG_LEDS_TRIGGER_HEARTBEAT)	+= ledtrig-heartbeat.o
 obj-$(CONFIG_LEDS_TRIGGER_BACKLIGHT)	+= ledtrig-backlight.o
 obj-$(CONFIG_LEDS_TRIGGER_GPIO)		+= ledtrig-gpio.o

@@ -50,7 +50,7 @@
 	compatible = "pine64,rock64", "rockchip,rk3328";
 
 	chosen {
-		bootargs = "earlyprintk=uart8250-32bit,0xff130000 swiotlb=1 kpti=0";
+		bootargs = "earlyprintk=uart8250-32bit,0xff130000 swiotlb=1 kpti=0 no_console_suspend=1 usbcore.autosuspend=-1";
 		stdout-path = "serial2:1500000n8";
 	};
 
@@ -134,14 +134,6 @@
 			default-state = "on";
 		};
  	};
-
-	ir-receiver {
-		compatible = "gpio-ir-receiver";
-		gpios = <&gpio2 RK_PA2 GPIO_ACTIVE_LOW>;
-		linux,rc-map-name = "rc-pine64";
-		pinctrl-0 = <&ir_int>;
-		pinctrl-names = "default";
-	};
 
 	dummy_codec: dummy-codec {
 		compatible = "linux,snd-soc-dummy";
@@ -304,6 +296,10 @@
 };
 
 &hdmiphy {
+	status = "okay";
+};
+
+&i2c0 {
 	status = "okay";
 };
 
@@ -515,6 +511,7 @@
 
 &rkvdec {
 	status = "okay";
+	vcodec-supply = <&vdd_logic>;
 };
 
 &rkvdec_mmu {
@@ -526,6 +523,7 @@
 	cap-mmc-highspeed;
 	cap-sd-highspeed;
 	disable-wp;
+	max-frequency = <150000000>;
 	num-slots = <1>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&sdmmc0_clk &sdmmc0_cmd &sdmmc0_dectn &sdmmc0_bus4>;
@@ -682,28 +680,31 @@
 	ir_key1 {
 		rockchip,usercode = <0x4040>;
 		rockchip,key_table =
-			<0xf2	KEY_REPLY>,
-			<0xba	KEY_BACK>,
-			<0xf4	KEY_UP>,
-			<0xf1	KEY_DOWN>,
-			<0xef	KEY_LEFT>,
-			<0xee	KEY_RIGHT>,
-			<0xbd	KEY_HOME>,
-			<0xea	KEY_VOLUMEUP>,
-			<0xe3	KEY_VOLUMEDOWN>,
-			<0xe2	KEY_SEARCH>,
-			<0xb2	KEY_POWER>,
-			<0xbc	KEY_MUTE>,
-			<0xec	KEY_MENU>,
-			<0xbf	0x190>,
-			<0xe0	0x191>,
-			<0xe1	0x192>,
-			<0xe9	183>,
-			<0xe6	248>,
-			<0xe8	185>,
-			<0xe7	186>,
-			<0xf0	388>,
-			<0xbe	0x175>;
+                         <0xba   KEY_BACK>,
+                         <0xf4   KEY_UP>,
+                         <0xf1   KEY_DOWN>,
+                         <0xef   KEY_LEFT>,
+                         <0xee   KEY_RIGHT>,
+                         <0xe5   KEY_HOME>,
+                         <0xe7   KEY_VOLUMEUP>,
+                         <0xe8   KEY_VOLUMEDOWN>,
+                         <0xb2   KEY_POWER>,
+                         <0xf5   KEY_MUTE>,
+                         <0xe2   KEY_MENU>,
+                         <0xf3   KEY_BACKSPACE>,
+                         <0xf2   KEY_ENTER>,
+                         <0xff   KEY_0>,
+                         <0xfe   KEY_1>,
+                         <0xfd   KEY_2>,
+                         <0xfc   KEY_3>,
+                         <0xfb   KEY_4>,
+                         <0xfa   KEY_5>,
+                         <0xf9   KEY_6>,
+                         <0xf8   KEY_7>,
+                         <0xf7   KEY_8>,
+                         <0xf6   KEY_9>,
+                         <0xb8   388>,
+                         <0xe0   KEY_SEARCH>;
 	};
 
 	ir_key2 {

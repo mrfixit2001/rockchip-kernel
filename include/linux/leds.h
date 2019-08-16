@@ -304,8 +304,10 @@ static inline void *led_get_trigger_data(struct led_classdev *led_cdev)
 /* Trigger specific functions */
 #ifdef CONFIG_LEDS_TRIGGER_DISK
 extern void ledtrig_disk_activity(void);
+extern void ledtrig_disk_activity_inverted(void);
 #else
 static inline void ledtrig_disk_activity(void) {}
+static inline void ledtrig_disk_activity_inverted(void) {}
 #endif
 
 #if defined(CONFIG_LEDS_TRIGGER_CAMERA) || defined(CONFIG_LEDS_TRIGGER_CAMERA_MODULE)

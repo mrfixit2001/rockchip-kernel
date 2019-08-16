@@ -1478,6 +1478,10 @@
 		clock-names = "pclk_efuse";
 
 		/* Data cells */
+		specification_serial_number: specification-serial-number@6 {
+			reg = <0x06 0x1>;
+			bits = <0 5>;
+		};
 		cpu_id: cpu-id@7 {
 			reg = <0x07 0x10>;
 		};
@@ -2357,6 +2361,16 @@
 		pcfg_pull_none_12ma: pcfg-pull-none-12ma {
 			bias-disable;
 			drive-strength = <12>;
+		};
+
+		pcfg_pull_none_10ma: pcfg-pull-none-10ma {
+			bias-disable;
+			drive-strength = <10>;
+		};
+
+		pcfg_pull_up_10ma: pcfg-pull-up-10ma {
+			bias-pull-up;
+			drive-strength = <10>;
 		};
 
 		pcfg_pull_up_8ma: pcfg-pull-up-8ma {

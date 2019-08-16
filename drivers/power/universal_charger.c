@@ -76,9 +76,12 @@ static void universal_cg_bc_evt_worker(struct work_struct *work)
 		charger = USB_TYPE_NONE_CHARGER;
 
 	if (charger != USB_TYPE_UNKNOWN_CHARGER) {
-		dev_info(cg->dev, "receive usb notifier event: %s...\n",
+		dev_dbg(cg->dev, "receive usb notifier event: %s...\n",
 			 event[charger]);
 		cg->usb_charger = charger;
+		if (cg->usb_psy) {
+			power_supply_changed(cg->usb_psy);
+		}
 	}
 }
 
@@ -101,8 +104,11 @@ static void universal_cg_discnt_evt_worker(struct work_struct *work)
 			struct universal_charger, discnt_work.work);
 
 	if (extcon_get_cable_state_(cg->cable_edev, EXTCON_USB) == 0) {
-		dev_info(cg->dev, "receive usb notifier event: DISCNT...\n");
+		dev_dbg(cg->dev, "receive usb notifier event: DISCNT...\n");
 		cg->usb_charger = USB_TYPE_NONE_CHARGER;
+		if (cg->usb_psy) {
+			power_supply_changed(cg->usb_psy);
+		}
 	}
 }
 
@@ -178,7 +184,7 @@ static int universal_cg_init_usb(struct universal_charger *cg)
 
 	cg->cable_edev = edev;
 	schedule_delayed_work(&cg->usb_work, 0);
-	dev_info(cg->dev, "register extcon evt notifier\n");
+	dev_dbg(cg->dev, "register extcon evt notifier\n");
 
 	return 0;
 
@@ -200,11 +206,11 @@ static int universal_cg_usb_get_property(struct power_supply *psy,
 	int online = 0;
 	int ret = 0;
 
-	if (cg->usb_charger != USB_TYPE_UNKNOWN_CHARGER &&
-	    cg->usb_charger != USB_TYPE_NONE_CHARGER)
+	if (cg->usb_charger > USB_TYPE_NONE_CHARGER)
 		online = 1;
-	if (cg->dc_charger != DC_TYPE_NONE_CHARGER)
+	if (cg->dc_charger > DC_TYPE_NONE_CHARGER)
 		online = 1;
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = online;
@@ -259,7 +265,7 @@ static int universal_charger_parse_dt(struct universal_charger *cg)
 	if (!IS_ERR_OR_NULL(cg->dc_det_pin)) {
 		cg->support_dc_det = true;
 	} else {
-		dev_err(dev, "invalid dc det gpio!\n");
+		dev_warn(dev, "invalid dc det gpio!\n");
 		cg->support_dc_det = false;
 	}
 
@@ -290,6 +296,9 @@ static void universal_charger_dc_det_worker(struct work_struct *work)
 		cg->dc_charger = charger;
 	else
 		cg->dc_charger = DC_TYPE_NONE_CHARGER;
+	if (cg->usb_psy) {
+		power_supply_changed(cg->usb_psy);
+	}
 }
 
 static irqreturn_t universal_charger_dc_det_isr(int irq, void *charger)
@@ -370,7 +379,7 @@ static int universal_charger_probe(struct platform_device *pdev)
 		goto ___init_psy_fail;
 	}
 
-	dev_info(cg->dev, "driver registered\n");
+	dev_dbg(cg->dev, "driver registered\n");
 
 	return 0;
 

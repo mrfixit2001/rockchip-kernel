@@ -546,6 +546,7 @@ struct fusb30x_chip {
 	bool vconn_supported;
 	bool try_role_complete;
 	enum role_mode try_role;
+	bool suspended;
 };
 
 #endif /* FUSB302_H */

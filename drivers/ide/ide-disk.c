@@ -187,6 +187,7 @@ static ide_startstop_t ide_do_rw_disk(ide_drive_t *drive, struct request *rq,
 	BUG_ON(rq->cmd_type != REQ_TYPE_FS);
 
 	ledtrig_disk_activity();
+	ledtrig_disk_activity_inverted();
 
 	pr_debug("%s: %sing: block=%llu, sectors=%u\n",
 		 drive->name, rq_data_dir(rq) == READ ? "read" : "writ",

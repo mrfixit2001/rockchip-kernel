@@ -297,12 +297,11 @@ struct dw_mipi_dsi {
 	struct clk *pclk;
 	struct clk *h2p_clk;
 	int irq;
-
-	/* dual-channel */
 	struct dw_mipi_dsi *master;
 	struct dw_mipi_dsi *slave;
-	struct device_node *panel_node;
-	int id;
+	struct mutex mutex;
+	bool prepared;
+	unsigned int id;
 
 	unsigned long mode_flags;
 	unsigned int lane_mbps; /* per lane */
@@ -775,9 +774,6 @@ static int dw_mipi_dsi_host_attach(struct mipi_dsi_host *host,
 {
 	struct dw_mipi_dsi *dsi = host_to_dsi(host);
 
-	if (dsi->master)
-		return 0;
-
 	if (device->lanes < 1 || device->lanes > 8)
 		return -EINVAL;
 
@@ -812,6 +808,11 @@ static void dw_mipi_dsi_set_transfer_mode(struct dw_mipi_dsi *dsi, int flags)
 		regmap_write(dsi->regmap, DSI_CMD_MODE_CFG, 0);
 		regmap_update_bits(dsi->regmap, DSI_LPCLK_CTRL,
 				   PHY_TXREQUESTCLKHS, PHY_TXREQUESTCLKHS);
+	}
+	if (dsi->master) {
+		dsi->master->lane_mbps = dsi->lane_mbps;
+		dsi->master->dphy.input_div = dsi->dphy.input_div;
+		dsi->master->dphy.feedback_div = dsi->dphy.feedback_div;
 	}
 }
 
@@ -1012,7 +1013,7 @@ static void dw_mipi_dsi_set_mode(struct dw_mipi_dsi *dsi,
 
 static void mipi_dphy_init(struct dw_mipi_dsi *dsi)
 {
-	u32 map[] = {0x1, 0x3, 0x7, 0xf};
+	u32 map[] = {0x0, 0x1, 0x3, 0x7, 0xf};
 
 	mipi_dphy_enableclk_deassert(dsi);
 	mipi_dphy_shutdownz_assert(dsi);
@@ -1038,7 +1039,7 @@ static void mipi_dphy_init(struct dw_mipi_dsi *dsi)
 		dw_mipi_dsi_phy_init(dsi);
 
 	/* Enable Data Lane Module */
-	grf_field_write(dsi, ENABLE_N, map[dsi->lanes - 1]);
+	grf_field_write(dsi, ENABLE_N, map[dsi->lanes]);
 
 	/* Enable Clock Lane Module */
 	grf_field_write(dsi, ENABLECLK, 1);
@@ -1103,14 +1104,8 @@ static void dw_mipi_dsi_packet_handler_config(struct dw_mipi_dsi *dsi)
 static void dw_mipi_dsi_video_packet_config(struct dw_mipi_dsi *dsi,
 					    struct drm_display_mode *mode)
 {
-	int pkt_size;
-
-	if (dsi->slave || dsi->master)
-		pkt_size = VID_PKT_SIZE(mode->hdisplay/* / 2 */);
-	else
-		pkt_size = VID_PKT_SIZE(mode->hdisplay);
-
-	regmap_write(dsi->regmap, DSI_VID_PKT_SIZE, pkt_size);
+	regmap_write(dsi->regmap, DSI_VID_PKT_SIZE,
+		     VID_PKT_SIZE(mode->hdisplay));
 }
 
 static void dw_mipi_dsi_command_mode_config(struct dw_mipi_dsi *dsi)
@@ -1128,10 +1123,8 @@ static u32 dw_mipi_dsi_get_hcomponent_lbcc(struct dw_mipi_dsi *dsi,
 
 	lbcc = hcomponent * dsi->lane_mbps * MSEC_PER_SEC / 8;
 
-	if (dsi->mode.clock == 0) {
-		dev_err(dsi->dev, "dsi mode clock is 0!\n");
+	if (dsi->mode.clock == 0)
 		return 0;
-	}
 
 	return DIV_ROUND_CLOSEST_ULL(lbcc, dsi->mode.clock);
 }
@@ -1205,8 +1198,10 @@ static void dw_mipi_dsi_encoder_mode_set(struct drm_encoder *encoder,
 
 	drm_mode_copy(&dsi->mode, adjusted_mode);
 
-	if (dsi->slave)
-		drm_mode_copy(&dsi->slave->mode, adjusted_mode);
+	if (dsi->slave) {
+		dsi->mode.hdisplay /= 2;
+		drm_mode_copy(&dsi->slave->mode, &dsi->mode);
+	}
 }
 
 static void dw_mipi_dsi_disable(struct dw_mipi_dsi *dsi)
@@ -1219,14 +1214,28 @@ static void dw_mipi_dsi_disable(struct dw_mipi_dsi *dsi)
 
 static void dw_mipi_dsi_post_disable(struct dw_mipi_dsi *dsi)
 {
+	if (dsi->slave)
+		dw_mipi_dsi_post_disable(dsi->slave);
+
+	mutex_lock(&dsi->mutex);
+
+	if (!dsi->prepared) {
+		mutex_unlock(&dsi->mutex);
+		return;
+	}
+
 	dw_mipi_dsi_interrupt_disable(dsi);
 	dw_mipi_dsi_host_power_off(dsi);
 	mipi_dphy_power_off(dsi);
 
 	pm_runtime_put(dsi->dev);
 
-	if (dsi->slave)
-		dw_mipi_dsi_post_disable(dsi->slave);
+	dsi->prepared = false;
+
+	mutex_unlock(&dsi->mutex);
+
+	if (dsi->master)
+		dw_mipi_dsi_post_disable(dsi->master);
 }
 
 static void dw_mipi_dsi_encoder_disable(struct drm_encoder *encoder)
@@ -1273,8 +1282,17 @@ static void dw_mipi_dsi_host_init(struct dw_mipi_dsi *dsi)
 
 static void dw_mipi_dsi_pre_enable(struct dw_mipi_dsi *dsi)
 {
-	if (dsi->slave)
-		dw_mipi_dsi_pre_enable(dsi->slave);
+	if (dsi->master)
+		dw_mipi_dsi_pre_enable(dsi->master);
+
+	mutex_lock(&dsi->mutex);
+
+	if (dsi->prepared) {
+		mutex_unlock(&dsi->mutex);
+		return;
+	}
+
+	dw_mipi_dsi_pre_init(dsi);
 
 	pm_runtime_get_sync(dsi->dev);
 
@@ -1288,6 +1306,13 @@ static void dw_mipi_dsi_pre_enable(struct dw_mipi_dsi *dsi)
 	mipi_dphy_init(dsi);
 	mipi_dphy_power_on(dsi);
 	dw_mipi_dsi_host_power_on(dsi);
+
+	dsi->prepared = true;
+
+	mutex_unlock(&dsi->mutex);
+
+	if (dsi->slave)
+		dw_mipi_dsi_pre_enable(dsi->slave);
 }
 
 static void dw_mipi_dsi_enable(struct dw_mipi_dsi *dsi)
@@ -1372,6 +1397,9 @@ dw_mipi_dsi_encoder_atomic_check(struct drm_encoder *encoder,
 
 static int dw_mipi_dsi_loader_protect(struct dw_mipi_dsi *dsi, bool on)
 {
+	if (dsi->master)
+		dw_mipi_dsi_loader_protect(dsi->master, on);
+
 	if (on)
 		pm_runtime_get_sync(dsi->dev);
 	else
@@ -1450,32 +1478,6 @@ static const struct drm_connector_funcs dw_mipi_dsi_atomic_connector_funcs = {
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
 
-static int dw_mipi_dsi_dual_channel_probe(struct dw_mipi_dsi *dsi)
-{
-	struct device_node *np;
-	struct platform_device *secondary;
-
-	np = of_parse_phandle(dsi->dev->of_node, "rockchip,dual-channel", 0);
-	if (np) {
-		secondary = of_find_device_by_node(np);
-		dsi->slave = platform_get_drvdata(secondary);
-		of_node_put(np);
-
-		if (!dsi->slave)
-			return -EPROBE_DEFER;
-
-		dsi->slave->master = dsi;
-		//dsi->lanes /= 2;
-
-		dsi->slave->lanes = dsi->lanes;
-		dsi->slave->channel = dsi->channel;
-		dsi->slave->format = dsi->format;
-		dsi->slave->mode_flags = dsi->mode_flags;
-	}
-
-	return 0;
-}
-
 static int dw_mipi_dsi_register(struct drm_device *drm,
 				      struct dw_mipi_dsi *dsi)
 {
@@ -1546,6 +1548,50 @@ encoder_cleanup:
 	return ret;
 }
 
+static int dw_mipi_dsi_match_by_id(struct device *dev, void *data)
+{
+	struct dw_mipi_dsi *dsi = dev_get_drvdata(dev);
+	unsigned int *id = data;
+
+	return dsi->id == *id;
+}
+
+static struct dw_mipi_dsi *dw_mipi_dsi_find_by_id(struct device_driver *drv,
+						  unsigned int id)
+{
+	struct device *dev;
+
+	dev = driver_find_device(drv, NULL, &id, dw_mipi_dsi_match_by_id);
+	if (!dev)
+		return NULL;
+
+	return dev_get_drvdata(dev);
+}
+
+static void dw_mipi_dsi_rpm_enable(struct dw_mipi_dsi *dsi)
+{
+	if (!pm_runtime_enabled(dsi->dev))
+		pm_runtime_enable(dsi->dev);
+
+	if (dsi->slave && !pm_runtime_enabled(dsi->slave->dev))
+		pm_runtime_enable(dsi->slave->dev);
+
+	if (dsi->master && !pm_runtime_enabled(dsi->master->dev))
+		pm_runtime_enable(dsi->master->dev);
+}
+
+static void dw_mipi_dsi_rpm_disable(struct dw_mipi_dsi *dsi)
+{
+	if (pm_runtime_enabled(dsi->dev))
+		pm_runtime_disable(dsi->dev);
+
+	if (dsi->slave && pm_runtime_enabled(dsi->slave->dev))
+		pm_runtime_disable(dsi->slave->dev);
+
+	if (dsi->master && pm_runtime_enabled(dsi->master->dev))
+		pm_runtime_enable(dsi->master->dev);
+}
+
 static int dw_mipi_dsi_bind(struct device *dev, struct device *master,
 			     void *data)
 {
@@ -1553,18 +1599,29 @@ static int dw_mipi_dsi_bind(struct device *dev, struct device *master,
 	struct dw_mipi_dsi *dsi = dev_get_drvdata(dev);
 	int ret;
 
-	ret = dw_mipi_dsi_dual_channel_probe(dsi);
-	if (ret)
-		return ret;
-
-	if (dsi->master)
-		return 0;
-
 	dsi->panel = of_drm_find_panel(dsi->client);
 	if (!dsi->panel) {
 		dsi->bridge = of_drm_find_bridge(dsi->client);
 		if (!dsi->bridge)
 			return -EPROBE_DEFER;
+	}
+
+	if (dsi->id) {
+		dsi->master = dw_mipi_dsi_find_by_id(dev->driver, 0);
+		if (!dsi->master)
+			return -EPROBE_DEFER;
+	}
+
+	if (dsi->lanes > 4) {
+		dsi->slave = dw_mipi_dsi_find_by_id(dev->driver, 1);
+		if (!dsi->slave)
+			return -EPROBE_DEFER;
+
+		dsi->lanes /= 2;
+		dsi->slave->lanes = dsi->lanes;
+		dsi->slave->channel = dsi->channel;
+		dsi->slave->format = dsi->format;
+		dsi->slave->mode_flags = dsi->mode_flags;
 	}
 
 	ret = dw_mipi_dsi_register(drm, dsi);
@@ -1575,9 +1632,7 @@ static int dw_mipi_dsi_bind(struct device *dev, struct device *master,
 
 	dev_set_drvdata(dev, dsi);
 
-	pm_runtime_enable(dev);
-	if (dsi->slave)
-		pm_runtime_enable(dsi->slave->dev);
+	dw_mipi_dsi_rpm_enable(dsi);
 
 	return ret;
 }
@@ -1587,9 +1642,10 @@ static void dw_mipi_dsi_unbind(struct device *dev, struct device *master,
 {
 	struct dw_mipi_dsi *dsi = dev_get_drvdata(dev);
 
-	pm_runtime_disable(dev);
-	if (dsi->slave)
-		pm_runtime_disable(dsi->slave->dev);
+	dw_mipi_dsi_rpm_disable(dsi);
+
+ 	if (dsi->panel)
+ 		drm_panel_detach(dsi->panel);
 }
 
 static const struct component_ops dw_mipi_dsi_ops = {
@@ -1766,6 +1822,8 @@ static int dw_mipi_dsi_probe(struct platform_device *pdev)
 	dsi = devm_kzalloc(dev, sizeof(*dsi), GFP_KERNEL);
 	if (!dsi)
 		return -ENOMEM;
+
+	mutex_init(&dsi->mutex);
 
 	dsi_id = of_alias_get_id(np, "dsi");
 	if (dsi_id < 0)

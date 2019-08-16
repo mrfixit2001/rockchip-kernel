@@ -362,7 +362,25 @@ int kbase_devfreq_init(struct kbase_device *kbdev)
 		return err;
 
 	kbdev->devfreq = devfreq_add_device(kbdev->dev, dp,
-				"performance", NULL);
+#if defined(CONFIG_MALI_FREQ_DEFAULT_GOV_SIMPLE_ONDEMAND)
+		"simple_ondemand",
+#elif defined(CONFIG_MALI_FREQ_DEFAULT_GOV_PERFORMANCE)
+		"performance",
+#elif defined(CONFIG_MALI_FREQ_DEFAULT_GOV_POWERSAVE)
+		"powersave",
+#elif defined(CONFIG_MALI_FREQ_DEFAULT_GOV_MRFIXEDFREQ5)
+		"mrfixedfreq5",
+#elif defined(CONFIG_MALI_FREQ_DEFAULT_GOV_MRFIXEDFREQ6)
+		"mrfixedfreq6",
+#elif defined(CONFIG_MALI_FREQ_DEFAULT_GOV_MRFIXEDFREQ7)
+		"mrfixedfreq7",
+#elif defined(CONFIG_MALI_FREQ_DEFAULT_GOV_MRFIXEDFREQ8)
+		"mrfixedfreq8",
+#else
+		"simple_ondemand",
+#endif
+		 NULL);
+
 	if (IS_ERR(kbdev->devfreq)) {
 		kbase_devfreq_term_freq_table(kbdev);
 		return PTR_ERR(kbdev->devfreq);

@@ -454,6 +454,8 @@ static u32 rk_tsadcv2_temp_to_code(struct chip_tsadc_table table,
 				   int temp)
 {
 	int high, low, mid;
+	unsigned long num;
+	unsigned int denom;
 	u32 error = table.data_mask;
 
 	low = 0;
@@ -472,6 +474,26 @@ static u32 rk_tsadcv2_temp_to_code(struct chip_tsadc_table table,
 		else
 			low = mid + 1;
 		mid = (low + high) / 2;
+	}
+
+	/*
+	 * The conversion code granularity provided by the table. Let's
+	 * assume that the relationship between temperature and
+	 * analog value between 2 table entries is linear and interpolate
+	 * to produce less granular result.
+	 */
+	num = abs(table.id[mid + 1].code - table.id[mid].code);
+	num *= temp - table.id[mid].temp;
+	denom = table.id[mid + 1].temp - table.id[mid].temp;
+
+	switch (table.mode) {
+	case ADC_DECREMENT:
+		return table.id[mid].code - (num / denom);
+	case ADC_INCREMENT:
+		return table.id[mid].code + (num / denom);
+	default:
+		pr_err("%s: unknown table mode: %d\n", __func__, table.mode);
+		return error;
 	}
 
 exit:
@@ -499,8 +521,8 @@ static int rk_tsadcv2_code_to_temp(struct chip_tsadc_table table, u32 code,
 			return -EAGAIN;		/* Incorrect reading */
 
 		while (low <= high) {
-			if (code >= table.id[mid].code &&
-			    code < table.id[mid - 1].code)
+			if (code <= table.id[mid].code &&
+			    code > table.id[mid - 1].code)
 				break;
 			else if (code < table.id[mid].code)
 				low = mid + 1;
@@ -619,10 +641,10 @@ static void rk_tsadcv3_initialize(struct regmap *grf, void __iomem *regs,
 		regmap_write(grf, GRF_TSADC_TESTBIT_L, GRF_TSADC_VCM_EN_L);
 		regmap_write(grf, GRF_TSADC_TESTBIT_H, GRF_TSADC_VCM_EN_H);
 
-		udelay(100); /* The spec note says at least 15 us */
+		usleep_range(15, 100); /* The spec note says at least 15 us */
 		regmap_write(grf, GRF_SARADC_TESTBIT, GRF_SARADC_TESTBIT_ON);
 		regmap_write(grf, GRF_TSADC_TESTBIT_H, GRF_TSADC_TESTBIT_H_ON);
-		udelay(200); /* The spec note says at least 90 us */
+		usleep_range(90, 200); /* The spec note says at least 90 us */
 
 		writel_relaxed(TSADCV3_AUTO_PERIOD_TIME, regs + TSADCV2_AUTO_PERIOD);
 		writel_relaxed(TSADCV2_HIGHT_INT_DEBOUNCE_COUNT,

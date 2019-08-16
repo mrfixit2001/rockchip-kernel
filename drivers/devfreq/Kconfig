@@ -84,6 +84,48 @@ config DEVFREQ_GOV_USERSPACE
 	  Otherwise, the governor does not change the frequnecy
 	  given at the initialization.
 
+config MALI_FREQ_DEFAULT_GOV_SIMPLE_ONDEMAND
+	bool "simple_ondemand default mali"
+	select DEVFREQ_GOV_SIMPLE_ONDEMAND
+	help
+	  Use the devfreq governor simple-ondemand as default for mali.
+
+config MALI_FREQ_DEFAULT_GOV_PERFORMANCE
+	bool "performance default mali"
+	select DEVFREQ_GOV_PERFORMANCE
+	help
+	  Use the devfreq governor performance as default for mali.
+
+config MALI_FREQ_DEFAULT_GOV_POWERSAVE
+	bool "powersave default mali"
+	select DEVFREQ_GOV_POWERSAVE
+	help
+	  Use the devfreq governor powersave as default for mali.
+
+config MALI_FREQ_DEFAULT_GOV_MRFIXEDFREQ5
+	bool "mrfixedfreq5 default mali"
+	select DEVFREQ_GOV_MRFIXEDFREQ5
+	help
+	  Use the devfreq governor mrfixedfreq5 (hard-set 500mhz) as default for mali.
+
+config MALI_FREQ_DEFAULT_GOV_MRFIXEDFREQ6
+	bool "mrfixedfreq6 default mali"
+	select DEVFREQ_GOV_MRFIXEDFREQ6
+	help
+	  Use the devfreq governor mrfixedfreq6 (hard-set 600mhz) as default for mali.
+
+config MALI_FREQ_DEFAULT_GOV_MRFIXEDFREQ7
+	bool "mrfixedfreq7 default mali"
+	select DEVFREQ_GOV_MRFIXEDFREQ7
+	help
+	  Use the devfreq governor mrfixedfreq7 (hard-set 700mhz) as default for mali.
+
+config MALI_FREQ_DEFAULT_GOV_MRFIXEDFREQ8
+	bool "mrfixedfreq8 default mali"
+	select DEVFREQ_GOV_MRFIXEDFREQ8
+	help
+	  Use the devfreq governor mrfixedfreq8 (hard-set 800mhz) as default for mali.
+
 comment "DEVFREQ Drivers"
 
 config ARM_EXYNOS4_BUS_DEVFREQ

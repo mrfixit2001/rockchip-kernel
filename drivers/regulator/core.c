@@ -86,6 +86,7 @@ struct regulator_enable_gpio {
 	u32 enable_count;	/* a number of enabled shared GPIO */
 	u32 request_count;	/* a number of requested shared GPIO */
 	unsigned int ena_gpio_invert:1;
+	bool removed;
 };
 
 /*
@@ -1968,29 +1969,88 @@ static int regulator_ena_gpio_request(struct regulator_dev *rdev,
 
 update_ena_gpio_to_rdev:
 	pin->request_count++;
-	rdev->ena_pin = pin;
+	rdev->ena_pin_cnt = 1;
+	rdev->ena_pin = kzalloc(sizeof(struct regulator_enable_gpio), GFP_KERNEL);
+	rdev->ena_pin[0] = *pin;
+	return 0;
+}
+static int regulator_ena_gpios_request(struct regulator_dev *rdev,
+				const struct regulator_config *config)
+{
+	struct regulator_enable_gpio *pin;
+	struct gpio_desc *gpiod;
+	int ret, i, used;
+
+	if (!config->nr_gpios)
+		return -EINVAL;
+
+	rdev->ena_pin_cnt = config->nr_gpios;
+	rdev->ena_pin = kzalloc(sizeof(struct regulator_enable_gpio) * config->nr_gpios, GFP_KERNEL);
+
+	for (i = 0; i < config->nr_gpios; i++) {
+		gpiod = gpio_to_desc(config->ena_gpios[i].gpio);
+
+		used = 0;
+		list_for_each_entry(pin, &regulator_ena_gpio_list, list) {
+			if (pin->gpiod == gpiod) {
+				rdev_dbg(rdev, "GPIO %d is already used\n",
+					config->ena_gpio);
+				pin->request_count++;
+				rdev->ena_pin[i] = *pin;
+				used = 1;
+			}
+		}
+
+		if (used==0) {
+			ret = gpio_request_one(config->ena_gpios[i].gpio,
+						GPIOF_DIR_OUT | config->ena_gpio_flags,
+						rdev_get_name(rdev));
+			if (ret)
+				return ret;
+
+			pin = kzalloc(sizeof(struct regulator_enable_gpio), GFP_KERNEL);
+			if (pin == NULL) {
+				gpio_free(config->ena_gpios[i].gpio);
+				return -ENOMEM;
+			}
+
+			pin->gpiod = gpiod;
+			pin->ena_gpio_invert = config->ena_gpio_invert;
+			list_add(&pin->list, &regulator_ena_gpio_list);
+
+			pin->request_count++;
+			rdev->ena_pin[i] = *pin;
+		}
+	}
+
 	return 0;
 }
 
 static void regulator_ena_gpio_free(struct regulator_dev *rdev)
 {
 	struct regulator_enable_gpio *pin, *n;
+	int i;
 
-	if (!rdev->ena_pin)
+	if (!rdev->ena_pin_cnt)
 		return;
 
 	/* Free the GPIO only in case of no use */
 	list_for_each_entry_safe(pin, n, &regulator_ena_gpio_list, list) {
-		if (pin->gpiod == rdev->ena_pin->gpiod) {
-			if (pin->request_count <= 1) {
-				pin->request_count = 0;
-				gpiod_put(pin->gpiod);
-				list_del(&pin->list);
-				kfree(pin);
-				rdev->ena_pin = NULL;
-				return;
-			} else {
-				pin->request_count--;
+		for (i = 0; i < rdev->ena_pin_cnt; i++) {
+			if (!rdev->ena_pin[i].removed) {
+				if (pin->gpiod == rdev->ena_pin[i].gpiod) {
+					if (pin->request_count <= 1) {
+						pin->request_count = 0;
+						gpiod_put(pin->gpiod);
+						list_del(&pin->list);
+						kfree(pin);
+						rdev->ena_pin[i].removed = true;
+						if (rdev->ena_pin_cnt == 1)
+							rdev->ena_pin_cnt = 0;
+					} else {
+						pin->request_count--;
+					}
+				}
 			}
 		}
 	}
@@ -2006,32 +2066,41 @@ static void regulator_ena_gpio_free(struct regulator_dev *rdev)
  */
 static int regulator_ena_gpio_ctrl(struct regulator_dev *rdev, bool enable)
 {
-	struct regulator_enable_gpio *pin = rdev->ena_pin;
+	struct regulator_enable_gpio *pin;
+	int i;
 
-	if (!pin)
+	if (!rdev->ena_pin_cnt)
 		return -EINVAL;
 
-	if (enable) {
-		/* Enable GPIO at initial use */
-		if (pin->enable_count == 0)
-			gpiod_set_value_cansleep(pin->gpiod,
-						 !pin->ena_gpio_invert);
+	for (i = 0; i < rdev->ena_pin_cnt; i++) {
+		if (!rdev->ena_pin[i].removed) {
+			pin = &rdev->ena_pin[i];
 
-		pin->enable_count++;
-	} else {
-		if (pin->enable_count > 1) {
-			pin->enable_count--;
-			return 0;
-		}
+			if (!pin)
+				return -EINVAL;
 
-		/* Disable GPIO if not used */
-		if (pin->enable_count <= 1) {
-			gpiod_set_value_cansleep(pin->gpiod,
-						 pin->ena_gpio_invert);
-			pin->enable_count = 0;
+			if (enable) {
+				/* Enable GPIO at initial use */
+				if (pin->enable_count == 0)
+					gpiod_set_value_cansleep(pin->gpiod,
+								 !pin->ena_gpio_invert);
+
+				pin->enable_count++;
+			} else {
+				if (pin->enable_count > 1) {
+					pin->enable_count--;
+					return 0;
+				}
+
+				/* Disable GPIO if not used */
+				if (pin->enable_count <= 1) {
+					gpiod_set_value_cansleep(pin->gpiod,
+								 pin->ena_gpio_invert);
+					pin->enable_count = 0;
+				}
+			}
 		}
 	}
-
 	return 0;
 }
 
@@ -2114,7 +2183,7 @@ static int _regulator_do_enable(struct regulator_dev *rdev)
 		}
 	}
 
-	if (rdev->ena_pin) {
+	if (rdev->ena_pin_cnt) {
 		if (!rdev->ena_gpio_state) {
 			ret = regulator_ena_gpio_ctrl(rdev, true);
 			if (ret < 0)
@@ -2218,7 +2287,7 @@ static int _regulator_do_disable(struct regulator_dev *rdev)
 
 	trace_regulator_disable(rdev_get_name(rdev));
 
-	if (rdev->ena_pin) {
+	if (rdev->ena_pin_cnt) {
 		if (rdev->ena_gpio_state) {
 			ret = regulator_ena_gpio_ctrl(rdev, false);
 			if (ret < 0)
@@ -2440,7 +2509,7 @@ EXPORT_SYMBOL_GPL(regulator_disable_deferred);
 static int _regulator_is_enabled(struct regulator_dev *rdev)
 {
 	/* A GPIO control always takes precedence */
-	if (rdev->ena_pin)
+	if (rdev->ena_pin_cnt)
 		return rdev->ena_gpio_state;
 
 	/* If we don't know then assume that the regulator is always on */
@@ -3839,7 +3908,7 @@ static umode_t regulator_attr_is_visible(struct kobject *kobj,
 		return ops->get_mode ? mode : 0;
 
 	if (attr == &dev_attr_state.attr)
-		return (rdev->ena_pin || ops->is_enabled) ? mode : 0;
+		return (rdev->ena_pin_cnt || ops->is_enabled) ? mode : 0;
 
 	if (attr == &dev_attr_status.attr)
 		return ops->get_status ? mode : 0;
@@ -4348,8 +4417,7 @@ regulator_register(const struct regulator_desc *regulator_desc,
 			goto clean;
 	}
 
-	if ((config->ena_gpio || config->ena_gpio_initialized) &&
-	    gpio_is_valid(config->ena_gpio)) {
+	if ((config->ena_gpio || config->ena_gpio_initialized) && gpio_is_valid(config->ena_gpio)) {
 		mutex_lock(&regulator_list_mutex);
 		ret = regulator_ena_gpio_request(rdev, config);
 		mutex_unlock(&regulator_list_mutex);
@@ -4357,6 +4425,18 @@ regulator_register(const struct regulator_desc *regulator_desc,
 			rdev_err(rdev, "Failed to request enable GPIO%d: %d\n",
 				 config->ena_gpio, ret);
 			goto clean;
+		}
+	} else {
+		// Allow using GPIOS property if GPIO is not used
+		if ((config->ena_gpios || config->ena_gpios_initialized) && config->nr_gpios > 0) {
+			mutex_lock(&regulator_list_mutex);
+			ret = regulator_ena_gpios_request(rdev, config);
+			mutex_unlock(&regulator_list_mutex);
+			if (ret != 0) {
+				rdev_err(rdev, "Failed to request enable GPIO%d: %d\n",
+					 config->ena_gpio, ret);
+				goto clean;
+			}
 		}
 	}
 

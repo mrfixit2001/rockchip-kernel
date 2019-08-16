@@ -372,6 +372,11 @@ struct regulator_config {
 
 	bool ena_gpio_initialized;
 	int ena_gpio;
+
+	bool ena_gpios_initialized;
+	struct gpio *ena_gpios;
+	int nr_gpios;
+
 	unsigned int ena_gpio_invert:1;
 	unsigned int ena_gpio_flags;
 };
@@ -416,6 +421,7 @@ struct regulator_dev {
 	struct dentry *debugfs;
 
 	struct regulator_enable_gpio *ena_pin;
+	unsigned int ena_pin_cnt;
 	unsigned int ena_gpio_state:1;
 
 	/* time when this regulator was disabled last time */

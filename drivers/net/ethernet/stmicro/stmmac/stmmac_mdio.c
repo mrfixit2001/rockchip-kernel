@@ -153,9 +153,11 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 						"snps,reset-active-low");
 			of_property_read_u32_array(np,
 				"snps,reset-delays-us", data->delays, 3);
+		}
 
-			if (gpio_request(data->reset_gpio, "mdio-reset"))
-				return 0;
+		if (gpio_request(data->reset_gpio, "mdio-reset")) {
+			pr_err("stmmac_mdio_reset: failed to request %d\n", data->reset_gpio);
+			goto phy_reset;
 		}
 
 		gpio_direction_output(data->reset_gpio,
@@ -170,9 +172,12 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 		gpio_set_value(data->reset_gpio, data->active_low ? 1 : 0);
 		if (data->delays[2])
 			msleep(DIV_ROUND_UP(data->delays[2], 1000));
+
+		gpio_free(data->reset_gpio);
 	}
 #endif
 
+phy_reset:
 	if (data->phy_reset) {
 		pr_debug("stmmac_mdio_reset: calling phy_reset\n");
 		data->phy_reset(priv->plat->bsp_priv);
@@ -183,6 +188,9 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 	 * on MDC, so perform a dummy mdio read.
 	 */
 	writel(0, priv->ioaddr + mii_address);
+
+	// ayufan: add 10ms delay for gmac to boot
+	msleep(10);
 #endif
 	return 0;
 }

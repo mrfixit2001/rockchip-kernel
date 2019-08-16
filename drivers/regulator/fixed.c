@@ -53,6 +53,7 @@ of_get_fixed_voltage_config(struct device *dev,
 	struct fixed_voltage_config *config;
 	struct device_node *np = dev->of_node;
 	struct regulator_init_data *init_data;
+	int gpio, i;
 
 	config = devm_kzalloc(dev, sizeof(struct fixed_voltage_config),
 								 GFP_KERNEL);
@@ -92,6 +93,39 @@ of_get_fixed_voltage_config(struct device *dev,
 	if ((config->gpio == -ENODEV) || (config->gpio == -EPROBE_DEFER))
 		return ERR_PTR(-EPROBE_DEFER);
 
+	if (!gpio_is_valid(config->gpio)) {
+		/* Add option to specify multiple GPIOs in the GPIOS property when GPIO property is not used */
+		config->nr_gpios = of_gpio_named_count(np, "gpios");
+		if (config->nr_gpios > 0) {
+			config->gpios = devm_kzalloc(dev,
+						sizeof(struct gpio) * config->nr_gpios,
+						GFP_KERNEL);
+			if (!config->gpios)
+				return ERR_PTR(-ENOMEM);
+
+			for (i = 0; i < config->nr_gpios; i++) {
+				gpio = of_get_named_gpio(np, "gpios", i);
+				if (gpio < 0)
+					break;
+
+				/*
+				 * of_get_named_gpio() currently returns ENODEV rather than
+				 * EPROBE_DEFER. This code attempts to be compatible with both
+				 * for now; the ENODEV check can be removed once the API is fixed.
+				 * of_get_named_gpio() doesn't differentiate between a missing
+				 * property (which would be fine here, since the GPIO is optional)
+				 * and some other error. Patches have been posted for both issues.
+				 * Once they are check in, we should replace this with:
+				 * if (config->gpio < 0 && config->gpio != -ENOENT)
+				 */
+				if ((gpio == -ENODEV) || (gpio == -EPROBE_DEFER))
+					return ERR_PTR(-EPROBE_DEFER);
+
+				config->gpios[i].gpio = gpio;
+			}
+		}
+	}
+
 	of_property_read_u32(np, "startup-delay-us", &config->startup_delay);
 
 	config->enable_high = of_property_read_bool(np, "enable-active-high");
@@ -112,7 +146,7 @@ static int reg_fixed_voltage_probe(struct platform_device *pdev)
 	struct fixed_voltage_config *config;
 	struct fixed_voltage_data *drvdata;
 	struct regulator_config cfg = { };
-	int ret;
+	int ret, i;
 
 	drvdata = devm_kzalloc(&pdev->dev, sizeof(struct fixed_voltage_data),
 			       GFP_KERNEL);
@@ -164,6 +198,25 @@ static int reg_fixed_voltage_probe(struct platform_device *pdev)
 		cfg.ena_gpio = config->gpio;
 		if (pdev->dev.of_node)
 			cfg.ena_gpio_initialized = true;
+	} else {
+		// Allow using GPIOS property if GPIO property unused
+		if (config->nr_gpios > 0) {
+			cfg.ena_gpios = devm_kzalloc(&pdev->dev,
+						sizeof(struct gpio) * config->nr_gpios,
+						GFP_KERNEL);
+			if (!cfg.ena_gpios)
+				return -ENOMEM;
+
+			cfg.nr_gpios = 0;
+			for (i = 0; i < config->nr_gpios; i++) {
+				if (gpio_is_valid(config->gpios[i].gpio)) {
+					cfg.nr_gpios = cfg.nr_gpios + 1;
+					cfg.ena_gpios[i].gpio = config->gpios[i].gpio;
+					if (pdev->dev.of_node)
+						cfg.ena_gpios_initialized = true;
+				}
+			}
+		}
 	}
 	cfg.ena_gpio_invert = !config->enable_high;
 	if (config->enabled_at_boot) {

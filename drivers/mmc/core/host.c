@@ -406,6 +406,7 @@ int mmc_add_host(struct mmc_host *host)
 
 	/* Trigger the LED (if available) */
 	ledtrig_disk_activity();
+	ledtrig_disk_activity_inverted();
 
 #ifdef CONFIG_DEBUG_FS
 	mmc_add_host_debugfs(host);

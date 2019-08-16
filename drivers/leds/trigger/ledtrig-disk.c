@@ -20,7 +20,6 @@
 
 DEFINE_LED_TRIGGER(ledtrig_disk);
 DEFINE_LED_TRIGGER(ledtrig_ide);
-static unsigned long ide_blink_delay = BLINK_DELAY;
 
 void ledtrig_disk_activity(void)
 {
@@ -39,8 +38,9 @@ static int __init ledtrig_disk_init(void)
 	return 0;
 }
 
-static void __exit ledtrig_ide_exit(void)
+static void __exit ledtrig_disk_exit(void)
 {
+	led_trigger_unregister_simple(ledtrig_disk);
 	led_trigger_unregister_simple(ledtrig_ide);
 }
 
