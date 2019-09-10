@@ -786,8 +786,8 @@
 &io_domains {
 	status = "okay";
 
-	bt656-supply = <&vcc_3v0>; /* bt656_gpio2ab_ms */
-	audio-supply = <&vcc_3v0>; /* audio_gpio3d4a_ms */
+	bt656-supply = <&vcc1v8_dvp>; /* bt656_gpio2ab_ms */
+	audio-supply = <&vcca3v0_codec>; /* audio_gpio3d4a_ms */
 	sdmmc-supply = <&vcc_sdio>; /* sdmmc_gpio4b_ms */
 	gpio1830-supply = <&vcc_3v0>; /* gpio1833_gpio4cd_ms */
 };
@@ -869,15 +869,15 @@
 };
 
 &threshold {
-	temperature = <80000>;
+	temperature = <75000>;
 };
 
 &target {
-	temperature = <95000>;
+	temperature = <80000>;
 };
 
 &soc_crit {
-	temperature = <100000>;
+	temperature = <85000>;
 };
 
 &cooling_maps {
