@@ -28,7 +28,7 @@
 struct intf_priv {
 
 	u8 *intf_dev;
-	u32	max_iosz; 	//USB2.0: 128, USB1.1: 64, SDIO:64
+	u32	max_iosz;	//USB2.0: 128, USB1.1: 64, SDIO:64
 	u32	max_xmitsz; //USB2.0: unlimited, SDIO:512
 	u32	max_recvsz; //USB2.0: unlimited, SDIO:512
 
@@ -51,10 +51,8 @@ The protection mechanism is through the pending queue.
 	_mutex ioctl_mutex;
 
 
-#ifdef PLATFORM_LINUX
-	#ifdef CONFIG_USB_HCI
 	// when in USB, IO is through interrupt in/out endpoints
-	struct usb_device 	*udev;
+	struct usb_device	*udev;
 	PURB	piorw_urb;
 	u8 io_irp_cnt;
 	u8 bio_irp_pending;
@@ -62,31 +60,7 @@ The protection mechanism is through the pending queue.
 	_timer	io_timer;
 	u8 bio_irp_timeout;
 	u8 bio_timer_cancel;
-	#endif
-#endif
-
-#ifdef PLATFORM_OS_XP
-	#ifdef CONFIG_SDIO_HCI
-		// below is for io_rwmem...
-		PMDL pmdl;
-		PSDBUS_REQUEST_PACKET  sdrp;
-		PSDBUS_REQUEST_PACKET  recv_sdrp;
-		PSDBUS_REQUEST_PACKET  xmit_sdrp;
-
-			PIRP		piorw_irp;
-
-	#endif
-	#ifdef CONFIG_USB_HCI
-		PURB	piorw_urb;
-		PIRP		piorw_irp;
-		u8 io_irp_cnt;
-		u8 bio_irp_pending;
-		_sema io_retevt;
-	#endif
-#endif
-
 };
-
 
 #ifdef CONFIG_R871X_TEST
 int rtw_start_pseudo_adhoc(_adapter *padapter);
@@ -118,13 +92,9 @@ u16 rtw_recv_select_queue(struct sk_buff *skb);
 int rtw_ndev_notifier_register(void);
 void rtw_ndev_notifier_unregister(void);
 
-#include "../os_dep/linux/rtw_proc.h"
+#include "../os_dep/rtw_proc.h"
 #endif //PLATFORM_LINUX
 
-
-#ifdef PLATFORM_FREEBSD
-extern int rtw_ioctl(struct ifnet * ifp, u_long cmd, caddr_t data);
-#endif
 
 void rtw_ips_dev_unload(_adapter *padapter);
 #ifdef CONFIG_IPS
@@ -149,4 +119,3 @@ int rtw_drv_register_netdev(_adapter *padapter);
 void rtw_ndev_destructor(_nic_hdl ndev);
 
 #endif	//_OSDEP_INTF_H_
-

@@ -151,6 +151,12 @@ static const u16 csc_coeff_rgb_in_eitu709[3][4] = {
 	{ 0x6756, 0x78ab, 0x2000, 0x0200 }
 };
 
+static const u16 csc_coeff_full_to_limited[3][4] = {
+	{ 0x36f7, 0x0000, 0x0000, 0x0040 },
+	{ 0x0000, 0x36f7, 0x0000, 0x0040 },
+	{ 0x0000, 0x0000, 0x36f7, 0x0040 }
+};
+
 struct hdmi_vmode {
 	bool mdataenablepolarity;
 
@@ -167,6 +173,7 @@ struct hdmi_data_info {
 	unsigned int enc_out_bus_format;
 	unsigned int enc_in_encoding;
 	unsigned int enc_out_encoding;
+	unsigned int quant_range;
 	unsigned int pix_repet_factor;
 	struct hdmi_vmode video_mode;
 	bool update;
@@ -265,11 +272,10 @@ struct dw_hdmi {
 
 	void (*write)(struct dw_hdmi *hdmi, u8 val, int offset);
 	u8 (*read)(struct dw_hdmi *hdmi, int offset);
-
-	bool initialized;		/* hdmi is enabled before bind */
-
 	void (*enable_audio)(struct dw_hdmi *hdmi);
 	void (*disable_audio)(struct dw_hdmi *hdmi);
+
+	bool initialized;		/* hdmi is enabled before bind */
 };
 
 #define HDMI_IH_PHY_STAT0_RX_SENSE \
@@ -1060,7 +1066,25 @@ static void hdmi_video_sample(struct dw_hdmi *hdmi)
 
 static int is_color_space_conversion(struct dw_hdmi *hdmi)
 {
-	return hdmi->hdmi_data.enc_in_bus_format != hdmi->hdmi_data.enc_out_bus_format;
+	const struct drm_display_mode mode = hdmi->previous_mode;
+	bool is_cea_default;
+
+	is_cea_default = (drm_match_cea_mode(&mode) > 1) &&
+			 (hdmi->hdmi_data.quant_range ==
+			  HDMI_QUANTIZATION_RANGE_DEFAULT);
+
+	/*
+	 * When output is rgb limited range or default range with
+	 * cea mode, csc should be enabled.
+	 */
+	if (hdmi->hdmi_data.enc_in_bus_format !=
+	    hdmi->hdmi_data.enc_out_bus_format ||
+	    ((hdmi->hdmi_data.quant_range == HDMI_QUANTIZATION_RANGE_LIMITED ||
+	      is_cea_default) &&
+	     hdmi_bus_fmt_is_rgb(hdmi->hdmi_data.enc_in_bus_format)))
+		return 1;
+
+	return 0;
 }
 
 static int is_color_space_decimation(struct dw_hdmi *hdmi)
@@ -1092,16 +1116,22 @@ static void dw_hdmi_update_csc_coeffs(struct dw_hdmi *hdmi)
 	const u16 (*csc_coeff)[3][4] = &csc_coeff_default;
 	unsigned i;
 	u32 csc_scale = 1;
+	int enc_out_rgb, enc_in_rgb;
+
+	enc_out_rgb = hdmi_bus_fmt_is_rgb(hdmi->hdmi_data.enc_out_bus_format);
+	enc_in_rgb = hdmi_bus_fmt_is_rgb(hdmi->hdmi_data.enc_in_bus_format);
 
 	if (is_color_space_conversion(hdmi)) {
-		if (hdmi_bus_fmt_is_rgb(hdmi->hdmi_data.enc_out_bus_format)) {
+		if (enc_out_rgb && enc_in_rgb) {
+			csc_coeff = &csc_coeff_full_to_limited;
+			csc_scale = 0;
+		} else if (enc_out_rgb) {
 			if (hdmi->hdmi_data.enc_out_encoding ==
 						V4L2_YCBCR_ENC_601)
 				csc_coeff = &csc_coeff_rgb_out_eitu601;
 			else
 				csc_coeff = &csc_coeff_rgb_out_eitu709;
-		} else if (hdmi_bus_fmt_is_rgb(
-					hdmi->hdmi_data.enc_in_bus_format)) {
+		} else if (enc_in_rgb) {
 			if (hdmi->hdmi_data.enc_out_encoding ==
 						V4L2_YCBCR_ENC_601)
 				csc_coeff = &csc_coeff_rgb_in_eitu601;
@@ -1696,6 +1726,8 @@ static void hdmi_config_AVI(struct dw_hdmi *hdmi, struct drm_display_mode *mode)
 	struct hdmi_avi_infoframe frame;
 	u8 val;
 	bool is_hdmi2 = false;
+	enum hdmi_quantization_range rgb_quant_range =
+		hdmi->hdmi_data.quant_range;
 
 	if (hdmi_bus_fmt_is_yuv420(hdmi->hdmi_data.enc_out_bus_format) ||
 	    hdmi->connector.display_info.hdmi.scdc.supported)
@@ -1703,6 +1735,12 @@ static void hdmi_config_AVI(struct dw_hdmi *hdmi, struct drm_display_mode *mode)
 	/* Initialise info frame from DRM mode */
 	drm_hdmi_avi_infoframe_from_display_mode(&frame, mode, is_hdmi2);
 
+	/*
+	 * Ignore monitor selectable quantization, use quantization set
+	 * by the user
+	 */
+	drm_hdmi_avi_infoframe_quant_range(&frame, mode, rgb_quant_range,
+					   true);
 	if (hdmi_bus_fmt_is_yuv444(hdmi->hdmi_data.enc_out_bus_format))
 		frame.colorspace = HDMI_COLORSPACE_YUV444;
 	else if (hdmi_bus_fmt_is_yuv422(hdmi->hdmi_data.enc_out_bus_format))
@@ -1748,18 +1786,6 @@ static void hdmi_config_AVI(struct dw_hdmi *hdmi, struct drm_display_mode *mode)
 	frame.scan_mode = HDMI_SCAN_MODE_UNDERSCAN;
 	frame.content_type = HDMI_CONTENT_TYPE_GRAPHICS;
 	frame.itc = true;
-
-	if (hdmi_bus_fmt_is_rgb(hdmi->hdmi_data.enc_out_bus_format)) {
-		frame.colorimetry = HDMI_COLORIMETRY_NONE;
-		frame.extended_colorimetry = 0;
-		frame.quantization_range = HDMI_QUANTIZATION_RANGE_FULL;
-		frame.ycc_quantization_range = HDMI_YCC_QUANTIZATION_RANGE_FULL;
-	} else {
-		frame.quantization_range = HDMI_QUANTIZATION_RANGE_LIMITED;
-		frame.ycc_quantization_range = HDMI_YCC_QUANTIZATION_RANGE_LIMITED;
-	}
-
-	hdmi_infoframe_log(KERN_INFO, hdmi->dev, &frame);
 
 	/*
 	 * The Designware IP uses a different byte format from standard
@@ -1854,8 +1880,6 @@ static void hdmi_config_vendor_specific_infoframe(struct dw_hdmi *hdmi,
 		return;
 	}
 
-	hdmi_infoframe_log(KERN_INFO, hdmi->dev, &frame);
-
 	/* Set the length of HDMI vendor specific InfoFrame payload */
 	hdmi_writeb(hdmi, buffer[2], HDMI_FC_VSDSIZE);
 
@@ -1926,8 +1950,6 @@ static void hdmi_config_hdr_infoframe(struct dw_hdmi *hdmi)
 		DRM_ERROR("couldn't set HDR metadata in infoframe\n");
 		return;
 	}
-
-	hdmi_infoframe_log(KERN_INFO, hdmi->dev, &frame);
 
 	hdmi_writeb(hdmi, frame.version, HDMI_FC_DRM_HB0);
 	hdmi_writeb(hdmi, frame.length, HDMI_FC_DRM_HB1);
@@ -2031,14 +2053,11 @@ static void hdmi_av_composer(struct dw_hdmi *hdmi,
 	dev_dbg(hdmi->dev, "final tmdsclk = %d\n", vmode->mtmdsclock);
 
 	/* Set up HDMI_FC_INVIDCONF
-	 * fc_invidconf.HDCP_keepout must be set (1'b1)
-	 * when activate the scrambler feature.
+	 * Some display equipments require that the interval
+	 * between Video Data and Data island must be at least 58 pixels,
+	 * and fc_invidconf.HDCP_keepout set (1'b1) can meet the requirement.
 	 */
-	inv_val = (vmode->mtmdsclock > 340000000 ||
-		   (hdmi_info->scdc.scrambling.low_rates &&
-		    hdmi->scramble_low_rates) ?
-		   HDMI_FC_INVIDCONF_HDCP_KEEPOUT_ACTIVE :
-		   HDMI_FC_INVIDCONF_HDCP_KEEPOUT_INACTIVE);
+	inv_val = HDMI_FC_INVIDCONF_HDCP_KEEPOUT_ACTIVE;
 
 	inv_val |= mode->flags & DRM_MODE_FLAG_PVSYNC ?
 		HDMI_FC_INVIDCONF_VSYNC_IN_POLARITY_ACTIVE_HIGH :
@@ -2105,11 +2124,11 @@ static void hdmi_av_composer(struct dw_hdmi *hdmi,
 		if (vmode->mtmdsclock > 340000000 ||
 		    (hdmi_info->scdc.scrambling.low_rates &&
 		     hdmi->scramble_low_rates)) {
-			drm_scdc_readb(&hdmi->i2c->adap, SCDC_SINK_VERSION,
+			drm_scdc_readb(hdmi->ddc, SCDC_SINK_VERSION,
 				       &bytes);
-			drm_scdc_writeb(&hdmi->i2c->adap, SCDC_SOURCE_VERSION,
+			drm_scdc_writeb(hdmi->ddc, SCDC_SOURCE_VERSION,
 					bytes);
-			drm_scdc_set_scrambling(&hdmi->i2c->adap, 1);
+			drm_scdc_set_scrambling(hdmi->ddc, 1);
 			hdmi_writeb(hdmi, (u8)~HDMI_MC_SWRSTZ_TMDSSWRST_REQ,
 				    HDMI_MC_SWRSTZ);
 			hdmi_writeb(hdmi, 1, HDMI_FC_SCRAMBLER_CTRL);
@@ -2117,8 +2136,10 @@ static void hdmi_av_composer(struct dw_hdmi *hdmi,
 			hdmi_writeb(hdmi, 0, HDMI_FC_SCRAMBLER_CTRL);
 			hdmi_writeb(hdmi, (u8)~HDMI_MC_SWRSTZ_TMDSSWRST_REQ,
 				    HDMI_MC_SWRSTZ);
-			drm_scdc_set_scrambling(&hdmi->i2c->adap, 0);
+			drm_scdc_set_scrambling(hdmi->ddc, 0);
 		}
+	} else {
+		hdmi_writeb(hdmi, 0, HDMI_FC_SCRAMBLER_CTRL);
 	}
 
 	/* Set up horizontal active pixel width */
@@ -2326,6 +2347,13 @@ static int dw_hdmi_setup(struct dw_hdmi *hdmi, struct drm_display_mode *mode)
 			hdmi->plat_data->input_bus_encoding;
 	else
 		hdmi->hdmi_data.enc_in_encoding = V4L2_YCBCR_ENC_DEFAULT;
+
+	if (hdmi->plat_data->get_quant_range)
+		hdmi->hdmi_data.quant_range =
+			hdmi->plat_data->get_quant_range(data);
+	else
+		hdmi->hdmi_data.quant_range = HDMI_QUANTIZATION_RANGE_DEFAULT;
+
 	/*
 	 * According to the dw-hdmi specification 6.4.2
 	 * vp_pr_cd[3:0]:
@@ -2681,7 +2709,7 @@ dw_hdmi_connector_atomic_begin(struct drm_connector *connector,
 	unsigned int enc_in_encoding;
 	unsigned int enc_out_encoding;
 
-	if (!hdmi->hpd_state || !conn_state->crtc)
+	if (!conn_state->crtc)
 		return;
 
 	if (!hdmi->hdmi_data.video_mode.mpixelclock)
@@ -2732,7 +2760,7 @@ dw_hdmi_connector_atomic_flush(struct drm_connector *connector,
 	unsigned int out_bus_format = hdmi->hdmi_data.enc_out_bus_format;
 
 
-	if (!hdmi->hpd_state || !conn_state->crtc)
+	if (!conn_state->crtc)
 		return;
 
 	DRM_DEBUG("%s\n", __func__);
@@ -3874,21 +3902,6 @@ void dw_hdmi_unbind(struct device *dev, struct device *master, void *data)
 {
 	struct dw_hdmi *hdmi = dev_get_drvdata(dev);
 
-	mutex_lock(&hdmi->mutex);
-
-	/*
-	 * When system shutdown, hdmi should be disabled.
-	 * When system suspend, dw_hdmi_bridge_disable will disable hdmi first.
-	 * To prevent duplicate operation, we should determine whether hdmi
-	 * has been disabled.
-	 */
-	if (!hdmi->disabled) {
-		hdmi->disabled = true;
-		dw_hdmi_update_power(hdmi);
-		dw_hdmi_update_phy_mask(hdmi);
-	}
-	mutex_unlock(&hdmi->mutex);
-
 	if (hdmi->irq)
 		disable_irq(hdmi->irq);
 
@@ -3960,6 +3973,21 @@ void dw_hdmi_suspend(struct device *dev)
 		return;
 	}
 
+	mutex_lock(&hdmi->mutex);
+
+	/*
+	 * When system shutdown, hdmi should be disabled.
+	 * When system suspend, dw_hdmi_bridge_disable will disable hdmi first.
+	 * To prevent duplicate operation, we should determine whether hdmi
+	 * has been disabled.
+	 */
+	if (!hdmi->disabled) {
+		hdmi->disabled = true;
+		dw_hdmi_update_power(hdmi);
+		dw_hdmi_update_phy_mask(hdmi);
+	}
+	mutex_unlock(&hdmi->mutex);
+
 	if (hdmi->irq)
 		disable_irq(hdmi->irq);
 	cancel_delayed_work(&hdmi->work);
@@ -3984,6 +4012,20 @@ void dw_hdmi_resume(struct device *dev)
 		dw_hdmi_i2c_init(hdmi);
 	if (hdmi->irq)
 		enable_irq(hdmi->irq);
+	/*
+	 * HDMI status maybe incorrect in the following condition:
+	 * HDMI plug in -> system sleep ->  HDMI plug out -> system wake up.
+	 * At this time, cat /sys/class/drm/card 0-HDMI-A-1/status is connected.
+	 * There is no hpd interrupt, because HDMI is powerdown during suspend.
+	 * So we need check the current HDMI status in this case.
+	 */
+	if (hdmi->connector.status == connector_status_connected)
+		if (hdmi->phy.ops->read_hpd(hdmi, hdmi->phy.data) ==
+		    connector_status_disconnected) {
+			hdmi->hpd_state = false;
+			mod_delayed_work(hdmi->workqueue, &hdmi->work,
+					 msecs_to_jiffies(20));
+		}
 	mutex_unlock(&hdmi->mutex);
 }
 EXPORT_SYMBOL_GPL(dw_hdmi_resume);

@@ -30,7 +30,7 @@ static struct rc_map_list trn9_map = {
 	.map = {
 		.scan    = trn9,
 		.size    = ARRAY_SIZE(trn9),
-		.rc_type = RC_TYPE_NEC,
+		.rc_proto = RC_PROTO_NEC,
 		.name    = RC_MAP_TRN9,
 	}
 };

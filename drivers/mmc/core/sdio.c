@@ -648,7 +648,7 @@ try_again:
 	 * to make sure which speed mode should work.
 	 */
 	if (!powered_resume && (rocr & ocr & R4_18V_PRESENT)) {
-		err = mmc_set_uhs_voltage(host, ocr_card);
+		err = mmc_set_uhs_voltage(host, MMC_SIGNAL_VOLTAGE_180, ocr_card);
 		if (err == -EAGAIN) {
 			mmc_sdio_resend_if_cond(host, card);
 			retries--;

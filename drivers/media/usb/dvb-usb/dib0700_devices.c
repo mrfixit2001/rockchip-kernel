@@ -519,7 +519,7 @@ static u8 rc_request[] = { REQUEST_POLL_RC, 0 };
 static int dib0700_rc_query_old_firmware(struct dvb_usb_device *d)
 {
 	u8 key[4];
-	enum rc_type protocol;
+	enum rc_proto protocol;
 	u32 scancode;
 	u8 toggle;
 	int i;
@@ -548,7 +548,7 @@ static int dib0700_rc_query_old_firmware(struct dvb_usb_device *d)
 	dib0700_rc_setup(d, NULL); /* reset ir sensor data to prevent false events */
 
 	switch (d->props.rc.core.protocol) {
-	case RC_BIT_NEC:
+	case RC_PROTO_BIT_NEC:
 		/* NEC protocol sends repeat code as 0 0 0 FF */
 		if ((key[3-2] == 0x00) && (key[3-3] == 0x00) &&
 		    (key[3] == 0xff)) {
@@ -556,14 +556,14 @@ static int dib0700_rc_query_old_firmware(struct dvb_usb_device *d)
 			return 0;
 		}
 
-		protocol = RC_TYPE_NEC;
+		protocol = RC_PROTO_NEC;
 		scancode = RC_SCANCODE_NEC(key[3-2], key[3-3]);
 		toggle = 0;
 		break;
 
 	default:
 		/* RC-5 protocol changes toggle bit on new keypress */
-		protocol = RC_TYPE_RC5;
+		protocol = RC_PROTO_RC5;
 		scancode = RC_SCANCODE_RC5(key[3-2], key[3-3]);
 		toggle = key[3-1];
 		break;
@@ -3895,9 +3895,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_interval      = DEFAULT_RC_INTERVAL,
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -3935,9 +3935,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_interval      = DEFAULT_RC_INTERVAL,
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4000,9 +4000,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_interval      = DEFAULT_RC_INTERVAL,
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4045,9 +4045,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4126,9 +4126,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4171,9 +4171,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4228,9 +4228,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4294,9 +4294,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4343,9 +4343,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_NEC_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4412,9 +4412,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4448,9 +4448,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4524,9 +4524,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4568,9 +4568,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_NEC_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4617,9 +4617,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4654,9 +4654,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4691,9 +4691,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4728,9 +4728,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4765,9 +4765,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4802,9 +4802,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4853,9 +4853,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4888,9 +4888,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4925,9 +4925,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
@@ -4963,9 +4963,9 @@ struct dvb_usb_device_properties dib0700_devices[] = {
 			.rc_codes         = RC_MAP_DIB0700_RC5_TABLE,
 			.module_name	  = "dib0700",
 			.rc_query         = dib0700_rc_query_old_firmware,
-			.allowed_protos   = RC_BIT_RC5 |
-					    RC_BIT_RC6_MCE |
-					    RC_BIT_NEC,
+			.allowed_protos   = RC_PROTO_BIT_RC5 |
+					    RC_PROTO_BIT_RC6_MCE |
+					    RC_PROTO_BIT_NEC,
 			.change_protocol  = dib0700_change_protocol,
 		},
 	},

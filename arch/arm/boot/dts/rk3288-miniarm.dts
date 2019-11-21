@@ -245,15 +245,6 @@
 	status = "okay";
 };
 
-&dsi0 {
-	status = "disabled";
-	mipi_panel: mipi-panel {
-		compatible ="asus,tc358762";
-		reg = <0>;
-		status = "okay";
-	};
-};
-
 &gpu {
 	mali-supply = <&vdd_gpu>;
 	status = "okay";
@@ -263,6 +254,7 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	#sound-dai-cells = <0>;
+	pinctrl-0 = <&hdmi_ddc>, <&hdmi_cec>;
 	rockchip,phy-table =
 		<74250000 0x8009 0x0004 0x0272>,
 		<165000000 0x802b 0x0004 0x0209>,
@@ -486,11 +478,16 @@
 		status = "okay";
 	};
 
-	camera1: imx219@10 {
+	imx219: imx219@10 {
 		compatible = "sony,imx219";
 		reg = <0x10>;
 		clocks = <&ext_cam_clk>;
 		status = "okay";
+
+		rockchip,camera-module-index = <0>;
+		rockchip,camera-module-facing = "back";
+		rockchip,camera-module-name = "LA6110PA";
+		rockchip,camera-module-lens-name = "YM6011P";
 
 		port {
 			imx219_out: endpoint {
@@ -655,10 +652,6 @@
 &uart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_xfer>, <&uart1_cts>, <&uart1_rts>;
-	status = "okay";
-};
-
-&uart2 {
 	status = "okay";
 };
 

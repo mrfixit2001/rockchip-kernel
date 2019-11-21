@@ -281,6 +281,8 @@
 		clocks = <&cru SCLK_I2S1>, <&cru HCLK_I2S1_8CH>;
 		dmas = <&pdma 14>, <&pdma 15>;
 		dma-names = "tx", "rx";
+		resets = <&cru SRST_I2S1>;
+		reset-names = "reset-m";
 		pinctrl-names = "default";
 		pinctrl-0 = <&i2s1_bus>;
 		status = "disabled";
@@ -296,6 +298,8 @@
 		clocks = <&cru SCLK_I2S0>, <&cru HCLK_I2S0_8CH>;
 		dmas = <&pdma 11>, <&pdma 12>;
 		dma-names = "tx", "rx";
+		resets = <&cru SRST_I2S0>;
+		reset-names = "reset-m";
 		status = "disabled";
 	};
 
@@ -323,6 +327,8 @@
 		clocks = <&cru SCLK_I2S2>, <&cru HCLK_I2S2_2CH>;
 		dmas = <&pdma 0>, <&pdma 1>;
 		dma-names = "tx", "rx";
+		resets = <&cru SRST_I2S2>;
+		reset-names = "reset-m";
 		status = "disabled";
 	};
 
@@ -371,7 +377,7 @@
 		};
 
 		u2phy0: usb2-phy@760 {
-			compatible = "rockchip,rk322x-usb2phy";
+			compatible = "rockchip,rk3228-usb2phy";
 			reg = <0x0760 0x0c>;
 			clocks = <&cru SCLK_OTGPHY0>;
 			clock-names = "phyclk";
@@ -398,7 +404,7 @@
 		};
 
 		u2phy1: usb2-phy@800 {
-			compatible = "rockchip,rk322x-usb2phy";
+			compatible = "rockchip,rk3228-usb2phy";
 			reg = <0x0800 0x0c>;
 			clocks = <&cru SCLK_OTGPHY1>;
 			clock-names = "phyclk";
@@ -726,10 +732,9 @@
 		assigned-clock-rates = <32768>;
 		resets = <&cru SRST_TSADC>;
 		reset-names = "tsadc-apb";
-		pinctrl-names = "init", "default", "sleep";
+		pinctrl-names = "gpio", "otpout";
 		pinctrl-0 = <&otp_gpio>;
 		pinctrl-1 = <&otp_out>;
-		pinctrl-2 = <&otp_gpio>;
 		#thermal-sensor-cells = <0>;
 		rockchip,hw-tshut-temp = <120000>;
 		status = "disabled";
@@ -1081,6 +1086,7 @@
 		fifo-depth = <0x100>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&sdmmc_clk &sdmmc_cmd &sdmmc_bus4>;
+		cd-gpios = <&gpio1 RK_PC1 GPIO_ACTIVE_LOW>;
 		status = "disabled";
 	};
 

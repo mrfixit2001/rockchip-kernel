@@ -30,6 +30,7 @@ config WIFI_GENERATE_RANDOM_MAC_ADDR
 
 source "drivers/net/wireless/rockchip_wlan/rkwifi/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/cywdhd/Kconfig"
+source "drivers/net/wireless/rockchip_wlan/esp8089/Kconfig"
 
 menuconfig RTL_WIRELESS_SOLUTION
     bool "Realtek Wireless Device Driver Support"
@@ -43,6 +44,7 @@ source "drivers/net/wireless/rockchip_wlan/rtl8192cu/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/rtl8192du/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/rtl8723au/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/rtl8723bs/Kconfig"
+source "drivers/net/wireless/rockchip_wlan/rtl8723bs-vq0/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/rtl8723bu/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/rtl8723cs/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/rtl8723ds/Kconfig"

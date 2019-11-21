@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *                                        
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -25,7 +25,7 @@
 #define RATE_2M						BIT(1)
 #define RATE_5_5M					BIT(2)
 #define RATE_11M					BIT(3)
-//OFDM 
+//OFDM
 #define RATE_6M						BIT(4)
 #define RATE_9M						BIT(5)
 #define RATE_12M					BIT(6)
@@ -54,15 +54,15 @@
 #define RATE_MCS15					BIT(27)
 
 // ALL CCK Rate
-#define	RATE_ALL_CCK				RATR_1M|RATR_2M|RATR_55M|RATR_11M 
+#define	RATE_ALL_CCK				RATR_1M|RATR_2M|RATR_55M|RATR_11M
 #define	RATE_ALL_OFDM_AG			RATR_6M|RATR_9M|RATR_12M|RATR_18M|RATR_24M|\
-									RATR_36M|RATR_48M|RATR_54M	
+									RATR_36M|RATR_48M|RATR_54M
 #define	RATE_ALL_OFDM_1SS			RATR_MCS0|RATR_MCS1|RATR_MCS2|RATR_MCS3 |\
-									RATR_MCS4|RATR_MCS5|RATR_MCS6	|RATR_MCS7	
+									RATR_MCS4|RATR_MCS5|RATR_MCS6	|RATR_MCS7
 #define	RATE_ALL_OFDM_2SS			RATR_MCS8|RATR_MCS9	|RATR_MCS10|RATR_MCS11|\
 									RATR_MCS12|RATR_MCS13|RATR_MCS14|RATR_MCS15
 
-/*------------------------------ Tx Desc definition Macro ------------------------*/ 
+/*------------------------------ Tx Desc definition Macro ------------------------*/
 //#pragma mark -- Tx Desc related definition. --
 //----------------------------------------------------------------------------
 //-----------------------------------------------------------
@@ -104,11 +104,43 @@
 #define DESC_RATEMCS15_SG			0x1c
 #define DESC_RATEMCS32				0x20
 
+#define HDATA_RATE(rate)\
+(rate==DESC_RATE1M)?"CCK_1M":\
+(rate==DESC_RATE2M)?"CCK_2M":\
+(rate==DESC_RATE5_5M)?"CCK5_5M":\
+(rate==DESC_RATE11M)?"CCK_11M":\
+(rate==DESC_RATE6M)?"OFDM_6M":\
+(rate==DESC_RATE9M)?"OFDM_9M":\
+(rate==DESC_RATE12M)?"OFDM_12M":\
+(rate==DESC_RATE18M)?"OFDM_18M":\
+(rate==DESC_RATE24M)?"OFDM_24M":\
+(rate==DESC_RATE36M)?"OFDM_36M":\
+(rate==DESC_RATE48M)?"OFDM_48M":\
+(rate==DESC_RATE54M)?"OFDM_54M":\
+(rate==DESC_RATEMCS0)?"MCS0":\
+(rate==DESC_RATEMCS1)?"MCS1":\
+(rate==DESC_RATEMCS2)?"MCS2":\
+(rate==DESC_RATEMCS3)?"MCS3":\
+(rate==DESC_RATEMCS4)?"MCS4":\
+(rate==DESC_RATEMCS5)?"MCS5":\
+(rate==DESC_RATEMCS6)?"MCS6":\
+(rate==DESC_RATEMCS7)?"MCS7":\
+(rate==DESC_RATEMCS8)?"MCS8":\
+(rate==DESC_RATEMCS9)?"MCS9":\
+(rate==DESC_RATEMCS10)?"MCS10":\
+(rate==DESC_RATEMCS11)?"MCS11":\
+(rate==DESC_RATEMCS12)?"MCS12":\
+(rate==DESC_RATEMCS13)?"MCS13":\
+(rate==DESC_RATEMCS14)?"MCS14":\
+(rate==DESC_RATEMCS15)?"MCS15":\
+(rate==DESC_RATEMCS15_SG)?"MCS15_SG":\
+(rate==DESC_RATEMCS32)?"MCS32":"UNKNOW"
+
 //============================================================
 // Global var
 //============================================================
-#define	OFDM_TABLE_SIZE_92C 	37
-#define	OFDM_TABLE_SIZE_92D 	43
+#define	OFDM_TABLE_SIZE_92C	37
+#define	OFDM_TABLE_SIZE_92D	43
 #define	CCK_TABLE_SIZE		33
 
 extern u32 OFDMSwingTable[OFDM_TABLE_SIZE_92D] ;
@@ -123,17 +155,17 @@ void dump_chip_info(HAL_VERSION	ChipVersion);
 
 u8	//return the final channel plan decision
 hal_com_get_channel_plan(
-	IN	PADAPTER	padapter,
-	IN	u8			hw_channel_plan,	//channel plan from HW (efuse/eeprom)
-	IN	u8			sw_channel_plan,	//channel plan from SW (registry/module param)
-	IN	u8			def_channel_plan,	//channel plan used when the former two is invalid
-	IN	BOOLEAN		AutoLoadFail
+	PADAPTER	padapter,
+	u8			hw_channel_plan,	//channel plan from HW (efuse/eeprom)
+	u8			sw_channel_plan,	//channel plan from SW (registry/module param)
+	u8			def_channel_plan,	//channel plan used when the former two is invalid
+	BOOLEAN		AutoLoadFail
 	);
 
 void	HalSetBrateCfg(
-	IN PADAPTER		Adapter,
-	IN u8			*mBratesOS,
-	OUT u16			*pBrateCfg);
+	PADAPTER		Adapter,
+	u8			*mBratesOS,
+	u16			*pBrateCfg);
 
 u8	MRateToHwRate(u8 rate);
 
@@ -147,5 +179,6 @@ void GetHwReg(_adapter *adapter, HW_VARIABLES variable, u8 *val);
 u8 SetHalDefVar(_adapter *adapter, HAL_DEF_VARIABLE variable, void *val);
 u8 GetHalDefVar(_adapter *adapter, HAL_DEF_VARIABLE variable, void *val);
 
-#endif //__HAL_COMMON_H__
+u8 rtw_hal_busagg_qsel_check(_adapter *padapter,u8 pre_qsel,u8 next_qsel);
 
+#endif //__HAL_COMMON_H__

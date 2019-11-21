@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: GPL-2.0
 EXTRA_CFLAGS += $(USER_EXTRA_CFLAGS)
 EXTRA_CFLAGS += -O1
 #EXTRA_CFLAGS += -O3
@@ -39,7 +38,7 @@ CONFIG_RTL8192CU_REDEFINE_1X1 = n
 CONFIG_INTEL_WIDI = n
 CONFIG_WAKE_ON_WLAN = n
 
-CONFIG_PLATFORM_I386_PC = n
+CONFIG_PLATFORM_I386_PC = y
 CONFIG_PLATFORM_TI_AM3517 = n
 CONFIG_PLATFORM_ANDROID_X86 = n
 CONFIG_PLATFORM_JB_X86 = n
@@ -61,7 +60,7 @@ CONFIG_PLATFORM_TEGRA4_DALMORE = n
 CONFIG_PLATFORM_ARM_TCC8900 = n
 CONFIG_PLATFORM_ARM_TCC8920 = n
 CONFIG_PLATFORM_ARM_TCC8920_JB42 = n
-CONFIG_PLATFORM_ARM_RK2818 = y
+CONFIG_PLATFORM_ARM_RK2818 = n
 CONFIG_PLATFORM_ARM_TI_PANDA = n
 CONFIG_PLATFORM_MIPS_JZ4760 = n
 CONFIG_PLATFORM_DMP_PHILIPS = n
@@ -82,20 +81,16 @@ ifeq ($(CONFIG_RTL8192C), y)
 RTL871X = rtl8192c
 
 ifeq ($(CONFIG_USB_HCI), y)
-MODULE_NAME = 8192cu
-FW_FILES := hal/$(RTL871X)/usb/Hal8192CUHWImg.o
+MODULE_NAME = rtl8192cu
+FW_FILES := hal/Hal8192CUHWImg.o
 ifneq ($(CONFIG_WAKE_ON_WLAN), n)
-FW_FILES += hal/$(RTL871X)/usb/Hal8192CUHWImg_wowlan.o
+FW_FILES += hal/Hal8192CUHWImg_wowlan.o
 endif
-endif
-ifeq ($(CONFIG_PCI_HCI), y)
-MODULE_NAME = 8192ce
-FW_FILES := hal/$(RTL871X)/pci/Hal8192CEHWImg.o
 endif
 
 CHIP_FILES := \
-	hal/$(RTL871X)/$(RTL871X)_sreset.o \
-	hal/$(RTL871X)/$(RTL871X)_xmit.o
+	hal/$(RTL871X)_sreset.o \
+	hal/$(RTL871X)_xmit.o
 CHIP_FILES += $(FW_FILES)
 endif
 
@@ -105,18 +100,18 @@ RTL871X = rtl8192d
 
 ifeq ($(CONFIG_USB_HCI), y)
 MODULE_NAME = 8192du
-FW_FILES := hal/$(RTL871X)/usb/Hal8192DUHWImg.o
+FW_FILES := hal/Hal8192DUHWImg.o
 ifneq ($(CONFIG_WAKE_ON_WLAN), n)
-FW_FILES += hal/$(RTL871X)/usb/Hal8192DUHWImg_wowlan.o
+FW_FILES += hal/Hal8192DUHWImg_wowlan.o
 endif
 endif
 ifeq ($(CONFIG_PCI_HCI), y)
 MODULE_NAME = 8192de
-FW_FILES := hal/$(RTL871X)/pci/Hal8192DEHWImg.o
+FW_FILES := hal/Hal8192DEHWImg.o
 endif
 
 CHIP_FILES := \
-	hal/$(RTL871X)/$(RTL871X)_xmit.o
+	hal/$(RTL871X)_xmit.o
 CHIP_FILES += $(FW_FILES)
 endif
 
@@ -126,73 +121,62 @@ RTL871X = rtl8723a
 
 ifeq ($(CONFIG_SDIO_HCI), y)
 MODULE_NAME = 8723as
-FW_FILES := hal/$(RTL871X)/sdio/Hal8723SHWImg.o
+FW_FILES := hal/Hal8723SHWImg.o
 endif
 
 ifeq ($(CONFIG_USB_HCI), y)
 MODULE_NAME = 8723au
-FW_FILES := hal/$(RTL871X)/usb/Hal8723UHWImg.o
+FW_FILES := hal/Hal8723UHWImg.o
 endif
 
 ifeq ($(CONFIG_PCI_HCI), y)
 MODULE_NAME = 8723ae
-FW_FILES := hal/$(RTL871X)/pci/Hal8723EHWImg.o
+FW_FILES := hal/Hal8723EHWImg.o
 endif
 
 PWRSEQ_FILES := hal/HalPwrSeqCmd.o \
-				hal/$(RTL871X)/Hal8723PwrSeq.o
+		hal/Hal8723PwrSeq.o
 
 CHIP_FILES += $(FW_FILES) $(PWRSEQ_FILES)
 
 endif
 
-ifeq ($(CONFIG_SDIO_HCI), y)
-HCI_NAME = sdio
-endif
-
-ifeq ($(CONFIG_USB_HCI), y)
 HCI_NAME = usb
-endif
-
-ifeq ($(CONFIG_PCI_HCI), y)
-HCI_NAME = pci
-endif
-
 
 _OS_INTFS_FILES :=	os_dep/osdep_service.o \
-			os_dep/linux/os_intfs.o \
-			os_dep/linux/$(HCI_NAME)_intf.o \
-			os_dep/linux/$(HCI_NAME)_ops_linux.o \
-			os_dep/linux/ioctl_linux.o \
-			os_dep/linux/xmit_linux.o \
-			os_dep/linux/mlme_linux.o \
-			os_dep/linux/recv_linux.o \
-			os_dep/linux/ioctl_cfg80211.o \
-			os_dep/linux/rtw_android.o
+			os_dep/os_intfs.o \
+			os_dep/$(HCI_NAME)_intf.o \
+			os_dep/$(HCI_NAME)_ops_linux.o \
+			os_dep/ioctl_linux.o \
+			os_dep/xmit_linux.o \
+			os_dep/mlme_linux.o \
+			os_dep/recv_linux.o \
+			os_dep/ioctl_cfg80211.o \
+			os_dep/rtw_android.o
 
 
 _HAL_INTFS_FILES :=	hal/hal_intf.o \
 			hal/hal_com.o \
 			hal/dm.o \
-			hal/$(RTL871X)/$(RTL871X)_hal_init.o \
-			hal/$(RTL871X)/$(RTL871X)_phycfg.o \
-			hal/$(RTL871X)/$(RTL871X)_rf6052.o \
-			hal/$(RTL871X)/$(RTL871X)_dm.o \
-			hal/$(RTL871X)/$(RTL871X)_rxdesc.o \
-			hal/$(RTL871X)/$(RTL871X)_cmd.o \
-			hal/$(RTL871X)/$(HCI_NAME)/$(HCI_NAME)_halinit.o \
-			hal/$(RTL871X)/$(HCI_NAME)/rtl$(MODULE_NAME)_led.o \
-			hal/$(RTL871X)/$(HCI_NAME)/rtl$(MODULE_NAME)_xmit.o \
-			hal/$(RTL871X)/$(HCI_NAME)/rtl$(MODULE_NAME)_recv.o
+			hal/$(RTL871X)_hal_init.o \
+			hal/$(RTL871X)_phycfg.o \
+			hal/$(RTL871X)_rf6052.o \
+			hal/$(RTL871X)_dm.o \
+			hal/$(RTL871X)_rxdesc.o \
+			hal/$(RTL871X)_cmd.o \
+			hal/$(HCI_NAME)_halinit.o \
+			hal/$(MODULE_NAME)_led.o \
+			hal/$(MODULE_NAME)_xmit.o \
+			hal/$(MODULE_NAME)_recv.o
 
 ifeq ($(CONFIG_SDIO_HCI), y)
-_HAL_INTFS_FILES += hal/$(RTL871X)/$(HCI_NAME)/$(HCI_NAME)_ops.o
+_HAL_INTFS_FILES += hal/$(HCI_NAME)_ops.o
 else
-_HAL_INTFS_FILES += hal/$(RTL871X)/$(HCI_NAME)/$(HCI_NAME)_ops_linux.o
+_HAL_INTFS_FILES += hal/$(HCI_NAME)_ops_linux.o
 endif
 
 ifeq ($(CONFIG_MP_INCLUDED), y)
-_HAL_INTFS_FILES += hal/$(RTL871X)/$(RTL871X)_mp.o
+_HAL_INTFS_FILES += hal/$(RTL871X)_mp.o
 endif
 
 _HAL_INTFS_FILES += $(CHIP_FILES)
@@ -470,9 +454,9 @@ endif
 ifeq ($(CONFIG_PLATFORM_ARM_RK2818), y)
 EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN -DCONFIG_PLATFORM_ANDROID -DCONFIG_PLATFORM_ROCKCHIPS -DCONFIG_MINIMAL_MEMORY_USAGE
 ARCH := arm
-#CROSS_COMPILE := /usr/src/release_fae_version/toolchain/arm-eabi-4.4.0/bin/arm-eabi-
-#KSRC := /usr/src/release_fae_version/kernel25_A7_281x
-MODULE_NAME := 8192cu
+CROSS_COMPILE := /usr/src/release_fae_version/toolchain/arm-eabi-4.4.0/bin/arm-eabi-
+KSRC := /usr/src/release_fae_version/kernel25_A7_281x
+MODULE_NAME := wlan
 endif
 
 ifeq ($(CONFIG_PLATFORM_ARM_TI_PANDA), y)
@@ -564,7 +548,7 @@ $(MODULE_NAME)-y += $(rtk_core)
 
 $(MODULE_NAME)-$(CONFIG_INTEL_WIDI) += core/rtw_intel_widi.o
 
-$(MODULE_NAME)-y += core/efuse/rtw_efuse.o
+$(MODULE_NAME)-y += core/rtw_efuse.o
 
 $(MODULE_NAME)-y += $(_HAL_INTFS_FILES)
 
@@ -606,7 +590,6 @@ clean:
 	rm -fr *.mod.c *.mod *.o .*.cmd *.ko *~
 	rm .tmp_versions -fr ; rm Module.symvers -fr
 	rm -fr Module.markers ; rm -fr modules.order
-	cd core/efuse ; rm -fr *.mod.c *.mod *.o .*.cmd *.ko
 	cd core ; rm -fr *.mod.c *.mod *.o .*.cmd *.ko
 	cd hal/$(RTL871X)/$(HCI_NAME) ; rm -fr *.mod.c *.mod *.o .*.cmd *.ko
 	cd hal/$(RTL871X) ; rm -fr *.mod.c *.mod *.o .*.cmd *.ko

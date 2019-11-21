@@ -24,20 +24,15 @@
 #include <osdep_service.h>
 #include <drv_types.h>
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
-#endif //CONFIG_HAS_EARLYSUSPEND
+#define FW_PWR0	0
+#define FW_PWR1		1
+#define FW_PWR2		2
+#define FW_PWR3		3
 
 
-#define FW_PWR0	0	
-#define FW_PWR1 	1
-#define FW_PWR2 	2
-#define FW_PWR3 	3
-
-
-#define HW_PWR0	7	
-#define HW_PWR1 	6
-#define HW_PWR2 	2
+#define HW_PWR0	7
+#define HW_PWR1		6
+#define HW_PWR2		2
 #define HW_PWR3	0
 #define HW_PWR4	8
 
@@ -108,33 +103,8 @@ struct reportpwrstate_parm {
 	unsigned char mode;
 	unsigned char state; //the CPWM value
 	unsigned short rsvd;
-}; 
+};
 
-
-typedef _sema _pwrlock;
-
-
-__inline static void _init_pwrlock(_pwrlock *plock)
-{
-	_rtw_init_sema(plock, 1);
-}
-
-__inline static void _free_pwrlock(_pwrlock *plock)
-{
-	_rtw_free_sema(plock);
-}
-
-
-__inline static void _enter_pwrlock(_pwrlock *plock)
-{
-	_rtw_down_sema(plock);
-}
-
-
-__inline static void _exit_pwrlock(_pwrlock *plock)
-{
-	_rtw_up_sema(plock);
-}
 
 #define LPS_DELAY_TIME	1*HZ // 1 sec
 
@@ -179,12 +149,12 @@ enum _PS_BBRegBackup_ {
 enum { // for ips_mode
 	IPS_NONE=0,
 	IPS_NORMAL,
-	IPS_LEVEL_2,	
+	IPS_LEVEL_2,
 };
 
 struct pwrctrl_priv
 {
-	_pwrlock	lock;
+	struct semaphore lock;
 	volatile u8 rpwm; // requested power state for fw
 	volatile u8 cpwm; // fw current power state. updated when 1. read from HCPWM 2. driver lowers power level
 	volatile u8 tog; // toggling
@@ -195,10 +165,10 @@ struct pwrctrl_priv
 	u8	bcn_ant_mode;
 
 	u32	alives;
-	_workitem cpwm_event;
+	struct work_struct cpwm_event;
 #ifdef CONFIG_LPS_RPWM_TIMER
 	u8 brpwmtimeout;
-	_workitem rpwmtimeoutwi;
+	struct work_struct rpwmtimeoutwi;
 	_timer pwr_rpwm_timer;
 #endif // CONFIG_LPS_RPWM_TIMER
 	u8	bpower_saving;
@@ -212,21 +182,10 @@ struct pwrctrl_priv
 	u32	cur_ps_level;
 	u32	reg_rfps_level;
 
+	uint	ips_enter_cnts;
+	uint	ips_leave_cnts;
 
-
-#ifdef CONFIG_PCI_HCI
-	//just for PCIE ASPM
-	u8	b_support_aspm; // If it supports ASPM, Offset[560h] = 0x40, otherwise Offset[560h] = 0x00. 
-	u8	b_support_backdoor;
-
-	//just for PCIE ASPM
-	u8	const_amdpci_aspm;
-#endif
-
-	uint 	ips_enter_cnts;
-	uint 	ips_leave_cnts;
-
-	u8	ips_mode; 
+	u8	ips_mode;
 	u8	ips_mode_req; // used to accept the mode setting request, will update to ipsmode later
 	uint bips_processing;
 	u32 ips_deny_time; /* will deny IPS when system time is smaller than this */
@@ -237,7 +196,7 @@ struct pwrctrl_priv
 	u8	power_mgnt;
 	u8	bFwCurrentInPSMode;
 	u32	DelayLPSLastTimeStamp;
-	u8 	btcoex_rfon;
+	u8	btcoex_rfon;
 	s32		pnp_current_pwr_state;
 	u8		pnp_bstop_trx;
 
@@ -248,7 +207,7 @@ struct pwrctrl_priv
 	u8		bAutoResume;
 	u8		autopm_cnt;
 #endif
-	u8		bSupportRemoteWakeup;	
+	u8		bSupportRemoteWakeup;
 #ifdef CONFIG_WOWLAN
 	u8		wowlan_mode;
 	u8		wowlan_pattern;
@@ -257,128 +216,97 @@ struct pwrctrl_priv
 	u8		wowlan_pattern_idx;
 	u8		wowlan_wake_reason;
 	u32		wowlan_pattern_context[8][5];
-	u64		wowlan_fw_iv;
 #endif // CONFIG_WOWLAN
-	_timer 	pwr_state_check_timer;
+	_timer	pwr_state_check_timer;
 	int		pwr_state_check_interval;
 	u8		pwr_state_check_cnts;
 
-	int 		ps_flag;
-	
+	int		ps_flag;
+
 	rt_rf_power_state	rf_pwrstate;//cur power state
-	//rt_rf_power_state 	current_rfpwrstate;
+	//rt_rf_power_state	current_rfpwrstate;
 	rt_rf_power_state	change_rfpwrstate;
 
+	u8		wepkeymask;
 	u8		bHWPowerdown;//if support hw power down
 	u8		bHWPwrPindetect;
-	u8		bkeepfwalive;		
+	u8		bkeepfwalive;
 	u8		brfoffbyhw;
 	unsigned long PS_BBRegBackup[PSBBREG_TOTALCNT];
 
 	#ifdef CONFIG_RESUME_IN_WORKQUEUE
 	struct workqueue_struct *rtw_workqueue;
-	_workitem resume_work;
-	#endif
-
-	#ifdef CONFIG_HAS_EARLYSUSPEND
-	struct early_suspend early_suspend;
-	u8 do_late_resume;
-	#endif //CONFIG_HAS_EARLYSUSPEND
-	
-	#ifdef CONFIG_ANDROID_POWER
-	android_early_suspend_t early_suspend;
-	u8 do_late_resume;
-	#endif
-
-	#ifdef CONFIG_INTEL_PROXIM
-	u8	stored_power_mgnt;
+	struct work_struct resume_work;
 	#endif
 };
 
-#define rtw_get_ips_mode_req(pwrctl) \
-	(pwrctl)->ips_mode_req
+#define rtw_get_ips_mode_req(pwrctrlpriv) \
+	(pwrctrlpriv)->ips_mode_req
 
-#define rtw_ips_mode_req(pwrctl, ips_mode) \
-	(pwrctl)->ips_mode_req = (ips_mode)
+#define rtw_ips_mode_req(pwrctrlpriv, ips_mode) \
+	(pwrctrlpriv)->ips_mode_req = (ips_mode)
 
 #define RTW_PWR_STATE_CHK_INTERVAL 2000
 
-#define _rtw_set_pwr_state_check_timer(pwrctl, ms) \
+#define _rtw_set_pwr_state_check_timer(pwrctrlpriv, ms) \
 	do { \
-		/*DBG_871X("%s _rtw_set_pwr_state_check_timer(%p, %d)\n", __FUNCTION__, (pwrctl), (ms));*/ \
-		_set_timer(&(pwrctl)->pwr_state_check_timer, (ms)); \
+		/*DBG_8723A("%s _rtw_set_pwr_state_check_timer(%p, %d)\n", __FUNCTION__, (pwrctrlpriv), (ms));*/ \
+		_set_timer(&(pwrctrlpriv)->pwr_state_check_timer, (ms)); \
 	} while(0)
-	
-#define rtw_set_pwr_state_check_timer(pwrctl) \
-	_rtw_set_pwr_state_check_timer((pwrctl), (pwrctl)->pwr_state_check_interval)
 
-extern void rtw_init_pwrctrl_priv(_adapter *adapter);
-extern void rtw_free_pwrctrl_priv(_adapter * adapter);
+#define rtw_set_pwr_state_check_timer(pwrctrlpriv) \
+	_rtw_set_pwr_state_check_timer((pwrctrlpriv), (pwrctrlpriv)->pwr_state_check_interval)
+
+extern void rtw_init_pwrctrl_priv(struct rtw_adapter *adapter);
+extern void rtw_free_pwrctrl_priv(struct rtw_adapter * adapter);
 
 #ifdef CONFIG_LPS_LCLK
-extern s32 rtw_register_tx_alive(PADAPTER padapter);
-extern void rtw_unregister_tx_alive(PADAPTER padapter);
-extern s32 rtw_register_rx_alive(PADAPTER padapter);
-extern void rtw_unregister_rx_alive(PADAPTER padapter);
-extern s32 rtw_register_cmd_alive(PADAPTER padapter);
-extern void rtw_unregister_cmd_alive(PADAPTER padapter);
-extern s32 rtw_register_evt_alive(PADAPTER padapter);
-extern void rtw_unregister_evt_alive(PADAPTER padapter);
-extern void cpwm_int_hdl(PADAPTER padapter, struct reportpwrstate_parm *preportpwrstate);
-extern void LPS_Leave_check(PADAPTER padapter);
+extern s32 rtw_register_tx_alive(struct rtw_adapter * padapter);
+extern void rtw_unregister_tx_alive(struct rtw_adapter * padapter);
+extern s32 rtw_register_rx_alive(struct rtw_adapter * padapter);
+extern void rtw_unregister_rx_alive(struct rtw_adapter * padapter);
+extern s32 rtw_register_cmd_alive(struct rtw_adapter * padapter);
+extern void rtw_unregister_cmd_alive(struct rtw_adapter * padapter);
+extern s32 rtw_register_evt_alive(struct rtw_adapter * padapter);
+extern void rtw_unregister_evt_alive(struct rtw_adapter * padapter);
+extern void cpwm_int_hdl(struct rtw_adapter * padapter, struct reportpwrstate_parm *preportpwrstate);
+extern void LPS_Leave_check(struct rtw_adapter * padapter);
 #endif
 
-extern void rtw_set_ps_mode(PADAPTER padapter, u8 ps_mode, u8 smart_ps, u8 bcn_ant_mode);
-extern void rtw_set_rpwm(_adapter * padapter, u8 val8);
-extern void LeaveAllPowerSaveMode(PADAPTER Adapter);
+extern void rtw_set_ps_mode(struct rtw_adapter * padapter, u8 ps_mode, u8 smart_ps, u8 bcn_ant_mode);
+extern void rtw_set_rpwm(struct rtw_adapter * padapter, u8 val8);
+extern void LeaveAllPowerSaveMode(struct rtw_adapter * Adapter);
 #ifdef CONFIG_IPS
-void _ips_enter(_adapter * padapter);
-void ips_enter(_adapter * padapter);
-int _ips_leave(_adapter * padapter);
-int ips_leave(_adapter * padapter);
+void ips_enter(struct rtw_adapter * padapter);
+int ips_leave(struct rtw_adapter * padapter);
 #endif
 
-void rtw_ps_processor(_adapter*padapter);
+void rtw_ps_processor(struct rtw_adapter*padapter);
 
 #ifdef CONFIG_AUTOSUSPEND
-int autoresume_enter(_adapter* padapter);
+int autoresume_enter(struct rtw_adapter* padapter);
 #endif
 #ifdef SUPPORT_HW_RFOFF_DETECTED
-rt_rf_power_state RfOnOffDetect(IN	PADAPTER pAdapter );
+rt_rf_power_state RfOnOffDetect(struct rtw_adapter * pAdapter );
 #endif
 
 
 #ifdef CONFIG_LPS
-s32 LPS_RF_ON_check(PADAPTER padapter, u32 delay_ms);
-void LPS_Enter(PADAPTER padapter);
-void LPS_Leave(PADAPTER padapter);
+s32 LPS_RF_ON_check(struct rtw_adapter * padapter, u32 delay_ms);
+void LPS_Enter(struct rtw_adapter * padapter);
+void LPS_Leave(struct rtw_adapter * padapter);
 #endif
 
 #ifdef CONFIG_RESUME_IN_WORKQUEUE
 void rtw_resume_in_workqueue(struct pwrctrl_priv *pwrpriv);
 #endif //CONFIG_RESUME_IN_WORKQUEUE
 
-#if defined(CONFIG_HAS_EARLYSUSPEND ) || defined(CONFIG_ANDROID_POWER)
-bool rtw_is_earlysuspend_registered(struct pwrctrl_priv *pwrpriv);
-bool rtw_is_do_late_resume(struct pwrctrl_priv *pwrpriv);
-void rtw_set_do_late_resume(struct pwrctrl_priv *pwrpriv, bool enable);
-void rtw_register_early_suspend(struct pwrctrl_priv *pwrpriv);
-void rtw_unregister_early_suspend(struct pwrctrl_priv *pwrpriv);
-#else
-#define rtw_is_earlysuspend_registered(pwrpriv) _FALSE
-#define rtw_is_do_late_resume(pwrpriv) _FALSE
-#define rtw_set_do_late_resume(pwrpriv, enable) do {} while (0)
-#define rtw_register_early_suspend(pwrpriv) do {} while (0)
-#define rtw_unregister_early_suspend(pwrpriv) do {} while (0)
-#endif /* CONFIG_HAS_EARLYSUSPEND || CONFIG_ANDROID_POWER */
-
-u8 rtw_interface_ps_func(_adapter *padapter,HAL_INTF_PS_FUNC efunc_id,u8* val);
-void rtw_set_ips_deny(_adapter *padapter, u32 ms);
-int _rtw_pwr_wakeup(_adapter *padapter, u32 ips_deffer_ms, const char *caller);
+u8 rtw_interface_ps_func(struct rtw_adapter *padapter,HAL_INTF_PS_FUNC efunc_id,u8* val);
+void rtw_set_ips_deny(struct rtw_adapter *padapter, u32 ms);
+int _rtw_pwr_wakeup(struct rtw_adapter *padapter, u32 ips_deffer_ms, const char *caller);
 #define rtw_pwr_wakeup(adapter) _rtw_pwr_wakeup(adapter, RTW_PWR_STATE_CHK_INTERVAL, __FUNCTION__)
 #define rtw_pwr_wakeup_ex(adapter, ips_deffer_ms) _rtw_pwr_wakeup(adapter, ips_deffer_ms, __FUNCTION__)
-int rtw_pm_set_ips(_adapter *padapter, u8 mode);
-int rtw_pm_set_lps(_adapter *padapter, u8 mode);
+int rtw_pm_set_ips(struct rtw_adapter *padapter, u8 mode);
+int rtw_pm_set_lps(struct rtw_adapter *padapter, u8 mode);
 
 #endif  //__RTL871X_PWRCTRL_H_
-

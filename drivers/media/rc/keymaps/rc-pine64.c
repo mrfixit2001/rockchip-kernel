@@ -43,7 +43,7 @@ static struct rc_map_list pine64_map = {
 	.map = {
 		.scan    = pine64,
 		.size    = ARRAY_SIZE(pine64),
-		.rc_type = RC_TYPE_NEC,
+		.rc_proto = RC_PROTO_NEC,
 		.name    = RC_MAP_PINE64,
 	}
 };

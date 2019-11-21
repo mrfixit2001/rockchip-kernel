@@ -272,6 +272,8 @@ config BFIN_CFPCMCIA
 	help
 	  Say Y here to support the CompactFlash PCMCIA driver for Blackfin.
 
+config PCMCIA_PLX9052
+	tristate "PLX9052 PCI-to-PCMCIA bridge support"
 
 config AT91_CF
 	tristate "AT91 CompactFlash Controller"

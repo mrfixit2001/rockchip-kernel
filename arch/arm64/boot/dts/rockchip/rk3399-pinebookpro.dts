@@ -244,7 +244,7 @@
 	};
 	
 	edp_panel: edp-panel {
-		compatible = "simple-panel";
+		compatible = "boe,nv140fhmn49", "simple-panel";
 		backlight = <&backlight>;
 		power-supply = <&vcc3v3_s0>;
 		pinctrl-names = "default";
@@ -343,11 +343,11 @@
 &cluster0_opp {
 	opp-1512000000 {
 		opp-hz = /bits/ 64 <1512000000>;
-		opp-microvolt = <1200000>;
-		opp-microvolt-L0 = <1200000>;
-		opp-microvolt-L1 = <1175000>;
-		opp-microvolt-L2 = <1150000>;
-		opp-microvolt-L3 = <1125000>;
+		opp-microvolt = <1200000 1200000 1250000>;
+		opp-microvolt-L0 = <1200000 1200000 1250000>;
+		opp-microvolt-L1 = <1175000 1175000 1250000>;
+		opp-microvolt-L2 = <1150000 1150000 1250000>;
+		opp-microvolt-L3 = <1125000 1125000 1250000>;
 		clock-latency-ns = <40000>;
 	};
 };
@@ -355,11 +355,12 @@
 &cluster1_opp {
 	opp-1992000000 {
 		opp-hz = /bits/ 64 <1992000000>;
-		opp-microvolt = <1300000>;
-		opp-microvolt-L0 = <1300000>;
-		opp-microvolt-L1 = <1275000>;
-		opp-microvolt-L2 = <1250000>;
-		opp-microvolt-L3 = <1225000>;
+		opp-microvolt = <1300000 1300000 1300000>;
+		opp-microvolt-L0 = <1300000 1300000 1300000>;
+		opp-microvolt-L1 = <1275000 1275000 1300000>;
+		opp-microvolt-L2 = <1250000 1250000 1300000>;
+		opp-microvolt-L3 = <1225000 1225000 1300000>;
+		opp-microvolt-L4 = <1225000 1225000 1300000>;
 		clock-latency-ns = <40000>;
 	};
 };

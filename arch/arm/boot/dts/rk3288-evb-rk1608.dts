@@ -398,6 +398,14 @@
 	};
 };
 
+&dsi0_in_vopl {
+	status = "okay";
+};
+
+&dsi0_in_vopb {
+	status = "disabled";
+};
+
 &emmc {
 	bus-width = <8>;
 	cap-mmc-highspeed;
@@ -706,6 +714,10 @@
 	status = "okay";
 };
 
+&route_dsi0 {
+	status = "okay";
+};
+
 &saradc {
 	vref-supply = <&vcc_18>;
 	status = "okay";
@@ -759,10 +771,6 @@
 &uart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart0_xfer &uart0_cts>;
-	status = "okay";
-};
-
-&uart2 {
 	status = "okay";
 };
 

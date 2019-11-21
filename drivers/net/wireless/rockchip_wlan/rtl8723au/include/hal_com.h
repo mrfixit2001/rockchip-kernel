@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *                                        
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -28,7 +28,7 @@
 #define	RATR_2M					0x00000002
 #define	RATR_55M					0x00000004
 #define	RATR_11M					0x00000008
-//OFDM 		
+//OFDM
 #define	RATR_6M					0x00000010
 #define	RATR_9M					0x00000020
 #define	RATR_12M					0x00000040
@@ -37,7 +37,7 @@
 #define	RATR_36M					0x00000200
 #define	RATR_48M					0x00000400
 #define	RATR_54M					0x00000800
-//MCS 1 Spatial Stream	
+//MCS 1 Spatial Stream
 #define	RATR_MCS0					0x00001000
 #define	RATR_MCS1					0x00002000
 #define	RATR_MCS2					0x00004000
@@ -61,7 +61,7 @@
 #define RATE_2M						BIT(1)
 #define RATE_5_5M					BIT(2)
 #define RATE_11M					BIT(3)
-//OFDM 
+//OFDM
 #define RATE_6M						BIT(4)
 #define RATE_9M						BIT(5)
 #define RATE_12M					BIT(6)
@@ -90,15 +90,15 @@
 #define RATE_MCS15					BIT(27)
 
 // ALL CCK Rate
-#define	RATE_ALL_CCK				RATR_1M|RATR_2M|RATR_55M|RATR_11M 
+#define	RATE_ALL_CCK				RATR_1M|RATR_2M|RATR_55M|RATR_11M
 #define	RATE_ALL_OFDM_AG			RATR_6M|RATR_9M|RATR_12M|RATR_18M|RATR_24M|\
-									RATR_36M|RATR_48M|RATR_54M	
+									RATR_36M|RATR_48M|RATR_54M
 #define	RATE_ALL_OFDM_1SS			RATR_MCS0|RATR_MCS1|RATR_MCS2|RATR_MCS3 |\
-									RATR_MCS4|RATR_MCS5|RATR_MCS6	|RATR_MCS7	
+									RATR_MCS4|RATR_MCS5|RATR_MCS6	|RATR_MCS7
 #define	RATE_ALL_OFDM_2SS			RATR_MCS8|RATR_MCS9	|RATR_MCS10|RATR_MCS11|\
 									RATR_MCS12|RATR_MCS13|RATR_MCS14|RATR_MCS15
 
-/*------------------------------ Tx Desc definition Macro ------------------------*/ 
+/*------------------------------ Tx Desc definition Macro ------------------------*/
 //#pragma mark -- Tx Desc related definition. --
 //----------------------------------------------------------------------------
 //-----------------------------------------------------------
@@ -153,50 +153,23 @@ void dump_chip_info(HAL_VERSION	ChipVersion);
 
 u8	//return the final channel plan decision
 hal_com_get_channel_plan(
-	IN	PADAPTER	padapter,
-	IN	u8			hw_channel_plan,	//channel plan from HW (efuse/eeprom)
-	IN	u8			sw_channel_plan,	//channel plan from SW (registry/module param)
-	IN	u8			def_channel_plan,	//channel plan used when the former two is invalid
-	IN	BOOLEAN		AutoLoadFail
+	struct rtw_adapter	*padapter,
+	u8			hw_channel_plan,	//channel plan from HW (efuse/eeprom)
+	u8			sw_channel_plan,	//channel plan from SW (registry/module param)
+	u8			def_channel_plan,	//channel plan used when the former two is invalid
+	bool		AutoLoadFail
 	);
 
 u8	MRateToHwRate(u8 rate);
 
-void	HalSetBrateCfg(
-	IN PADAPTER		Adapter,
-	IN u8			*mBratesOS,
-	OUT u16			*pBrateCfg);
+void HalSetBrateCfg(struct rtw_adapter *Adapter, u8 *mBratesOS, u16 *pBrateCfg);
 
-BOOLEAN
-Hal_MappingOutPipe(
-	IN	PADAPTER	pAdapter,
-	IN	u8		NumOutPipe
-	);
+bool
+Hal_MappingOutPipe(struct rtw_adapter *pAdapter, u8 NumOutPipe);
 
-void hal_init_macaddr(_adapter *adapter);
+void hal_init_macaddr(struct rtw_adapter *adapter);
 
-void c2h_evt_clear(_adapter *adapter);
-s32 c2h_evt_read(_adapter *adapter, u8 *buf);
-
-void SetHwReg(_adapter *adapter, u8 variable, u8 *val);
-void GetHwReg(_adapter *adapter, u8 variable, u8 *val);
-
-u8 SetHalDefVar(_adapter *adapter, HAL_DEF_VARIABLE variable, void *value);
-u8 GetHalDefVar(_adapter *adapter, HAL_DEF_VARIABLE variable, void *value);
-
-#ifdef CONFIG_RF_GAIN_OFFSET
-void rtw_bb_rf_gain_offset(_adapter *padapter);
-#endif //CONFIG_RF_GAIN_OFFSET
-
-#ifdef CONFIG_EFUSE_CONFIG_FILE
-#define		EFUSE_FILE_COLUMN_NUM		16
-u32 Hal_readPGDataFromConfigFile(PADAPTER padapter, struct file *fp);
-void Hal_ReadMACAddrFromFile(PADAPTER padapter, struct file *fp);
-void Hal_GetPhyEfuseMACAddr(PADAPTER padapter, u8* mac_addr);
-int check_phy_efuse_tx_power_info_valid(PADAPTER padapter);
-int check_phy_efuse_macaddr_info_valid(PADAPTER padapter);
-#endif //CONFIG_EFUSE_CONFIG_FILE
-
+void c2h_evt_clear(struct rtw_adapter *adapter);
+s32 c2h_evt_read(struct rtw_adapter *adapter, u8 *buf);
 
 #endif //__HAL_COMMON_H__
-

@@ -69,8 +69,8 @@
 //	0x0400h ~ 0x047Fh	Protocol Configuration
 //
 //-----------------------------------------------------
-//#define REG_EARLY_MODE_CONTROL		0x4D0
-#define REG_MACID_NO_LINK 0x4D0
+#define REG_EARLY_MODE_CONTROL		0x4D0
+
 
 //-----------------------------------------------------
 //
@@ -100,8 +100,6 @@
 //
 #define	REG_NAV_UPPER			0x0652	// unit of 128
 
-#define REG_BT_COEX_TABLE_1		0x06C0
-#define REG_BT_COEX_TABLE_2		0x06C4
 
 //============================================================================
 //	8723 Regsiter Bit and Content definition
@@ -337,8 +335,8 @@
 // SDIO host local register space mapping.
 #define SDIO_LOCAL_MSK				0x0FFF
 #define WLAN_IOREG_MSK				0x7FFF
-#define WLAN_FIFO_MSK		      		0x1FFF	// Aggregation Length[12:0]
-#define WLAN_RX0FF_MSK			      	0x0003
+#define WLAN_FIFO_MSK				0x1FFF	// Aggregation Length[12:0]
+#define WLAN_RX0FF_MSK				0x0003
 
 #define SDIO_WITHOUT_REF_DEVICE_ID		0	// Without reference to the SDIO Device ID
 #define SDIO_LOCAL_DEVICE_ID			0	// 0b[16], 000b[15:13]
@@ -440,7 +438,7 @@
 
 // SDIO Tx FIFO related
 #define SDIO_TX_FREE_PG_QUEUE			4	// The number of Tx FIFO free page
-#define SDIO_TX_FIFO_PAGE_SZ 			128
+#define SDIO_TX_FIFO_PAGE_SZ			128
 
 // vivi added for new cam search flow, 20091028
 #define SCR_TxUseBroadcastDK			BIT6	// Force Tx Use Broadcast Default Key
@@ -528,11 +526,5 @@
 //	General definitions
 //============================================================================
 
-#ifdef CONFIG_RF_GAIN_OFFSET
-#define	EEPROM_RF_GAIN_OFFSET			0x2F
-#define	EEPROM_RF_GAIN_VAL				0x1F6
-#endif //CONFIG_RF_GAIN_OFFSET
-
 
 #endif
-

@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *                                        
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -20,7 +20,6 @@
 #ifndef _RTW_MP_H_
 #define _RTW_MP_H_
 
-#ifndef PLATFORM_WINDOWS
 //	00 - Success
 //	11 - Error
 #define STATUS_SUCCESS				(0x00000000L)
@@ -80,40 +79,7 @@
 #define NDIS_STATUS_INCOMPATABLE_QOS		((NDIS_STATUS)0xC0010027L)  // cause 49
 #define NDIS_STATUS_AAL_PARAMS_UNSUPPORTED	((NDIS_STATUS)0xC0010028L)  // cause 93
 #define NDIS_STATUS_NO_ROUTE_TO_DESTINATION	((NDIS_STATUS)0xC0010029L)  // cause 3
-#endif /* #ifndef PLATFORM_WINDOWS */
 
-#if 0
-#define MPT_NOOP			0
-#define MPT_READ_MAC_1BYTE		1
-#define MPT_READ_MAC_2BYTE		2
-#define MPT_READ_MAC_4BYTE		3
-#define MPT_WRITE_MAC_1BYTE		4
-#define MPT_WRITE_MAC_2BYTE		5
-#define MPT_WRITE_MAC_4BYTE		6
-#define MPT_READ_BB_CCK			7
-#define MPT_WRITE_BB_CCK		8
-#define MPT_READ_BB_OFDM		9
-#define MPT_WRITE_BB_OFDM		10
-#define MPT_READ_RF			11
-#define MPT_WRITE_RF			12
-#define MPT_READ_EEPROM_1BYTE		13
-#define MPT_WRITE_EEPROM_1BYTE		14
-#define MPT_READ_EEPROM_2BYTE		15
-#define MPT_WRITE_EEPROM_2BYTE		16
-#define MPT_SET_CSTHRESHOLD		21
-#define MPT_SET_INITGAIN		22
-#define MPT_SWITCH_BAND			23
-#define MPT_SWITCH_CHANNEL		24
-#define MPT_SET_DATARATE		25
-#define MPT_SWITCH_ANTENNA		26
-#define MPT_SET_TX_POWER		27
-#define MPT_SET_CONT_TX			28
-#define MPT_SET_SINGLE_CARRIER		29
-#define MPT_SET_CARRIER_SUPPRESSION	30
-#define MPT_GET_RATE_TABLE		31
-#define MPT_READ_TSSI			32
-#define MPT_GET_THERMAL_METER		33
-#endif
 #ifndef BIT
 #define BIT(x)		(1 << (x))
 #endif
@@ -151,7 +117,7 @@
 #define BIT30	0x40000000
 #define BIT31	0x80000000
 
-#define MAX_MP_XMITBUF_SZ 	2048
+#define MAX_MP_XMITBUF_SZ	2048
 #define NR_MP_XMITFRAME		8
 
 struct mp_xmit_frame
@@ -166,29 +132,19 @@ struct mp_xmit_frame
 
 	_adapter *padapter;
 
-#ifdef CONFIG_USB_HCI
-
 	//insert urb, irp, and irpcnt info below...
 	//max frag_cnt = 8
 
 	u8 *mem_addr;
 	u32 sz[8];
 
-#if defined(PLATFORM_OS_XP) || defined(PLATFORM_LINUX)
 	PURB pxmit_urb[8];
-#endif
-
-#ifdef PLATFORM_OS_XP
-	PIRP pxmit_irp[8];
-#endif
 
 	u8 bpending[8];
 	sint ac_tag[8];
 	sint last[8];
 	uint irpcnt;
 	uint fragcnt;
-#endif /* CONFIG_USB_HCI */
-
 	uint mem[(MAX_MP_XMITBUF_SZ >> 2)];
 };
 
@@ -201,22 +157,6 @@ struct mp_wiparam
 };
 
 typedef void(*wi_act_func)(void* padapter);
-
-#ifdef PLATFORM_WINDOWS
-struct mp_wi_cntx
-{
-	u8 bmpdrv_unload;
-
-	// Work Item
-	NDIS_WORK_ITEM mp_wi;
-	NDIS_EVENT mp_wi_evt;
-	_lock mp_wi_lock;
-	u8 bmp_wi_progress;
-	wi_act_func curractfunc;
-	// Variable needed in each implementation of CurrActFunc.
-	struct mp_wiparam param;
-};
-#endif
 
 struct mp_tx
 {
@@ -232,26 +172,14 @@ struct mp_tx
 };
 
 //#if (MP_DRIVER == 1)
-#if defined(CONFIG_RTL8192C) || defined(CONFIG_RTL8192D) || defined(CONFIG_RTL8723A) || defined(CONFIG_RTL8188E)
-#ifdef CONFIG_RTL8192C
-#include <Hal8192CPhyCfg.h>
-#endif
-#ifdef CONFIG_RTL8192D
 #include <Hal8192DPhyCfg.h>
-#endif
-#ifdef CONFIG_RTL8723A
-#include <Hal8723APhyCfg.h>
-#endif
-#ifdef CONFIG_RTL8188E
-#include <rtl8188e_hal.h>
-#endif
 #define MP_MAX_LINES		1000
 #define MP_MAX_LINES_BYTES	256
 #define u1Byte u8
 #define s1Byte s8
 #define u4Byte u32
 #define s4Byte s32
-typedef VOID (*MPT_WORK_ITEM_HANDLER)(IN PVOID Adapter);
+typedef VOID (*MPT_WORK_ITEM_HANDLER)(PVOID Adapter);
 typedef struct _MPT_CONTEXT
 {
 	// Indicate if we have started Mass Production Test.
@@ -278,7 +206,7 @@ typedef struct _MPT_CONTEXT
 	// _TEST_MODE, defined in MPT_Req2.h
 	ULONG			MptTestItem;
 	// Variable needed in each implementation of CurrMptAct.
-	ULONG			MptActType; 	// Type of action performed in CurrMptAct.
+	ULONG			MptActType;	// Type of action performed in CurrMptAct.
 	// The Offset of IO operation is depend of MptActType.
 	ULONG			MptIoOffset;
 	// The Value of IO operation is depend of MptActType.
@@ -287,9 +215,9 @@ typedef struct _MPT_CONTEXT
 	ULONG			MptRfPath;
 
 	WIRELESS_MODE		MptWirelessModeToSw;	// Wireless mode to switch.
-	u8			MptChannelToSw; 	// Channel to switch.
-	u8			MptInitGainToSet; 	// Initial gain to set.
-	//ULONG			bMptAntennaA; 		// TRUE if we want to use antenna A.
+	u8			MptChannelToSw;		// Channel to switch.
+	u8			MptInitGainToSet;	// Initial gain to set.
+	//ULONG			bMptAntennaA;		// TRUE if we want to use antenna A.
 	ULONG			MptBandWidth;		// bandwidth to switch.
 	ULONG			MptRateIndex;		// rate index.
 	// Register value kept for Single Carrier Tx test.
@@ -303,14 +231,14 @@ typedef struct _MPT_CONTEXT
 	ULONG			MptRCR;
 	// TRUE if we only receive packets with specific pattern.
 	BOOLEAN			bMptFilterPattern;
- 	// Rx OK count, statistics used in Mass Production Test.
- 	ULONG			MptRxOkCnt;
- 	// Rx CRC32 error count, statistics used in Mass Production Test.
- 	ULONG			MptRxCrcErrCnt;
+	// Rx OK count, statistics used in Mass Production Test.
+	ULONG			MptRxOkCnt;
+	// Rx CRC32 error count, statistics used in Mass Production Test.
+	ULONG			MptRxCrcErrCnt;
 
 	BOOLEAN			bCckContTx;	// TRUE if we are in CCK Continuous Tx test.
- 	BOOLEAN			bOfdmContTx;	// TRUE if we are in OFDM Continuous Tx test.
-	BOOLEAN			bStartContTx; 	// TRUE if we have start Continuous Tx test.
+	BOOLEAN			bOfdmContTx;	// TRUE if we are in OFDM Continuous Tx test.
+	BOOLEAN			bStartContTx;	// TRUE if we have start Continuous Tx test.
 	// TRUE if we are in Single Carrier Tx test.
 	BOOLEAN			bSingleCarrier;
 	// TRUE if we are in Carrier Suppression Tx Test.
@@ -334,28 +262,16 @@ typedef struct _MPT_CONTEXT
 	u8		backup0xc58;
 	u8		backup0xc30;
 }MPT_CONTEXT, *PMPT_CONTEXT;
-#endif
 //#endif
 
 /* E-Fuse */
-#ifdef CONFIG_RTL8192D
 #define EFUSE_MAP_SIZE		255
-#endif
-#ifdef CONFIG_RTL8192C
-#define EFUSE_MAP_SIZE		128
-#endif
-#ifdef CONFIG_RTL8723A
-#define EFUSE_MAP_SIZE		256
-#endif
-#ifdef CONFIG_RTL8188E
-#define EFUSE_MAP_SIZE		256
-#endif
 #define EFUSE_MAX_SIZE		512
 
 /* end of E-Fuse */
 
-//#define RTPRIV_IOCTL_MP 					( SIOCIWFIRSTPRIV + 0x17)
-enum {	  
+//#define RTPRIV_IOCTL_MP					( SIOCIWFIRSTPRIV + 0x17)
+enum {
 	WRITE_REG = 1,
 	READ_REG,
 	WRITE_RF,
@@ -431,42 +347,17 @@ struct mp_priv
 	struct wlan_network mp_network;
 	NDIS_802_11_MAC_ADDRESS network_macaddr;
 
-#ifdef PLATFORM_WINDOWS
-	u32 rx_testcnt;
-	u32 rx_testcnt1;
-	u32 rx_testcnt2;
-	u32 tx_testcnt;
-	u32 tx_testcnt1;
-
-	struct mp_wi_cntx wi_cntx;
-
-	u8 h2c_result;
-	u8 h2c_seqnum;
-	u16 h2c_cmdcode;
-	u8 h2c_resp_parambuf[512];
-	_lock h2c_lock;
-	_lock wkitm_lock;
-	u32 h2c_cmdcnt;
-	NDIS_EVENT h2c_cmd_evt;
-	NDIS_EVENT c2h_set;
-	NDIS_EVENT h2c_clr;
-	NDIS_EVENT cpwm_int;
-
-	NDIS_EVENT scsir_full_evt;
-	NDIS_EVENT scsiw_empty_evt;
-#endif
-
 	u8 *pallocated_mp_xmitframe_buf;
 	u8 *pmp_xmtframe_buf;
 	_queue free_mp_xmitqueue;
 	u32 free_mp_xmitframe_cnt;
 	//
-	BOOLEAN 			bRegBW40MHz;				// Tx 40MHz channel capablity
-	BOOLEAN 			bCurBW40MHz;				// Tx 40MHz channel capability
+	BOOLEAN				bRegBW40MHz;				// Tx 40MHz channel capablity
+	BOOLEAN				bCurBW40MHz;				// Tx 40MHz channel capability
 	// 40MHz Channel Offset settings.
 	HT_EXTCHNL_OFFSET	CurSTAExtChnlOffset;
-	BOOLEAN 			bPeer40MHzCap;					// Supported channel width set
-	BOOLEAN 			bPeer40MHzIntolerant;			// Forty MHz Intolerant
+	BOOLEAN				bPeer40MHzCap;					// Supported channel width set
+	BOOLEAN				bPeer40MHzIntolerant;			// Forty MHz Intolerant
 	MPT_CONTEXT MptCtx;
 };
 
@@ -488,7 +379,7 @@ struct bb_reg_param {
 };
 //=======================================================================
 
-#define LOWER 	_TRUE
+#define LOWER	_TRUE
 #define RAISE	_FALSE
 
 /* Hardware Registers */
@@ -528,21 +419,12 @@ typedef enum _MP_MODE_ {
 	MP_PACKET_RX
 } MP_MODE;
 
-#ifdef CONFIG_RTL8192C
-#define RF_PATH_A 	RF_PATH_A
-#define RF_PATH_B 	RF_PATH_B
-#define RF_PATH_C 	RF_PATH_C
-#define RF_PATH_D 	RF_PATH_D
-
-#define MAX_RF_PATH_NUMS	RF_PATH_MAX
-#else
-#define RF_PATH_A 	0
-#define RF_PATH_B 	1
-#define RF_PATH_C 	2
-#define RF_PATH_D 	3
+#define RF_PATH_A	0
+#define RF_PATH_B	1
+#define RF_PATH_C	2
+#define RF_PATH_D	3
 
 #define MAX_RF_PATH_NUMS	2
-#endif
 
 extern u8 mpdatarate[NumRates];
 
@@ -618,7 +500,7 @@ typedef enum _MPT_Bandwidth_Switch_Mode{
 #define RPTMaxCount 0x000FFFFF;
 
 // parameter 1 : BitMask
-// 	bit 0  : OFDM PPDU
+//	bit 0  : OFDM PPDU
 //	bit 1  : OFDM False Alarm
 //	bit 2  : OFDM MPDU OK
 //	bit 3  : OFDM MPDU Fail
@@ -658,10 +540,10 @@ typedef enum _ENCRY_CTRL_STATE_ {
 }ENCRY_CTRL_STATE;
 
 typedef enum _OFDM_TX_MODE {
-	OFDM_ALL_OFF		= 0,	
+	OFDM_ALL_OFF		= 0,
 	OFDM_ContinuousTx	= 1,
 	OFDM_SingleCarrier	= 2,
-	OFDM_SingleTone 	= 4,
+	OFDM_SingleTone		= 4,
 } OFDM_TX_MODE;
 
 //=======================================================================
@@ -760,4 +642,3 @@ extern void Hal_SetOFDMContinuousTx(PADAPTER pAdapter, u8 bStart);
 extern void Hal_ProSetCrystalCap (PADAPTER pAdapter , u32 CrystalCapVal);
 
 #endif //_RTW_MP_H_
-

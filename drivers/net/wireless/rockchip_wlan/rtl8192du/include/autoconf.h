@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *                                        
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -25,15 +25,9 @@
 #define RTL871X_MODULE_NAME "92DU"
 #define DRV_NAME "rtl8192du"
 
-#define CONFIG_USB_HCI	1
-
-#define CONFIG_RTL8192D	1
-
 #define PLATFORM_LINUX	1
 
-#define CONFIG_IOCTL_CFG80211 1
 #ifdef CONFIG_IOCTL_CFG80211
-	#define RTW_USE_CFG80211_STA_EVENT /* Indecate new sta asoc through cfg80211_new_sta */
 	#define CONFIG_CFG80211_FORCE_COMPATIBLE_2_6_37_UNDER
 	//#define CONFIG_DEBUG_CFG80211 1
 	#define CONFIG_SET_SCAN_DENY_TIMER
@@ -74,7 +68,7 @@
 #ifndef CONFIG_MP_INCLUDED
 	#define CONFIG_IPS	1
 	#define CONFIG_LPS	1
-	//#define CONFIG_BT_COEXIST  	1
+	//#define CONFIG_BT_COEXIST	1
 	//#define SUPPORT_HW_RFOFF_DETECTED	1
 #else
 	#define CONFIG_MP_IWPRIV_SUPPORT 1
@@ -85,7 +79,7 @@
 	#define CONFIG_NATIVEAP_MLME 1
 	#ifndef CONFIG_NATIVEAP_MLME
 		#define CONFIG_HOSTAPD_MLME	1
-	#endif			
+	#endif
 	#define CONFIG_FIND_BEST_CHANNEL	1
 	//#define CONFIG_NO_WIRELESS_HANDLERS	1
 #endif
@@ -96,23 +90,23 @@
 	//Added by Albert 20110812
 	//The CONFIG_WFD is for supporting the Wi-Fi display
 	#define CONFIG_WFD
-	
+
 	#ifndef CONFIG_WIFI_TEST
 		#define CONFIG_P2P_REMOVE_GROUP_INFO
 	#endif
 	//#define CONFIG_DBG_P2P
 
 	//#define CONFIG_P2P_PS
-	#define CONFIG_P2P_IPS
+	//#define CONFIG_P2P_IPS
 	#define CONFIG_P2P_OP_CHK_SOCIAL_CH
 		// Added comment by Borg 2013/06/21
 		// Issue:  Nexus 4 is hard to do miracast.
-		// Root Cause: After group formation, 
-		//			Nexus 4 is possible to be not at OP channel of Invitation Resp/Nego Confirm but at social channel. 
-		// Patch: While scan OP channel, 
-		//		 not only scan OP channel of Invitation Resp/Nego Confirm, 
+		// Root Cause: After group formation,
+		//			Nexus 4 is possible to be not at OP channel of Invitation Resp/Nego Confirm but at social channel.
+		// Patch: While scan OP channel,
+		//		 not only scan OP channel of Invitation Resp/Nego Confirm,
 		//		 but also scan social channel(1, 6, 11)
-	#define CONFIG_CFG80211_ONECHANNEL_UNDER_CONCURRENT  
+	#define CONFIG_CFG80211_ONECHANNEL_UNDER_CONCURRENT
 	#define CONFIG_P2P_INVITE_IOT
 #endif
 
@@ -125,8 +119,6 @@
 //	#define CONFIG_TDLS_AUTOSETUP			1
 //	#define CONFIG_TDLS_AUTOCHECKALIVE		1
 #endif
-
-//#define CONFIG_DUALMAC_CONCURRENT	1 //for 92D dual mac concurrent ,DMSP DMDP SMSP switch
 
 #define CONFIG_SKB_COPY	1//for amsdu
 
@@ -158,9 +150,11 @@
 //#define CONFIG_AVOID_ALLOC_MGNT_FAIL		1
 #ifdef CONFIG_AVOID_ALLOC_MGNT_FAIL
 	#ifndef CONFIG_CHECK_AC_LIFETIME
-		#define CONFIG_CHECK_AC_LIFETIME 	1	// Check packet lifetime of 4 ACs.
+		#define CONFIG_CHECK_AC_LIFETIME	1	// Check packet lifetime of 4 ACs.
 	#endif
 #endif
+
+//#define CONFIG_DUALMAC_CONCURRENT	1 //for 92D dual mac concurrent ,DMSP DMDP SMSP switch
 
 #define CONFIG_CONCURRENT_MODE 1
 #ifdef CONFIG_CONCURRENT_MODE
@@ -188,7 +182,7 @@
 //#define CONFIG_EASY_REPLACEMENT	1
 
 
-/* 
+/*
  * CONFIG_USE_USB_BUFFER_ALLOC_XX uses Linux USB Buffer alloc API and is for Linux platform only now!
  */
 //#define CONFIG_USE_USB_BUFFER_ALLOC_TX 1	// Trade-off: For TX path, improve stability on some platforms, but may cause performance degrade on other platforms.
@@ -197,7 +191,7 @@
 #undef CONFIG_PREALLOC_RECV_SKB
 #endif
 
-/* 
+/*
  * USB VENDOR REQ BUFFER ALLOCATION METHOD
  * if not set we'll use function local variable (stack memory)
  */
@@ -225,7 +219,7 @@
 
 #define RTL8192CU_ADHOC_WORKAROUND_SETTING 1
 
-#define DISABLE_BB_RF	0	
+#define DISABLE_BB_RF	0
 
 #define RTL8191C_FPGA_NETWORKTYPE_ADHOC 0
 
@@ -265,13 +259,11 @@
 
 #define DBG 0
 
-//#define CONFIG_DEBUG
+#define CONFIG_DEBUG
 
 #define CONFIG_PROC_DEBUG 1
 
 //#define DBG_HAL_INIT_PROFILING
-
-#define DBG_MEMORY_LEAK	1
 
 //TX use 1 urb
 //#define CONFIG_SINGLE_XMIT_BUF

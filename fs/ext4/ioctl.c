@@ -603,6 +603,7 @@ resizefs_out:
 
 		if ((flags & BLKDEV_DISCARD_SECURE) && !blk_queue_secdiscard(q))
 			return -EOPNOTSUPP;
+
 		/*
 		 * We haven't replayed the journal, so we cannot use our
 		 * block-bitmap-guided storage zapping commands.

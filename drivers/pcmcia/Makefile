@@ -19,6 +19,7 @@ obj-$(CONFIG_PCCARD)				+= pcmcia_rsrc.o
 
 obj-$(CONFIG_YENTA) 				+= yenta_socket.o
 
+obj-$(CONFIG_PCMCIA_PLX9052)			+= plx9052.o
 obj-$(CONFIG_PD6729)				+= pd6729.o
 obj-$(CONFIG_I82365)				+= i82365.o
 obj-$(CONFIG_I82092)				+= i82092.o

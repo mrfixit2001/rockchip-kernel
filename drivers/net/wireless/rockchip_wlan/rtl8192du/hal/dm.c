@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2013 Realtek Corporation. All rights reserved.
- *                                        
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -22,37 +22,31 @@
 #include <osdep_service.h>
 #include <drv_types.h>
 
-#ifdef CONFIG_RTL8192C
-#include <rtl8192c_hal.h>
-#endif
-
-#ifdef CONFIG_RTL8192D
 #include <rtl8192d_hal.h>
-#endif
 
 #define u1Byte		u8
-#define pu1Byte 	u8* 
+#define pu1Byte		u8*
 
 #define u2Byte		u16
-#define pu2Byte 	u16*		
+#define pu2Byte		u16*
 
 #define u4Byte		u32
-#define pu4Byte 	u32*	
+#define pu4Byte		u32*
 
 #define u8Byte		u64
-#define pu8Byte 	u64*
+#define pu8Byte		u64*
 
 #define s1Byte		s8
-#define ps1Byte 	s8* 
+#define ps1Byte		s8*
 
 #define s2Byte		s16
-#define ps2Byte 	s16*	
+#define ps2Byte		s16*
 
 #define s4Byte		s32
-#define ps4Byte 	s32*	
+#define ps4Byte		s32*
 
 #define s8Byte		s64
-#define ps8Byte 	s64*
+#define ps8Byte		s64*
 
 typedef enum _ODM_RF_RADIO_PATH {
     ODM_RF_PATH_A = 0,   //Radio Path A
@@ -72,34 +66,34 @@ typedef enum _ODM_RF_RADIO_PATH {
   //  ODM_RF_PATH_MAX,    //Max RF number 90 support
 } ODM_RF_RADIO_PATH_E, *PODM_RF_RADIO_PATH_E;
 
-#define	ODM_AP		 	0x01	//BIT0 
-#define	ODM_ADSL	 	0x02	//BIT1
-#define	ODM_CE		 	0x04	//BIT2
-#define	ODM_WIN		 	0x08	//BIT3
+#define	ODM_AP			0x01	//BIT0
+#define	ODM_ADSL		0x02	//BIT1
+#define	ODM_CE			0x04	//BIT2
+#define	ODM_WIN			0x08	//BIT3
 
 #define	DM_ODM_SUPPORT_TYPE			ODM_CE
 
 typedef enum tag_ODM_Support_Interface_Definition
 {
-	ODM_ITRF_PCIE 	=	0x1,
-	ODM_ITRF_USB 	=	0x2,
-	ODM_ITRF_SDIO 	=	0x4,
-	ODM_ITRF_ALL 	=	0x7,
+	ODM_ITRF_PCIE	=	0x1,
+	ODM_ITRF_USB	=	0x2,
+	ODM_ITRF_SDIO	=	0x4,
+	ODM_ITRF_ALL	=	0x7,
 }ODM_INTERFACE_E;
 
 typedef enum tag_ODM_Support_IC_Type_Definition
 {
-	ODM_RTL8192S 	=	BIT0,
-	ODM_RTL8192C 	=	BIT1,
-	ODM_RTL8192D 	=	BIT2,
-	ODM_RTL8723A 	=	BIT3,
-	ODM_RTL8188E 	=	BIT4,
-	ODM_RTL8812 	=	BIT5,
-	ODM_RTL8821 	=	BIT6,
-	ODM_RTL8192E 	=	BIT7,	
+	ODM_RTL8192S	=	BIT0,
+	ODM_RTL8192C	=	BIT1,
+	ODM_RTL8192D	=	BIT2,
+	ODM_RTL8723A	=	BIT3,
+	ODM_RTL8188E	=	BIT4,
+	ODM_RTL8812	=	BIT5,
+	ODM_RTL8821	=	BIT6,
+	ODM_RTL8192E	=	BIT7,
 	ODM_RTL8723B	=	BIT8,
-	ODM_RTL8813A	=	BIT9,	
-	ODM_RTL8881A 	=	BIT10
+	ODM_RTL8813A	=	BIT9,
+	ODM_RTL8881A	=	BIT10
 }ODM_IC_TYPE_E;
 
 #define ODM_IC_11N_SERIES		(ODM_RTL8192S|ODM_RTL8192C|ODM_RTL8192D|ODM_RTL8723A|ODM_RTL8188E|ODM_RTL8192E|ODM_RTL8723B)
@@ -107,8 +101,8 @@ typedef enum tag_ODM_Support_IC_Type_Definition
 
 u1Byte
 ODM_Read1Byte(
-	IN 	PDM_ODM_T		pDM_Odm,
-	IN	u4Byte			RegAddr
+	PDM_ODM_T		pDM_Odm,
+	u4Byte			RegAddr
 	)
 {
 #if(DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
@@ -120,15 +114,15 @@ ODM_Read1Byte(
 #elif(DM_ODM_SUPPORT_TYPE & ODM_WIN)
 	PADAPTER		Adapter = pDM_Odm->Adapter;
 	return	PlatformEFIORead1Byte(Adapter, RegAddr);
-#endif	
+#endif
 
 }
 
 
 u2Byte
 ODM_Read2Byte(
-	IN 	PDM_ODM_T		pDM_Odm,
-	IN	u4Byte			RegAddr
+	PDM_ODM_T		pDM_Odm,
+	u4Byte			RegAddr
 	)
 {
 #if(DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
@@ -140,15 +134,15 @@ ODM_Read2Byte(
 #elif(DM_ODM_SUPPORT_TYPE & ODM_WIN)
 	PADAPTER		Adapter = pDM_Odm->Adapter;
 	return	PlatformEFIORead2Byte(Adapter, RegAddr);
-#endif	
+#endif
 
 }
 
 
 u4Byte
 ODM_Read4Byte(
-	IN 	PDM_ODM_T		pDM_Odm,
-	IN	u4Byte			RegAddr
+	PDM_ODM_T		pDM_Odm,
+	u4Byte			RegAddr
 	)
 {
 #if(DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
@@ -160,16 +154,16 @@ ODM_Read4Byte(
 #elif(DM_ODM_SUPPORT_TYPE & ODM_WIN)
 	PADAPTER		Adapter = pDM_Odm->Adapter;
 	return	PlatformEFIORead4Byte(Adapter, RegAddr);
-#endif	
+#endif
 
 }
 
 
 VOID
 ODM_Write1Byte(
-	IN 	PDM_ODM_T		pDM_Odm,
-	IN	u4Byte			RegAddr,
-	IN	u1Byte			Data
+	PDM_ODM_T		pDM_Odm,
+	u4Byte			RegAddr,
+	u1Byte			Data
 	)
 {
 #if(DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
@@ -182,15 +176,15 @@ ODM_Write1Byte(
 	PADAPTER		Adapter = pDM_Odm->Adapter;
 	PlatformEFIOWrite1Byte(Adapter, RegAddr, Data);
 #endif
-	
+
 }
 
 
 VOID
 ODM_Write2Byte(
-	IN 	PDM_ODM_T		pDM_Odm,
-	IN	u4Byte			RegAddr,
-	IN	u2Byte			Data
+	PDM_ODM_T		pDM_Odm,
+	u4Byte			RegAddr,
+	u2Byte			Data
 	)
 {
 #if(DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
@@ -202,16 +196,16 @@ ODM_Write2Byte(
 #elif(DM_ODM_SUPPORT_TYPE & ODM_WIN)
 	PADAPTER		Adapter = pDM_Odm->Adapter;
 	PlatformEFIOWrite2Byte(Adapter, RegAddr, Data);
-#endif	
+#endif
 
 }
 
 
 VOID
 ODM_Write4Byte(
-	IN 	PDM_ODM_T		pDM_Odm,
-	IN	u4Byte			RegAddr,
-	IN	u4Byte			Data
+	PDM_ODM_T		pDM_Odm,
+	u4Byte			RegAddr,
+	u4Byte			Data
 	)
 {
 #if(DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
@@ -223,17 +217,17 @@ ODM_Write4Byte(
 #elif(DM_ODM_SUPPORT_TYPE & ODM_WIN)
 	PADAPTER		Adapter = pDM_Odm->Adapter;
 	PlatformEFIOWrite4Byte(Adapter, RegAddr, Data);
-#endif	
+#endif
 
 }
 
 
 VOID
-ODM_SetMACReg(	
-	IN 	PDM_ODM_T	pDM_Odm,
-	IN	u4Byte		RegAddr,
-	IN	u4Byte		BitMask,
-	IN	u4Byte		Data
+ODM_SetMACReg(
+	PDM_ODM_T	pDM_Odm,
+	u4Byte		RegAddr,
+	u4Byte		BitMask,
+	u4Byte		Data
 	)
 {
 #if(DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
@@ -241,15 +235,15 @@ ODM_SetMACReg(
 #elif(DM_ODM_SUPPORT_TYPE & (ODM_CE|ODM_WIN))
 	PADAPTER		Adapter = pDM_Odm->Adapter;
 	PHY_SetBBReg(Adapter, RegAddr, BitMask, Data);
-#endif	
+#endif
 }
 
 
-u4Byte 
-ODM_GetMACReg(	
-	IN 	PDM_ODM_T	pDM_Odm,
-	IN	u4Byte		RegAddr,
-	IN	u4Byte		BitMask
+u4Byte
+ODM_GetMACReg(
+	PDM_ODM_T	pDM_Odm,
+	u4Byte		RegAddr,
+	u4Byte		BitMask
 	)
 {
 #if(DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
@@ -259,16 +253,16 @@ ODM_GetMACReg(
 	return PHY_QueryMacReg(Adapter, RegAddr, BitMask);
 #elif(DM_ODM_SUPPORT_TYPE & (ODM_CE))
 	return PHY_QueryBBReg(pDM_Odm->Adapter, RegAddr, BitMask);
-#endif	
+#endif
 }
 
 
 VOID
-ODM_SetBBReg(	
-	IN 	PDM_ODM_T	pDM_Odm,
-	IN	u4Byte		RegAddr,
-	IN	u4Byte		BitMask,
-	IN	u4Byte		Data
+ODM_SetBBReg(
+	PDM_ODM_T	pDM_Odm,
+	u4Byte		RegAddr,
+	u4Byte		BitMask,
+	u4Byte		Data
 	)
 {
 #if(DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
@@ -276,15 +270,15 @@ ODM_SetBBReg(
 #elif(DM_ODM_SUPPORT_TYPE & (ODM_CE|ODM_WIN))
 	PADAPTER		Adapter = pDM_Odm->Adapter;
 	PHY_SetBBReg(Adapter, RegAddr, BitMask, Data);
-#endif	
+#endif
 }
 
 
-u4Byte 
-ODM_GetBBReg(	
-	IN 	PDM_ODM_T	pDM_Odm,
-	IN	u4Byte		RegAddr,
-	IN	u4Byte		BitMask
+u4Byte
+ODM_GetBBReg(
+	PDM_ODM_T	pDM_Odm,
+	u4Byte		RegAddr,
+	u4Byte		BitMask
 	)
 {
 #if(DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
@@ -292,17 +286,17 @@ ODM_GetBBReg(
 #elif(DM_ODM_SUPPORT_TYPE & (ODM_CE|ODM_WIN))
 	PADAPTER		Adapter = pDM_Odm->Adapter;
 	return PHY_QueryBBReg(Adapter, RegAddr, BitMask);
-#endif	
+#endif
 }
 
 
 VOID
-ODM_SetRFReg(	
-	IN 	PDM_ODM_T			pDM_Odm,
-	IN	ODM_RF_RADIO_PATH_E	eRFPath,
-	IN	u4Byte				RegAddr,
-	IN	u4Byte				BitMask,
-	IN	u4Byte				Data
+ODM_SetRFReg(
+	PDM_ODM_T			pDM_Odm,
+	ODM_RF_RADIO_PATH_E	eRFPath,
+	u4Byte				RegAddr,
+	u4Byte				BitMask,
+	u4Byte				Data
 	)
 {
 #if(DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
@@ -310,16 +304,16 @@ ODM_SetRFReg(
 #elif(DM_ODM_SUPPORT_TYPE & (ODM_CE|ODM_WIN))
 	PADAPTER		Adapter = pDM_Odm->Adapter;
 	PHY_SetRFReg(Adapter, eRFPath, RegAddr, BitMask, Data);
-#endif	
+#endif
 }
 
 
-u4Byte 
-ODM_GetRFReg(	
-	IN 	PDM_ODM_T			pDM_Odm,
-	IN	ODM_RF_RADIO_PATH_E	eRFPath,
-	IN	u4Byte				RegAddr,
-	IN	u4Byte				BitMask
+u4Byte
+ODM_GetRFReg(
+	PDM_ODM_T			pDM_Odm,
+	ODM_RF_RADIO_PATH_E	eRFPath,
+	u4Byte				RegAddr,
+	u4Byte				BitMask
 	)
 {
 #if(DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
@@ -327,22 +321,22 @@ ODM_GetRFReg(
 #elif(DM_ODM_SUPPORT_TYPE & (ODM_CE|ODM_WIN))
 	PADAPTER		Adapter = pDM_Odm->Adapter;
 	return PHY_QueryRFReg(Adapter, eRFPath, RegAddr, BitMask);
-#endif	
+#endif
 }
 
 
-#include "OUTSRC/odm_RegDefine11N.h"
-#include "OUTSRC/odm_RegDefine11AC.h"
-#include "OUTSRC/odm_debug.h"
+#include "odm_RegDefine11N.h"
+#include "odm_RegDefine11AC.h"
+#include "odm_debug.h"
 
-VOID 
+VOID
 ODM_InitDebugSetting(
-	IN		PDM_ODM_T		pDM_Odm
+	PDM_ODM_T		pDM_Odm
 	)
 {
-pDM_Odm->DebugLevel				= 	ODM_DBG_LOUD;
+pDM_Odm->DebugLevel				=	ODM_DBG_LOUD;
 
-pDM_Odm->DebugComponents			= 
+pDM_Odm->DebugComponents			=
 \
 #if ODM_DBG
 //BB Functions
@@ -359,7 +353,7 @@ pDM_Odm->DebugComponents			=
 //									ODM_COMP_PATH_DIV				|
 //									ODM_COMP_DYNAMIC_PRICCA		|
 //									ODM_COMP_RXHP					|
-//									ODM_COMP_MP 					|
+//									ODM_COMP_MP					|
 //									ODM_COMP_DYNAMIC_ATC		|
 
 //MAC Functions
@@ -524,7 +518,7 @@ bool rtw_adapter_linked(_adapter *adapter)
 
 	if(	(check_fwstate(mlmepriv, WIFI_AP_STATE) == _TRUE) ||
 		(check_fwstate(mlmepriv, WIFI_ADHOC_STATE|WIFI_ADHOC_MASTER_STATE) == _TRUE))
-	{				
+	{
 		if(adapter->stapriv.asoc_sta_count > 2)
 			linked = _TRUE;
 	}
@@ -621,159 +615,11 @@ void rtw_odm_adaptivity_parm_set(_adapter *pAdapter, s8 TH_L2H_ini, s8 TH_EDCCA_
 }
 
 #ifdef CONFIG_ODM_ADAPTIVITY
-VOID
-odm_NHMBBInit(
-	IN		PVOID			pDM_VOID
-)
-{
-	PDM_ODM_T		pDM_Odm = (PDM_ODM_T)pDM_VOID;
-
-	pDM_Odm->adaptivity_flag = 0;
-	pDM_Odm->tolerance_cnt = 3;
-	pDM_Odm->NHMLastTxOkcnt = 0;
-	pDM_Odm->NHMLastRxOkcnt = 0;
-	pDM_Odm->NHMCurTxOkcnt = 0;
-	pDM_Odm->NHMCurRxOkcnt = 0;
-
-	if(pDM_Odm->SupportICType & ODM_IC_11AC_SERIES)
-		{
-		//PHY parameters initialize for ac series
-		ODM_Write2Byte(pDM_Odm, ODM_REG_NHM_TIMER_11AC+2, 0x2710);	//0x990[31:16]=0x2710	Time duration for NHM unit: 4us, 0x2710=40ms
-		ODM_Write2Byte(pDM_Odm, ODM_REG_NHM_TH9_TH10_11AC+2, 0xffff);	//0x994[31:16]=0xffff	th_9, th_10
-		//ODM_Write4Byte(pDM_Odm, ODM_REG_NHM_TH3_TO_TH0_11AC, 0xffffff5c);	//0x998=0xffffff5c 		th_3, th_2, th_1, th_0
-		ODM_Write4Byte(pDM_Odm, ODM_REG_NHM_TH3_TO_TH0_11AC, 0xffffff52);	//0x998=0xffffff52 		th_3, th_2, th_1, th_0
-		ODM_Write4Byte(pDM_Odm, ODM_REG_NHM_TH7_TO_TH4_11AC, 0xffffffff);	//0x99c=0xffffffff		th_7, th_6, th_5, th_4
-		ODM_SetBBReg(pDM_Odm, ODM_REG_NHM_TH8_11AC, bMaskByte0, 0xff);		//0x9a0[7:0]=0xff		th_8
-		ODM_SetBBReg(pDM_Odm, ODM_REG_NHM_TH9_TH10_11AC, BIT8|BIT9|BIT10, 7);	//0x994[9:8]=3			enable CCX
-		ODM_SetBBReg(pDM_Odm, ODM_REG_NHM_9E8_11AC, BIT0, 1);		//0x9e8[7]=1			max power among all RX ants	
-				
-		//panic_printk("RTL8812AU phy parameters init %s,%d\n", __FUNCTION__, __LINE__);
-		}
-	else if (pDM_Odm->SupportICType & ODM_IC_11N_SERIES)
-		{
-		//PHY parameters initialize for n series
-		ODM_Write2Byte(pDM_Odm, ODM_REG_NHM_TIMER_11N+2, 0x2710);	//0x894[31:16]=0x2710	Time duration for NHM unit: 4us, 0x2710=40ms
-		//ODM_Write2Byte(pDM_Odm, ODM_REG_NHM_TIMER_11N+2, 0x4e20);	//0x894[31:16]=0x4e20	Time duration for NHM unit: 4us, 0x4e20=80ms
-		ODM_Write2Byte(pDM_Odm, ODM_REG_NHM_TH9_TH10_11N+2, 0xffff);	//0x890[31:16]=0xffff	th_9, th_10
-		//ODM_Write4Byte(pDM_Odm, ODM_REG_NHM_TH3_TO_TH0_11N, 0xffffff5c);	//0x898=0xffffff5c 		th_3, th_2, th_1, th_0
-		ODM_Write4Byte(pDM_Odm, ODM_REG_NHM_TH3_TO_TH0_11N, 0xffffff52);	//0x898=0xffffff52 		th_3, th_2, th_1, th_0
-		ODM_Write4Byte(pDM_Odm, ODM_REG_NHM_TH7_TO_TH4_11N, 0xffffffff);	//0x89c=0xffffffff		th_7, th_6, th_5, th_4
-		ODM_SetBBReg(pDM_Odm, ODM_REG_FPGA0_IQK_11N, bMaskByte0, 0xff);		//0xe28[7:0]=0xff		th_8
-		ODM_SetBBReg(pDM_Odm, ODM_REG_NHM_TH9_TH10_11N, BIT10|BIT9|BIT8, 7);	//0x890[9:8]=3			enable CCX
-		ODM_SetBBReg(pDM_Odm, ODM_REG_OFDM_FA_RSTC_11N, BIT7, 1);		//0xc0c[7]=1			max power among all RX ants				
-		}
-
-}
-
-//
-VOID
-odm_NHMBB(
-	IN		PVOID			pDM_VOID
-)
-{
-	PDM_ODM_T	pDM_Odm = (PDM_ODM_T)pDM_VOID;
-	_adapter *adapter = pDM_Odm->Adapter;
-	HAL_DATA_TYPE *pHalData = GET_HAL_DATA(adapter);
-	struct dm_priv *dmpriv = &pHalData->dmpriv;
-
-	u1Byte	NHM_cnt_0;//, NHM_cnt_1;
-	u4Byte	value32 = 0;
-	u64 tx_unicast_bytes;
-	u64 rx_unicast_bytes;
-	//u1Byte 	test_status;
-	//PFALSE_ALARM_STATISTICS pFalseAlmCnt = &(dmpriv->FalseAlmCnt);
-	
-	if (pDM_Odm->SupportICType & ODM_IC_11AC_SERIES)
-		value32 = ODM_GetBBReg(pDM_Odm, ODM_REG_NHM_CNT_11AC, bMaskDWord);
-	else if (pDM_Odm->SupportICType & ODM_IC_11N_SERIES)
-		value32 = ODM_GetBBReg(pDM_Odm, ODM_REG_NHM_CNT_11N, bMaskDWord);
-
-	NHM_cnt_0= (u1Byte)(value32 & bMaskByte0);
-	//NHM_cnt_1= (u1Byte)((value32 & bMaskByte1)>>8);
-
-	tx_unicast_bytes = dev_tx_uncast_bytes(adapter);
-	rx_unicast_bytes = dev_rx_uncast_bytes(adapter);
-	
-	pDM_Odm->NHMCurTxOkcnt = tx_unicast_bytes - pDM_Odm->NHMLastTxOkcnt;
-	pDM_Odm->NHMCurRxOkcnt = rx_unicast_bytes - pDM_Odm->NHMLastRxOkcnt;
-	pDM_Odm->NHMLastTxOkcnt = tx_unicast_bytes;
-	pDM_Odm->NHMLastRxOkcnt = rx_unicast_bytes;
-	ODM_RT_TRACE(pDM_Odm,ODM_COMP_DIG, ODM_DBG_LOUD, ("NHM_cnt_0=%d, NHMCurTxOkcnt = %llu, NHMCurRxOkcnt = %llu\n", 
-		NHM_cnt_0, pDM_Odm->NHMCurTxOkcnt, pDM_Odm->NHMCurRxOkcnt));
-
-	
-	if ( (pDM_Odm->NHMCurTxOkcnt) + 1 > (u8Byte)(pDM_Odm->NHMCurRxOkcnt<<2) + 1)		//Tx > 4*Rx possible for adaptivity test
-	{
-		if(NHM_cnt_0 >= 190 || pDM_Odm->adaptivity_flag == _TRUE)
-		{
-			//Enable EDCCA since it is possible running Adaptivity testing
-			//test_status = 1;
-			pDM_Odm->adaptivity_flag = _TRUE;
-			ODM_SetMACReg(pDM_Odm, REG_TX_PTCL_CTRL, BIT15, 0);	//don't ignore EDCCA	 reg520[15]=0
-			ODM_SetMACReg(pDM_Odm, REG_RD_CTRL, BIT11, 1);	//reg524[11]=1	
-			pDM_Odm->tolerance_cnt = 0;
-            	}
-		else
-		{
-			if(pDM_Odm->tolerance_cnt<3)
-				pDM_Odm->tolerance_cnt = pDM_Odm->tolerance_cnt + 1;
-			else
-				pDM_Odm->tolerance_cnt = 4;	
-			//test_status = 5;
-			if(pDM_Odm->tolerance_cnt > 3)
-			{
-				//test_status = 3;
-				ODM_SetMACReg(pDM_Odm, REG_TX_PTCL_CTRL, BIT15, 1);	//ignore EDCCA	reg520[15]=1
-				ODM_SetMACReg(pDM_Odm, REG_RD_CTRL, BIT11, 0);		//reg524[11]=0
-				pDM_Odm->adaptivity_flag = _FALSE;
-			}
-		}
-	}
-	else	// TX<RX 
-	{
-		if(pDM_Odm->adaptivity_flag == _TRUE && NHM_cnt_0 <= 200)
-		{
-			//test_status = 2;
-			ODM_SetMACReg(pDM_Odm, REG_TX_PTCL_CTRL, BIT15, 0);	//don't ignore EDCCA	 reg520[15]=0
-			ODM_SetMACReg(pDM_Odm, REG_RD_CTRL, BIT11, 1);	//reg524[11]=1	
-			pDM_Odm->tolerance_cnt = 0;
-		}
-		else
-		{
-			if(pDM_Odm->tolerance_cnt<3)
-				pDM_Odm->tolerance_cnt = pDM_Odm->tolerance_cnt + 1;
-			else
-				pDM_Odm->tolerance_cnt = 4;	
-			//test_status = 5;
-			if(pDM_Odm->tolerance_cnt >3)
-			{
-				//test_status = 4;
-				ODM_SetMACReg(pDM_Odm, REG_TX_PTCL_CTRL, BIT15, 1);	//ignore EDCCA	reg520[15]=1
-				ODM_SetMACReg(pDM_Odm, REG_RD_CTRL, BIT11, 0);		//reg524[11]=0
-				pDM_Odm->adaptivity_flag = _FALSE;
-			}
-		}
-	}
-	 
-	ODM_RT_TRACE(pDM_Odm,ODM_COMP_DIG, ODM_DBG_LOUD, ("adaptivity_flag = %d\n", pDM_Odm->adaptivity_flag));
-
-	if (pDM_Odm->SupportICType & ODM_IC_11AC_SERIES)	//disable enable NHX
-	{           		
-    		ODM_SetBBReg(pDM_Odm, ODM_REG_NHM_TH9_TH10_11AC, BIT1, 0);
-    		ODM_SetBBReg(pDM_Odm, ODM_REG_NHM_TH9_TH10_11AC, BIT1, 1);
-	}	
-	else if (pDM_Odm->SupportICType & ODM_IC_11N_SERIES)
-	{
-    		ODM_SetBBReg(pDM_Odm, ODM_REG_NHM_TH9_TH10_11N, BIT1, 0);
-    		ODM_SetBBReg(pDM_Odm, ODM_REG_NHM_TH9_TH10_11N, BIT1, 1);
-	}
-}
-
 
 VOID
 ODM_Write_DIG(
-	IN	PDM_ODM_T		pDM_Odm,
-	IN	u1Byte			CurrentIGI
+	PDM_ODM_T		pDM_Odm,
+	u1Byte			CurrentIGI
 	)
 {
 	_adapter *adapter = pDM_Odm->Adapter;
@@ -790,123 +636,102 @@ ODM_Write_DIG(
 }
 
 VOID
-odm_SearchPwdBLowerBound(
-	IN		PVOID		pDM_VOID,
-	IN		u1Byte		IGI_target
+Phydm_SearchPwdBLowerBound(
+	PVOID		pDM_VOID
 )
 {
 	PDM_ODM_T		pDM_Odm = (PDM_ODM_T)pDM_VOID;
-	u4Byte			value32 =0;
-	u1Byte			cnt, IGI;
-	BOOLEAN			bAdjust=_TRUE;
-	s1Byte 			TH_L2H_dmc, TH_H2L_dmc;
-	s1Byte 			TH_L2H, TH_H2L, Diff;
+	u4Byte			value32 = 0;
+	u1Byte			cnt, IGI = 0x50;		/*IGI = 0x50 for cal EDCCA lower bound*/
+	u1Byte			txEdcca1 = 0, txEdcca0 = 0;
+	BOOLEAN			bAdjust = _TRUE;
+	s1Byte			TH_L2H_dmc, TH_H2L_dmc, IGI_target = 0x32;
+	s1Byte			Diff;
+	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(pDM_Odm->Adapter);
 
-	IGI = 0x50; // find H2L, L2H lower bound
-	ODM_Write_DIG(pDM_Odm, IGI);
-	
+	ODM_SetBBReg(pDM_Odm, ODM_REG_CCK_RPT_FORMAT_11N, BIT3 | BIT2 | BIT1, 0x1);			/*set TXmod to standby mode to remove outside noise affect*/
+	ODM_SetBBReg(pDM_Odm, ODM_REG_CCK_RPT_FORMAT_11N, BIT22 | BIT21 | BIT20, 0x1);		/*set RXmod to standby mode to remove outside noise affect*/
+	if (pHalData->rf_type !=  RF_1T1R ) {
+			ODM_SetBBReg(pDM_Odm, ODM_REG_CCK_RPT_FORMAT_11N_B, BIT3 | BIT2 | BIT1, 0x1);		/*set TXmod to standby mode to remove outside noise affect*/
+			ODM_SetBBReg(pDM_Odm, ODM_REG_CCK_RPT_FORMAT_11N_B, BIT22 | BIT21 | BIT20, 0x1);	/*set RXmod to standby mode to remove outside noise affect*/
+	}
+	ODM_Write_DIG(pDM_Odm, 0x7e);
 
-	Diff = IGI_target -(s1Byte)IGI;
+	Diff = IGI_target - (s1Byte)IGI;
 	TH_L2H_dmc = pDM_Odm->TH_L2H_ini + Diff;
-		if(TH_L2H_dmc > 10) 	
-			TH_L2H_dmc = 10;
+	if (TH_L2H_dmc > 10)
+		TH_L2H_dmc = 10;
 	TH_H2L_dmc = TH_L2H_dmc - pDM_Odm->TH_EDCCA_HL_diff;
-	if(pDM_Odm->SupportICType & ODM_IC_11N_SERIES)
-		{
-		ODM_SetBBReg(pDM_Odm,rOFDM0_ECCAThreshold, bMaskByte0, (u1Byte)TH_L2H_dmc);
-		ODM_SetBBReg(pDM_Odm,rOFDM0_ECCAThreshold, bMaskByte2, (u1Byte)TH_H2L_dmc);
+
+	ODM_SetBBReg(pDM_Odm,rOFDM0_ECCAThreshold, bMaskByte0, (u1Byte)TH_L2H_dmc);
+	ODM_SetBBReg(pDM_Odm,rOFDM0_ECCAThreshold, bMaskByte2, (u1Byte)TH_H2L_dmc);
+
+	rtw_mdelay_os(5);
+
+	while (bAdjust) {
+		for (cnt = 0; cnt < 20; cnt++) {
+			if (pDM_Odm->SupportICType & ODM_IC_11N_SERIES)
+				value32 = ODM_GetBBReg(pDM_Odm, ODM_REG_RPT_11N, bMaskDWord);
+
+			if (value32 & BIT30 && (pDM_Odm->SupportICType & (ODM_RTL8723A | ODM_RTL8723B | ODM_RTL8188E)))
+				txEdcca1 = txEdcca1 + 1;
+			else if (value32 & BIT29)
+				txEdcca1 = txEdcca1 + 1;
+			else
+				txEdcca0 = txEdcca0 + 1;
 		}
-	else
-		ODM_SetBBReg(pDM_Odm, rFPGA0_XB_LSSIReadBack, 0xFFFF, ((u1Byte)TH_H2L_dmc<<8) | (u1Byte)TH_L2H_dmc);
-					
-		rtw_mdelay_os(5);
-		
-		while(bAdjust)
-			{
-			for(cnt=0; cnt<20; cnt ++)
-				{
-				if (pDM_Odm->SupportICType & ODM_IC_11N_SERIES)
-					value32 = ODM_GetBBReg(pDM_Odm,ODM_REG_RPT_11N, bMaskDWord);
-				else if(pDM_Odm->SupportICType & ODM_IC_11AC_SERIES)
-					value32 = ODM_GetBBReg(pDM_Odm,ODM_REG_RPT_11AC, bMaskDWord);
-			
-				if (value32 & BIT30 && (pDM_Odm->SupportICType & (ODM_RTL8723A|ODM_RTL8723B|ODM_RTL8188E)))
-					pDM_Odm->txEdcca1 = pDM_Odm->txEdcca1 + 1;
-				else if(value32 & BIT29)
-					pDM_Odm->txEdcca1 = pDM_Odm->txEdcca1 + 1;
-				else
-					pDM_Odm->txEdcca0 = pDM_Odm->txEdcca0 + 1;
-				}
-			//DbgPrint("txEdcca1 = %d, txEdcca0 = %d\n", pDM_Odm->txEdcca1, pDM_Odm->txEdcca0);
-			
-				if(pDM_Odm->txEdcca1 > 5 )
-				{
-					IGI = IGI -1;
-					TH_L2H_dmc = TH_L2H_dmc + 1;
-						if(TH_L2H_dmc > 10)
-							TH_L2H_dmc = 10;
-					TH_H2L_dmc = TH_L2H_dmc - pDM_Odm->TH_EDCCA_HL_diff;
-					if(pDM_Odm->SupportICType & ODM_IC_11N_SERIES)
-					{
-						ODM_SetBBReg(pDM_Odm,rOFDM0_ECCAThreshold, bMaskByte0, (u1Byte)TH_L2H_dmc);
-						ODM_SetBBReg(pDM_Odm,rOFDM0_ECCAThreshold, bMaskByte2, (u1Byte)TH_H2L_dmc);
-					}
-					else
-						ODM_SetBBReg(pDM_Odm, rFPGA0_XB_LSSIReadBack, 0xFFFF, ((u1Byte)TH_H2L_dmc<<8) | (u1Byte)TH_L2H_dmc);
 
-					pDM_Odm->TxHangFlg = _TRUE;
-					pDM_Odm->txEdcca1 = 0;
-					pDM_Odm->txEdcca0 = 0;
+		if (txEdcca1 > 1) {
+			IGI = IGI - 1;
+			TH_L2H_dmc = TH_L2H_dmc + 1;
+			if (TH_L2H_dmc > 10)
+				TH_L2H_dmc = 10;
+			TH_H2L_dmc = TH_L2H_dmc - pDM_Odm->TH_EDCCA_HL_diff;
 
-					if(TH_L2H_dmc == 10)
-						{
-						bAdjust = _FALSE;
-						pDM_Odm->TxHangFlg = _FALSE;
-						pDM_Odm->txEdcca1 = 0;
-						pDM_Odm->txEdcca0 = 0;
-						pDM_Odm->H2L_lb = TH_H2L_dmc;
-						pDM_Odm->L2H_lb = TH_L2H_dmc;
-						pDM_Odm->Adaptivity_IGI_upper = IGI;
-						}
-					}
-				else
-				{
-					bAdjust = _FALSE;
-					pDM_Odm->TxHangFlg = _FALSE;
-					pDM_Odm->txEdcca1 = 0;
-					pDM_Odm->txEdcca0 = 0;
-					pDM_Odm->H2L_lb = TH_H2L_dmc;
-					pDM_Odm->L2H_lb = TH_L2H_dmc;	
-					pDM_Odm->Adaptivity_IGI_upper = IGI;
-				}
+			ODM_SetBBReg(pDM_Odm,rOFDM0_ECCAThreshold, bMaskByte0, (u1Byte)TH_L2H_dmc);
+			ODM_SetBBReg(pDM_Odm,rOFDM0_ECCAThreshold, bMaskByte2, (u1Byte)TH_H2L_dmc);
+			if (TH_L2H_dmc == 10) {
+				bAdjust = _FALSE;
+				pDM_Odm->H2L_lb = TH_H2L_dmc;
+				pDM_Odm->L2H_lb = TH_L2H_dmc;
+				pDM_Odm->Adaptivity_IGI_upper = IGI;
 			}
 
-							
-ODM_RT_TRACE(pDM_Odm,ODM_COMP_DIG, ODM_DBG_LOUD, ("IGI = 0x%x, H2L_lb = 0x%x, L2H_lb = 0x%x\n", IGI, pDM_Odm->H2L_lb , pDM_Odm->L2H_lb));
-		
+			txEdcca1 = 0;
+			txEdcca0 = 0;
+
+		} else {
+			bAdjust = _FALSE;
+			pDM_Odm->H2L_lb = TH_H2L_dmc;
+			pDM_Odm->L2H_lb = TH_L2H_dmc;
+			pDM_Odm->Adaptivity_IGI_upper = IGI;
+			txEdcca1 = 0;
+			txEdcca0 = 0;
+		}
+	}
+
+	ODM_SetBBReg(pDM_Odm, ODM_REG_CCK_RPT_FORMAT_11N, BIT3 | BIT2 | BIT1, 0x2);			/*set TXmod to standby mode to remove outside noise affect*/
+	ODM_SetBBReg(pDM_Odm, ODM_REG_CCK_RPT_FORMAT_11N, BIT22 | BIT21 | BIT20, 0x3);		/*set RXmod to standby mode to remove outside noise affect*/
+	if (pHalData->rf_type !=  RF_1T1R ) {
+			ODM_SetBBReg(pDM_Odm, ODM_REG_CCK_RPT_FORMAT_11N_B, BIT3 | BIT2 | BIT1, 0x2);		/*set TXmod to standby mode to remove outside noise affect*/
+			ODM_SetBBReg(pDM_Odm, ODM_REG_CCK_RPT_FORMAT_11N_B, BIT22 | BIT21 | BIT20, 0x3);	/*set RXmod to standby mode to remove outside noise affect*/
+	}
+	ODM_Write_DIG(pDM_Odm, 0x20);
+
+	ODM_SetBBReg(pDM_Odm,rOFDM0_ECCAThreshold, bMaskByte0, (u1Byte)0x7f);
+	ODM_SetBBReg(pDM_Odm,rOFDM0_ECCAThreshold, bMaskByte2, (u1Byte)0x7f);
 }
 #endif /* CONFIG_ODM_ADAPTIVITY */
 
 VOID
 odm_AdaptivityInit(
-IN PDM_ODM_T pDM_Odm
+PDM_ODM_T pDM_Odm
 )
 {
 #ifdef CONFIG_ODM_ADAPTIVITY
 
-	if(pDM_Odm->SupportICType == ODM_RTL8723B)
-	{
-		pDM_Odm->TH_L2H_ini = 0xf8; // -8
-	}
-	if((pDM_Odm->SupportICType == ODM_RTL8192E)&&(pDM_Odm->SupportInterface == ODM_ITRF_PCIE))
-	{
-		pDM_Odm->TH_L2H_ini = 0xf0; // -16
-	}
-	else
-	{
-		pDM_Odm->TH_L2H_ini = 0xf7; // -9
-	}
-	
+	pDM_Odm->TH_L2H_ini = 0xef; // -17
+
 	pDM_Odm->TH_EDCCA_HL_diff = 7;
 	pDM_Odm->IGI_Base = 0x32;
 	pDM_Odm->IGI_target = 0x1c;
@@ -920,116 +745,31 @@ IN PDM_ODM_T pDM_Odm
 	pDM_Odm->H2L_lb= 0;
 	pDM_Odm->L2H_lb= 0;
 	pDM_Odm->Adaptivity_IGI_upper = 0;
-	odm_NHMBBInit(pDM_Odm);
+	pDM_Odm->adaptivity_flag= _TRUE;
 	//Reg524[11]=0 is easily to transmit packets during adaptivity test
 
-	ODM_SetBBReg(pDM_Odm, REG_RD_CTRL, BIT11, 1); // stop counting if EDCCA is asserted
+	ODM_SetMACReg(pDM_Odm, REG_TX_PTCL_CTRL, BIT15, 0);	/*don't ignore EDCCA	 reg520[15]=0*/
+	ODM_SetMACReg(pDM_Odm, REG_RD_CTRL, BIT11, 1);			/*reg524[11]=1	*/
+
+	if (pDM_Odm->SupportICType & ODM_IC_11N_SERIES)
+		ODM_SetBBReg(pDM_Odm, ODM_REG_DBG_RPT_11N, bMaskDWord, 0x208);
+
+	Phydm_SearchPwdBLowerBound(pDM_Odm);
+
 
 #endif /* CONFIG_ODM_ADAPTIVITY */
 }
 
-// Add by Neil Chen to enable edcca to MP Platform 
-#if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
-
-VOID
-odm_EnableEDCCA(
-	IN		PDM_ODM_T		pDM_Odm
-)
-{
-
-	// This should be moved out of OUTSRC
-	PADAPTER		pAdapter	= pDM_Odm->Adapter;
-	// Enable EDCCA. The value is suggested by SD3 Wilson.
-
-	//
-	// Revised for ASUS 11b/g performance issues, suggested by BB Neil, 2012.04.13.
-	//
-	if((pDM_Odm->SupportICType == ODM_RTL8723A)&&(IS_WIRELESS_MODE_G(pAdapter)))
-	{
-		//PlatformEFIOWrite1Byte(Adapter, rOFDM0_ECCAThreshold, 0x00);
-		ODM_Write1Byte(pDM_Odm,rOFDM0_ECCAThreshold,0x00);
-		ODM_Write1Byte(pDM_Odm,rOFDM0_ECCAThreshold+2,0xFD);
-		
-	}	
-	else
-	{
-		//PlatformEFIOWrite1Byte(Adapter, rOFDM0_ECCAThreshold, 0x03);
-		ODM_Write1Byte(pDM_Odm,rOFDM0_ECCAThreshold,0x03);
-		ODM_Write1Byte(pDM_Odm,rOFDM0_ECCAThreshold+2,0x00);
-	}	
-	
-	//PlatformEFIOWrite1Byte(Adapter, rOFDM0_ECCAThreshold+2, 0x00);
-}
-
-VOID
-odm_DisableEDCCA(
-	IN		PDM_ODM_T		pDM_Odm
-)
-{	
-	// Disable EDCCA..
-	ODM_Write1Byte(pDM_Odm, rOFDM0_ECCAThreshold, 0x7f);
-	ODM_Write1Byte(pDM_Odm, rOFDM0_ECCAThreshold+2, 0x7f);
-}
-
-//
-// Description: According to initial gain value to determine to enable or disable EDCCA.
-//
-// Suggested by SD3 Wilson. Added by tynli. 2011.11.25.
-//
-VOID
-odm_DynamicEDCCA(
-	IN		PDM_ODM_T		pDM_Odm
-)
-{
-	PADAPTER		pAdapter	= pDM_Odm->Adapter;
-	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(pAdapter);
-	u1Byte	RegC50, RegC58;
-	BOOLEAN		bFwCurrentInPSMode=FALSE;	
-
-	pAdapter->HalFunc.GetHwRegHandler(pAdapter, HW_VAR_FW_PSMODE_STATUS, (pu1Byte)(&bFwCurrentInPSMode));	
-
-	// Disable EDCCA mode while under LPS mode, added by Roger, 2012.09.14.
-	if(bFwCurrentInPSMode)
-		return;
-	
-	RegC50 = (u1Byte)ODM_GetBBReg(pDM_Odm, rOFDM0_XAAGCCore1, bMaskByte0);
-	RegC58 = (u1Byte)ODM_GetBBReg(pDM_Odm, rOFDM0_XBAGCCore1, bMaskByte0);
-
-
- 	if((RegC50 > 0x28 && RegC58 > 0x28) ||
-  		((pDM_Odm->SupportICType == ODM_RTL8723A && IS_WIRELESS_MODE_G(pAdapter) && RegC50>0x26)) ||
-  		(pDM_Odm->SupportICType == ODM_RTL8188E && RegC50 > 0x28))
-	{
-		if(!pHalData->bPreEdccaEnable)
-		{
-			odm_EnableEDCCA(pDM_Odm);
-			pHalData->bPreEdccaEnable = TRUE;
-		}
-		
-	}
-	else if((RegC50 < 0x25 && RegC58 < 0x25) || (pDM_Odm->SupportICType == ODM_RTL8188E && RegC50 < 0x25))
-	{
-		if(pHalData->bPreEdccaEnable)
-		{
-			odm_DisableEDCCA(pDM_Odm);
-			pHalData->bPreEdccaEnable = FALSE;
-		}
-	}
-}
-
-
-#endif    // end MP platform support
-
 VOID
 odm_Adaptivity(
-	IN		PDM_ODM_T		pDM_Odm
+	PDM_ODM_T		pDM_Odm
 )
 {
 #ifdef CONFIG_ODM_ADAPTIVITY
 	s1Byte TH_L2H_dmc, TH_H2L_dmc;
 	s1Byte Diff, IGI_target;
 	u32 value32;
-	BOOLEAN EDCCA_State = 0;
+	BOOLEAN EDCCA_State = _TRUE;
 
 	_adapter *pAdapter = pDM_Odm->Adapter;
 	HAL_DATA_TYPE *pHalData = GET_HAL_DATA(pAdapter);
@@ -1042,111 +782,41 @@ odm_Adaptivity(
 	if (!(dmpriv->DMFlag & DYNAMIC_FUNC_ADAPTIVITY))
 	{
 		ODM_RT_TRACE(pDM_Odm,ODM_COMP_DIG, ODM_DBG_LOUD, ("Go to odm_DynamicEDCCA() \n"));
-		// Add by Neil Chen to enable edcca to MP Platform 
-#if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
-		// Adjust EDCCA.
-		if(pDM_Odm->SupportICType & ODM_IC_11N_SERIES)
-			odm_DynamicEDCCA(pDM_Odm);
-#endif
+		// Add by Neil Chen to enable edcca to MP Platform
 		return;
 	}
 	ODM_RT_TRACE(pDM_Odm,ODM_COMP_DIG, ODM_DBG_LOUD, ("odm_Adaptivity() =====> \n"));
 
-	ODM_RT_TRACE(pDM_Odm,ODM_COMP_DIG, ODM_DBG_LOUD, ("ForceEDCCA=%d, IGI_Base=0x%x, TH_L2H_ini = %d, TH_EDCCA_HL_diff = %d, AdapEn_RSSI = %d\n", 
+	ODM_RT_TRACE(pDM_Odm,ODM_COMP_DIG, ODM_DBG_LOUD, ("ForceEDCCA=%d, IGI_Base=0x%x, TH_L2H_ini = %d, TH_EDCCA_HL_diff = %d, AdapEn_RSSI = %d\n",
 		pDM_Odm->ForceEDCCA, pDM_Odm->IGI_Base, pDM_Odm->TH_L2H_ini, pDM_Odm->TH_EDCCA_HL_diff, pDM_Odm->AdapEn_RSSI));
 
-	if(pDM_Odm->SupportICType & ODM_IC_11AC_SERIES)
-		ODM_SetBBReg(pDM_Odm, 0x800, BIT10, 0); //ADC_mask enable
-	
-	if(!dm_linked(pAdapter) || pHalData->CurrentChannel > 149) // Band4 doesn't need adaptivity
-	{
-		if(pDM_Odm->SupportICType & ODM_IC_11N_SERIES)
-		{
-			ODM_SetBBReg(pDM_Odm,rOFDM0_ECCAThreshold, bMaskByte0, 0x7f);
-			ODM_SetBBReg(pDM_Odm,rOFDM0_ECCAThreshold, bMaskByte2, 0x7f);
-		}
-		else
-			ODM_SetBBReg(pDM_Odm, rFPGA0_XB_LSSIReadBack, 0xFFFF, (0x7f<<8) | 0x7f);
-		return;
-	}
-
-#if (DM_ODM_SUPPORT_TYPE==ODM_WIN)	
-		if(pMgntInfo->IOTPeer == HT_IOT_PEER_BROADCOM)
-			ODM_Write1Byte(pDM_Odm, REG_TRX_SIFS_OFDM, 0x0a); 
-		else
-			ODM_Write1Byte(pDM_Odm, REG_TRX_SIFS_OFDM, 0x0e);
-#endif
-	if(!pDM_Odm->ForceEDCCA)
-	{
-		if(RSSI_Min > pDM_Odm->AdapEn_RSSI)
-			EDCCA_State = 1;
-		else if(RSSI_Min < (pDM_Odm->AdapEn_RSSI - 5))
-			EDCCA_State = 0;
-	}
-	else
-		EDCCA_State = 1;
-	//if((pDM_Odm->SupportICType & ODM_IC_11AC_SERIES) && (*pDM_Odm->pBandType == BAND_ON_5G))
-		//IGI_target = pDM_Odm->IGI_Base;
-	//else
-	{
-
-		if(BandWidth == HT_CHANNEL_WIDTH_20) //CHANNEL_WIDTH_20
-			IGI_target = pDM_Odm->IGI_Base;
-		else if(BandWidth == HT_CHANNEL_WIDTH_40)
-			IGI_target = pDM_Odm->IGI_Base + 2;
-		/*else if(*pDM_Odm->pBandWidth == ODM_BW80M)
-			IGI_target = pDM_Odm->IGI_Base + 6;*/
-		else
-			IGI_target = pDM_Odm->IGI_Base;
-	}
+	IGI_target = pDM_Odm->IGI_Base;
 
 	pDM_Odm->IGI_target = (u1Byte) IGI_target;
 
-	//Search pwdB lower bound
-	if(pDM_Odm->TxHangFlg == _TRUE)
-	{
-		if (pDM_Odm->SupportICType & ODM_IC_11N_SERIES)
-			ODM_SetBBReg(pDM_Odm,ODM_REG_DBG_RPT_11N, bMaskDWord, 0x208);
-		else if(pDM_Odm->SupportICType & ODM_IC_11AC_SERIES)
-			ODM_SetBBReg(pDM_Odm,ODM_REG_DBG_RPT_11AC, bMaskDWord, 0x209);
-
-		odm_SearchPwdBLowerBound(pDM_Odm, IGI_target);
-	}
-
-	if(dm_linked(pAdapter) && pDM_Odm->TxHangFlg == _FALSE &&pDM_Odm->NHM_disable == _FALSE)
-		odm_NHMBB(pDM_Odm);
-	
 	ODM_RT_TRACE(pDM_Odm,ODM_COMP_DIG, ODM_DBG_LOUD, ("BandWidth=%s, IGI_target=0x%x, EDCCA_State=%d\n",
 		(BandWidth==HT_CHANNEL_WIDTH_40)?"40M":"20M", IGI_target, EDCCA_State));
 
-	if(EDCCA_State == 1)
+	if(EDCCA_State == _TRUE)
 	{
 		Diff = IGI_target -(s1Byte)IGI;
 		TH_L2H_dmc = pDM_Odm->TH_L2H_ini + Diff;
-		if(TH_L2H_dmc > 10) 	TH_L2H_dmc = 10;
+		if(TH_L2H_dmc > 10)	TH_L2H_dmc = 10;
 		TH_H2L_dmc = TH_L2H_dmc - pDM_Odm->TH_EDCCA_HL_diff;
 
 		//replace lower bound to prevent EDCCA always equal 1
-			if(TH_H2L_dmc < pDM_Odm->H2L_lb)				
+			if(TH_H2L_dmc < pDM_Odm->H2L_lb)
 				TH_H2L_dmc = pDM_Odm->H2L_lb;
 			if(TH_L2H_dmc < pDM_Odm->L2H_lb)
 				TH_L2H_dmc = pDM_Odm->L2H_lb;
 	}
-	else
-	{
-		TH_L2H_dmc = 0x7f;
-		TH_H2L_dmc = 0x7f;
-	}
-	ODM_RT_TRACE(pDM_Odm,ODM_COMP_DIG, ODM_DBG_LOUD, ("IGI=0x%x, TH_L2H_dmc = %d, TH_H2L_dmc = %d\n", 
+
+	ODM_RT_TRACE(pDM_Odm,ODM_COMP_DIG, ODM_DBG_LOUD, ("IGI=0x%x, TH_L2H_dmc = %d, TH_H2L_dmc = %d\n",
 		IGI, TH_L2H_dmc, TH_H2L_dmc));
 
-	if(pDM_Odm->SupportICType & ODM_IC_11N_SERIES)
-	{
 		ODM_SetBBReg(pDM_Odm,rOFDM0_ECCAThreshold, bMaskByte0, (u1Byte)TH_L2H_dmc);
 		ODM_SetBBReg(pDM_Odm,rOFDM0_ECCAThreshold, bMaskByte2, (u1Byte)TH_H2L_dmc);
-	}
-	else
-		ODM_SetBBReg(pDM_Odm, rFPGA0_XB_LSSIReadBack, 0xFFFF, ((u1Byte)TH_H2L_dmc<<8) | (u1Byte)TH_L2H_dmc);
+
 
 #endif /* CONFIG_ODM_ADAPTIVITY */
 }
@@ -1163,7 +833,7 @@ void rtw_odm_init(_adapter *adapter)
 		odm->SupportICType = ODM_RTL8192C;
 		break;
 	case RTL8192D:
- 		odm->SupportICType = ODM_RTL8192D;
+		odm->SupportICType = ODM_RTL8192D;
 		break;
 	default:
 		odm->SupportICType = 0;
@@ -1184,4 +854,3 @@ void rtw_odm_init(_adapter *adapter)
 
 	ODM_InitDebugSetting(odm);
 }
-

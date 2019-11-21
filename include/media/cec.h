@@ -191,11 +191,6 @@ struct cec_adapter {
 
 	u32 tx_timeouts;
 
-#ifdef CONFIG_MEDIA_CEC_RC
-	bool rc_repeating;
-	int rc_last_scancode;
-	u64 rc_last_keypress;
-#endif
 #ifdef CONFIG_CEC_NOTIFIER
 	struct cec_notifier *notifier;
 #endif
@@ -209,7 +204,7 @@ struct cec_adapter {
 	u16 phys_addrs[15];
 	u32 sequence;
 
-	char input_name[32];
+	char device_name[32];
 	char input_phys[32];
 	char input_drv[32];
 };

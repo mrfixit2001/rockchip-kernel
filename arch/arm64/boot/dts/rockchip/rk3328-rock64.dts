@@ -50,7 +50,7 @@
 	compatible = "pine64,rock64", "rockchip,rk3328";
 
 	chosen {
-		bootargs = "earlyprintk=uart8250-32bit,0xff130000 swiotlb=1 kpti=0 no_console_suspend=1 usbcore.autosuspend=-1";
+		bootargs = "earlycon=uart8250-32bit,0xff130000 swiotlb=1 kpti=0 coherent_pool=1m no_console_suspend=1 usbcore.autosuspend=-1";
 		stdout-path = "serial2:1500000n8";
 	};
 
@@ -584,14 +584,6 @@
 	status = "okay";
 };
 
-&uart1 {
-	status = "okay";
-};
-
-&uart2 {
-	status = "okay";
-};
-
 &u2phy {
 	otg-vbus-gpios = <&gpio0 RK_PD3 GPIO_ACTIVE_HIGH>;
 	status = "okay";
@@ -616,6 +608,14 @@
 };
 
 &u3phy_pipe {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&uart2 {
 	status = "okay";
 };
 

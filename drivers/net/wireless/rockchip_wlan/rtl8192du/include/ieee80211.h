@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *                                        
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -20,31 +20,20 @@
 #ifndef __IEEE80211_H
 #define __IEEE80211_H
 
+#include <drv_conf.h>
+#include <osdep_service.h>
+#include <drv_types.h>
+#include "wifi.h"
 
-#ifndef CONFIG_RTL8711FW
-
-	#include <drv_conf.h>
-	#include <osdep_service.h>
-	#include <drv_types.h>
-	#include "wifi.h"
-
-	#if defined PLATFORM_OS_XP
-	#include <ntstrsafe.h>
-	#endif
-	#if defined PLATFORM_LINUX
-	#include <linux/wireless.h>
-	#endif
-#else
-	
-	#include <list.h>
-
-#endif
+#include <ieee80211.h>
 
 #define MGMT_QUEUE_NUM 5
 
 #define ETH_ALEN	6
 #define ETH_TYPE_LEN		2
 #define PAYLOAD_TYPE_LEN	1
+#define CONFIG_WIRELESS_EXT	1
+#define WIRELESS_EXT		22
 
 #ifdef CONFIG_AP_MODE
 
@@ -127,11 +116,11 @@ enum {
 
 #define	IEEE_CRYPT_ALG_NAME_LEN			16
 
-#define WPA_CIPHER_NONE 	BIT(0)
-#define WPA_CIPHER_WEP40 	BIT(1)
+#define WPA_CIPHER_NONE		BIT(0)
+#define WPA_CIPHER_WEP40	BIT(1)
 #define WPA_CIPHER_WEP104 BIT(2)
-#define WPA_CIPHER_TKIP 	BIT(3)
-#define WPA_CIPHER_CCMP 	BIT(4)
+#define WPA_CIPHER_TKIP		BIT(3)
+#define WPA_CIPHER_CCMP		BIT(4)
 
 
 
@@ -183,8 +172,8 @@ enum NETWORK_TYPE
     WIRELESS_11A = BIT(2), // tx: ofdm only, rx: ofdm only, hw: ofdm only
     WIRELESS_11_24N = BIT(3), // tx: MCS only, rx: MCS & cck, hw: MCS & cck
     WIRELESS_11_5N = BIT(4), // tx: MCS only, rx: MCS & ofdm, hw: ofdm only
-	//WIRELESS_AUTO 	= BIT(5), 
-	WIRELESS_AC 		= BIT(6), 
+	//WIRELESS_AUTO		= BIT(5),
+	WIRELESS_AC		= BIT(6),
 
     //Combination
     WIRELESS_11BG = (WIRELESS_11B|WIRELESS_11G), // tx: cck & ofdm, rx: cck & ofdm & MCS, hw: cck & ofdm
@@ -210,7 +199,7 @@ enum NETWORK_TYPE
 
 #define IsSupportedTxCCK(NetType) ((NetType) & (WIRELESS_11B) ? _TRUE : _FALSE)
 #define IsSupportedTxOFDM(NetType) ((NetType) & (WIRELESS_11G|WIRELESS_11A) ? _TRUE : _FALSE)
-#define IsSupportedTxMCS(NetType) ((NetType) & (WIRELESS_11_24N|WIRELESS_11_5N) ? _TRUE : _FALSE) 
+#define IsSupportedTxMCS(NetType) ((NetType) & (WIRELESS_11_24N|WIRELESS_11_5N) ? _TRUE : _FALSE)
 
 
 typedef struct ieee_param {
@@ -228,7 +217,7 @@ typedef struct ieee_param {
 		} wpa_ie;
 	        struct{
 			int command;
-    			int reason_code;
+			int reason_code;
 		} mlme;
 		struct {
 			u8 alg[IEEE_CRYPT_ALG_NAME_LEN];
@@ -244,7 +233,7 @@ typedef struct ieee_param {
 			u16 aid;
 			u16 capability;
 			int flags;
-			u8 tx_supp_rates[16];		
+			u8 tx_supp_rates[16];
 			struct rtw_ieee80211_ht_cap ht_cap;
 		} add_sta;
 		struct {
@@ -253,7 +242,7 @@ typedef struct ieee_param {
 		} bcn_ie;
 #endif
 
-	} u;	   
+	} u;
 }ieee_param;
 
 #ifdef CONFIG_AP_MODE
@@ -268,7 +257,7 @@ struct sta_data{
 	u16 capability;
 	int flags;
 	u32 sta_set;
-	u8 tx_supp_rates[16];	
+	u8 tx_supp_rates[16];
 	u32 tx_supp_rates_len;
 	struct rtw_ieee80211_ht_cap ht_cap;
 	u64	rx_pkts;
@@ -314,8 +303,6 @@ struct ieee_ibss_seq {
 	unsigned long packet_time;
 	_list	list;
 };
-
-#if defined(PLATFORM_LINUX) || defined(CONFIG_RTL8711FW)||defined(PLATFORM_FREEBSD) 
 
 struct rtw_ieee80211_hdr {
 	u16 frame_ctl;
@@ -366,56 +353,6 @@ struct eapol {
 	u16 length;
 } __attribute__ ((packed));
 
-#endif
-
-
-
-#ifdef PLATFORM_WINDOWS
-
-#pragma pack(1)
-struct rtw_ieee80211_hdr {
-	u16 frame_ctl;
-	u16 duration_id;
-	u8 addr1[ETH_ALEN];
-	u8 addr2[ETH_ALEN];
-	u8 addr3[ETH_ALEN];
-	u16 seq_ctl;
-	u8 addr4[ETH_ALEN];
-};
-
-struct rtw_ieee80211_hdr_3addr {
-	u16 frame_ctl;
-	u16 duration_id;
-	u8 addr1[ETH_ALEN];
-	u8 addr2[ETH_ALEN];
-	u8 addr3[ETH_ALEN];
-	u16 seq_ctl;
-};
-
-
-struct rtw_ieee80211_hdr_qos {
-	struct rtw_ieee80211_hdr wlan_hdr;
-	u16	qc;
-};
-
-struct rtw_ieee80211_hdr_3addr_qos {
-        struct  rtw_ieee80211_hdr_3addr wlan_hdr;
-        u16     qc;
-};
-
-struct eapol {
-	u8 snap[6];
-	u16 ethertype;
-	u8 version;
-	u8 type;
-	u16 length;
-};
-#pragma pack()
-
-#endif
-
-
-
 enum eap_type {
 	EAP_PACKET = 0,
 	EAPOL_START,
@@ -452,7 +389,7 @@ enum eap_type {
 
 /* management */
 #define RTW_IEEE80211_STYPE_ASSOC_REQ	0x0000
-#define RTW_IEEE80211_STYPE_ASSOC_RESP 	0x0010
+#define RTW_IEEE80211_STYPE_ASSOC_RESP	0x0010
 #define RTW_IEEE80211_STYPE_REASSOC_REQ	0x0020
 #define RTW_IEEE80211_STYPE_REASSOC_RESP	0x0030
 #define RTW_IEEE80211_STYPE_PROBE_REQ	0x0040
@@ -524,8 +461,6 @@ enum eap_type {
 
 #define P80211_OUI_LEN 3
 
-#if defined(PLATFORM_LINUX) || defined(CONFIG_RTL8711FW) || defined(PLATFORM_FREEBSD)
-
 struct ieee80211_snap_hdr {
 
         u8    dsap;   /* always 0xAA */
@@ -534,24 +469,6 @@ struct ieee80211_snap_hdr {
         u8    oui[P80211_OUI_LEN];    /* organizational universal id */
 
 } __attribute__ ((packed));
-
-#endif
-
-#ifdef PLATFORM_WINDOWS
-
-#pragma pack(1)
-struct ieee80211_snap_hdr {
-
-        u8    dsap;   /* always 0xAA */
-        u8    ssap;   /* always 0xAA */
-        u8    ctrl;   /* always 0x03 */
-        u8    oui[P80211_OUI_LEN];    /* organizational universal id */
-
-};
-#pragma pack()
-
-#endif
-
 
 #define SNAP_SIZE sizeof(struct ieee80211_snap_hdr)
 
@@ -666,7 +583,7 @@ struct ieee80211_snap_hdr {
 #define IEEE80211_24GHZ_BAND     (1<<0)
 #define IEEE80211_52GHZ_BAND     (1<<1)
 
-#define IEEE80211_CCK_RATE_LEN  		4
+#define IEEE80211_CCK_RATE_LEN			4
 #define IEEE80211_NUM_OFDM_RATESLEN	8
 
 
@@ -674,7 +591,7 @@ struct ieee80211_snap_hdr {
 #define IEEE80211_CCK_RATE_2MB		        0x04
 #define IEEE80211_CCK_RATE_5MB		        0x0B
 #define IEEE80211_CCK_RATE_11MB		        0x16
-#define IEEE80211_OFDM_RATE_LEN 		8
+#define IEEE80211_OFDM_RATE_LEN			8
 #define IEEE80211_OFDM_RATE_6MB		        0x0C
 #define IEEE80211_OFDM_RATE_9MB		        0x12
 #define IEEE80211_OFDM_RATE_12MB		0x18
@@ -758,7 +675,6 @@ struct ieee80211_frag_entry {
 	u8 dst_addr[ETH_ALEN];
 };
 
-#ifndef PLATFORM_FREEBSD //Baron BSD has already defined
 struct ieee80211_stats {
 	uint tx_unicast_frames;
 	uint tx_multicast_frames;
@@ -782,7 +698,7 @@ struct ieee80211_stats {
 	uint rx_message_in_msg_fragments;
 	uint rx_message_in_bad_msg_fragments;
 };
-#endif //PLATFORM_FREEBSD
+
 struct ieee80211_softmac_stats{
 	uint rx_ass_ok;
 	uint rx_ass_err;
@@ -827,8 +743,6 @@ struct ieee80211_softmac_stats{
 #define BIP_AAD_SIZE  20
 #endif //CONFIG_IEEE80211W
 
-#if defined(PLATFORM_LINUX) || defined(CONFIG_RTL8711FW)
-
 struct ieee80211_security {
 	u16 active_key:2,
             enabled:1,
@@ -840,26 +754,6 @@ struct ieee80211_security {
 	u8 level;
 	u16 flags;
 } __attribute__ ((packed));
-
-#endif
-
-#ifdef PLATFORM_WINDOWS
-
-#pragma pack(1)
-struct ieee80211_security {
-	u16 active_key:2,
-            enabled:1,
-	    auth_mode:2,
-            auth_algo:4,
-            unicast_uses_group:1;
-	u8 key_sizes[WEP_KEYS];
-	u8 keys[WEP_KEYS][WEP_KEY_LEN];
-	u8 level;
-	u16 flags;
-} ;
-#pragma pack()
-
-#endif
 
 /*
 
@@ -901,8 +795,6 @@ struct ieee80211_header_data {
 #define MFIE_TYPE_RATES_EX   50
 #define MFIE_TYPE_GENERIC    221
 
-#if defined(PLATFORM_LINUX) || defined(CONFIG_RTL8711FW)
-
 struct ieee80211_info_element_hdr {
 	u8 id;
 	u8 len;
@@ -913,25 +805,6 @@ struct ieee80211_info_element {
 	u8 len;
 	u8 data[0];
 } __attribute__ ((packed));
-#endif
-
-#ifdef PLATFORM_WINDOWS
-
-#pragma pack(1)
-struct ieee80211_info_element_hdr {
-	u8 id;
-	u8 len;
-} ;
-
-struct ieee80211_info_element {
-	u8 id;
-	u8 len;
-	u8 data[0];
-} ;
-#pragma pack()
-
-#endif
-
 
 /*
  * These are the data types that can make up management packets
@@ -953,10 +826,6 @@ struct ieee80211_info_element {
 #define IEEE80211_DEFAULT_TX_ESSID "Penguin"
 #define IEEE80211_DEFAULT_BASIC_RATE 10
 
-
-#if defined(PLATFORM_LINUX) || defined(CONFIG_RTL8711FW)
-
-
 struct ieee80211_authentication {
 	struct ieee80211_header_data header;
 	u16 algorithm;
@@ -994,58 +863,6 @@ struct ieee80211_assoc_response_frame {
 	u16 aid;
 //	struct ieee80211_info_element info_element; /* supported rates */
 } __attribute__ ((packed));
-#endif
-
-
-
-#ifdef PLATFORM_WINDOWS
-
-#pragma pack(1)
-
-struct ieee80211_authentication {
-	struct ieee80211_header_data header;
-	u16 algorithm;
-	u16 transaction;
-	u16 status;
-	//struct ieee80211_info_element_hdr info_element;
-} ;
-
-
-struct ieee80211_probe_response {
-	struct ieee80211_header_data header;
-	u32 time_stamp[2];
-	u16 beacon_interval;
-	u16 capability;
-	struct ieee80211_info_element info_element;
-} ;
-
-struct ieee80211_probe_request {
-	struct ieee80211_header_data header;
-	/*struct ieee80211_info_element info_element;*/
-} ;
-
-struct ieee80211_assoc_request_frame {
-	struct rtw_ieee80211_hdr_3addr header;
-	u16 capability;
-	u16 listen_interval;
-	//u8 current_ap[ETH_ALEN];
-	struct ieee80211_info_element_hdr info_element;
-} ;
-
-struct ieee80211_assoc_response_frame {
-	struct rtw_ieee80211_hdr_3addr header;
-	u16 capability;
-	u16 status;
-	u16 aid;
-//	struct ieee80211_info_element info_element; /* supported rates */
-};
-
-#pragma pack()
-
-#endif
-
-
-
 
 struct ieee80211_txb {
 	u8 nr_frags;
@@ -1092,49 +909,6 @@ struct ieee80211_txb {
 #define IEEE80211_PS_UNICAST IEEE80211_DTIM_UCAST
 #define IEEE80211_PS_MBCAST IEEE80211_DTIM_MBCAST
 #define IW_ESSID_MAX_SIZE 32
-#if 0
-struct ieee80211_network {
-	/* These entries are used to identify a unique network */
-	u8 bssid[ETH_ALEN];
-	u8 channel;
-	/* Ensure null-terminated for any debug msgs */
-	u8 ssid[IW_ESSID_MAX_SIZE + 1];
-	u8 ssid_len;
-	u8	rssi;	//relative signal strength
-	u8	sq;		//signal quality
-
-	/* These are network statistics */
-	//struct ieee80211_rx_stats stats;
-	u16 capability;
-	u16	aid;
-	u8 rates[MAX_RATES_LENGTH];
-	u8 rates_len;
-	u8 rates_ex[MAX_RATES_EX_LENGTH];
-	u8 rates_ex_len;
-	
-	u8 edca_parmsets[18];
-		
-	u8 mode;
-	u8 flags;
-	u8 time_stamp[8];
-	u16 beacon_interval;
-	u16 listen_interval;
-	u16 atim_window;
-	u8 wpa_ie[MAX_WPA_IE_LEN];
-	size_t wpa_ie_len;
-	u8 rsn_ie[MAX_WPA_IE_LEN];
-	size_t rsn_ie_len;
-	u8 country[6];
-	u8 dtim_period;
-	u8 dtim_data;
-	u8 power_constraint;
-	u8 qosinfo;
-	u8 qbssload[5];
-	u8 network_type;
-	int join_res;
-	unsigned long	last_scanned;	
-};
-#endif
 /*
 join_res:
 -1: authentication fail
@@ -1142,13 +916,11 @@ join_res:
 > 0: TID
 */
 
-#ifndef PLATFORM_FREEBSD //Baron BSD has already defined
-
 enum ieee80211_state {
 
 	/* the card is not linked at all */
 	IEEE80211_NOLINK = 0,
-	
+
 	/* IEEE80211_ASSOCIATING* are for BSS client mode
 	 * the driver shall not perform RX filtering unless
 	 * the state is LINKED.
@@ -1156,45 +928,38 @@ enum ieee80211_state {
 	 * defaults to NOLINK for ALL the other states (including
 	 * LINKED_SCANNING)
 	 */
-	
+
 	/* the association procedure will start (wq scheduling)*/
 	IEEE80211_ASSOCIATING,
 	IEEE80211_ASSOCIATING_RETRY,
-	
+
 	/* the association procedure is sending AUTH request*/
 	IEEE80211_ASSOCIATING_AUTHENTICATING,
-	
+
 	/* the association procedure has successfully authentcated
 	 * and is sending association request
 	 */
 	IEEE80211_ASSOCIATING_AUTHENTICATED,
-	
+
 	/* the link is ok. the card associated to a BSS or linked
 	 * to a ibss cell or acting as an AP and creating the bss
 	 */
 	IEEE80211_LINKED,
-	
+
 	/* same as LINKED, but the driver shall apply RX filter
 	 * rules as we are in NO_LINK mode. As the card is still
 	 * logically linked, but it is doing a syncro site survey
 	 * then it will be back to LINKED state.
 	 */
 	IEEE80211_LINKED_SCANNING,
-	
+
 };
-#endif //PLATFORM_FREEBSD
 
 #define DEFAULT_MAX_SCAN_AGE (15 * HZ)
 #define DEFAULT_FTS 2346
 #define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
 #define MAC_ARG(x) ((u8*)(x))[0],((u8*)(x))[1],((u8*)(x))[2],((u8*)(x))[3],((u8*)(x))[4],((u8*)(x))[5]
 
-#ifdef PLATFORM_FREEBSD //Baron change func to macro
-#define is_multicast_mac_addr(Addr) ((((Addr[0]) & 0x01) == 0x01) && ((Addr[0]) != 0xff))
-#define is_broadcast_mac_addr(Addr) ((((Addr[0]) & 0xff) == 0xff) && (((Addr[1]) & 0xff) == 0xff) && \
-(((Addr[2]) & 0xff) == 0xff) && (((Addr[3]) & 0xff) == 0xff) && (((Addr[4]) & 0xff) == 0xff) && \
-(((Addr[5]) & 0xff) == 0xff))
-#else
 extern __inline int is_multicast_mac_addr(const u8 *addr)
 {
         return ((addr[0] != 0xff) && (0x01 & addr[0]));
@@ -1211,7 +976,6 @@ extern __inline int is_zero_mac_addr(const u8 *addr)
 	return ((addr[0] == 0x00) && (addr[1] == 0x00) && (addr[2] == 0x00) &&   \
 		(addr[3] == 0x00) && (addr[4] == 0x00) && (addr[5] == 0x00));
 }
-#endif //PLATFORM_FREEBSD
 
 #define CFG_IEEE80211_RESERVE_FCS (1<<0)
 #define CFG_IEEE80211_COMPUTE_FCS (1<<1)
@@ -1345,9 +1109,7 @@ enum rtw_ieee80211_back_parties {
 
 #define OUI_MICROSOFT 0x0050f2 /* Microsoft (also used in Wi-Fi specs)
 				* 00:50:F2 */
-#ifndef PLATFORM_FREEBSD //Baron BSD has defined
 #define WME_OUI_TYPE 2
-#endif //PLATFORM_FREEBSD
 #define WME_OUI_SUBTYPE_INFORMATION_ELEMENT 0
 #define WME_OUI_SUBTYPE_PARAMETER_ELEMENT 1
 #define WME_OUI_SUBTYPE_TSPEC_ELEMENT 2
@@ -1393,7 +1155,7 @@ enum rtw_ieee80211_back_parties {
           RTW_IEEE80211_CHAN_NO_HT40PLUS      = 1<<4,
           RTW_IEEE80211_CHAN_NO_HT40MINUS     = 1<<5,
   };
-  
+
   #define RTW_IEEE80211_CHAN_NO_HT40 \
           (RTW_IEEE80211_CHAN_NO_HT40PLUS | RTW_IEEE80211_CHAN_NO_HT40MINUS)
 
@@ -1410,7 +1172,7 @@ struct rtw_ieee80211_channel {
 	//u32 orig_flags;
 	//int orig_mag;
 	//int orig_mpwr;
-}; 
+};
 
 #define CHAN_FMT \
 	/*"band:%d, "*/ \
@@ -1423,7 +1185,7 @@ struct rtw_ieee80211_channel {
 	/*"beacon_found:%u\n"*/ \
 	/*"orig_flags:0x%08x\n"*/ \
 	/*"orig_mag:%d\n"*/ \
-	/*"orig_mpwr:%d\n"*/ 
+	/*"orig_mpwr:%d\n"*/
 
 #define CHAN_ARG(channel) \
 	/*(channel)->band*/ \
@@ -1581,4 +1343,3 @@ int rtw_action_frame_parse(const u8 *frame, u32 frame_len, u8* category, u8 *act
 const char *action_public_str(u8 action);
 
 #endif /* IEEE80211_H */
-

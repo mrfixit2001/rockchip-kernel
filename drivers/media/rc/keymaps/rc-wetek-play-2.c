@@ -61,7 +61,7 @@ static struct rc_map_list wetek_play_2_map = {
 	.map = {
 		.scan    = wetek_play_2,
 		.size    = ARRAY_SIZE(wetek_play_2),
-		.rc_type = RC_TYPE_NEC,
+		.rc_proto = RC_PROTO_NEC,
 		.name    = RC_MAP_WETEK_PLAY_2,
 	}
 };

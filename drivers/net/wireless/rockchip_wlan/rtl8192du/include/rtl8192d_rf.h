@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *                                        
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -18,24 +18,24 @@
  *
  ******************************************************************************/
 /******************************************************************************
- * 
- * 
- * Module:	rtl8192d_rf.h	( Header File)
- * 
- * Note:	Collect every HAL RF type exter API or constant.	 
  *
- * Function:	
- * 		 
- * Export:	
- * 
- * Abbrev:	
- * 
+ *
+ * Module:	rtl8192d_rf.h	( Header File)
+ *
+ * Note:	Collect every HAL RF type exter API or constant.
+ *
+ * Function:
+ *
+ * Export:
+ *
+ * Abbrev:
+ *
  * History:
  * Data			Who		Remark
- * 
+ *
  * 09/25/2008	MHC		Create initial version.
- * 
- * 
+ *
+ *
 ******************************************************************************/
 #ifndef _RTL8192D_RF_H_
 #define _RTL8192D_RF_H_
@@ -53,9 +53,9 @@
 /*--------------------------Define Parameters-------------------------------*/
 
 
-/*------------------------------Define structure----------------------------*/ 
+/*------------------------------Define structure----------------------------*/
 
-/*------------------------------Define structure----------------------------*/ 
+/*------------------------------Define structure----------------------------*/
 
 
 /*------------------------Export global variable----------------------------*/
@@ -71,27 +71,26 @@
 //
 // RF RL6052 Series API
 //
-void		rtl8192d_RF_ChangeTxPath(	IN	PADAPTER	Adapter, 
-										IN	u16		DataRate);
-void		rtl8192d_PHY_RF6052SetBandwidth(	
-										IN	PADAPTER				Adapter,
-										IN	HT_CHANNEL_WIDTH		Bandwidth);	
+void		rtl8192d_RF_ChangeTxPath(PADAPTER	Adapter,
+				u16		DataRate);
+void		rtl8192d_PHY_RF6052SetBandwidth(
+				PADAPTER				Adapter,
+				HT_CHANNEL_WIDTH		Bandwidth);
 VOID	rtl8192d_PHY_RF6052SetCckTxPower(
-										IN	PADAPTER	Adapter,
-										IN	u8*		pPowerlevel);
+				PADAPTER	Adapter,
+				u8*		pPowerlevel);
 VOID	rtl8192d_PHY_RF6052SetOFDMTxPower(
-										IN	PADAPTER	Adapter,
-										IN	u8*		pPowerLevel,
-										IN	u8		Channel);
-int	PHY_RF6052_Config8192D(	IN	PADAPTER		Adapter	);
+				PADAPTER	Adapter,
+				u8*		pPowerLevel,
+				u8		Channel);
+int	PHY_RF6052_Config8192D(PADAPTER		Adapter	);
 
-BOOLEAN	rtl8192d_PHY_EnableAnotherPHY(IN	PADAPTER Adapter, IN	BOOLEAN	 bMac0);
+BOOLEAN	rtl8192d_PHY_EnableAnotherPHY(PADAPTER Adapter, BOOLEAN	 bMac0);
 
-void	rtl8192d_PHY_PowerDownAnotherPHY(IN PADAPTER Adapter, IN BOOLEAN bMac0);
+void	rtl8192d_PHY_PowerDownAnotherPHY(PADAPTER Adapter, BOOLEAN bMac0);
 
 
 /*--------------------------Exported Function prototype---------------------*/
 
 
 #endif/* End of HalRf.h */
-

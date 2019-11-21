@@ -43,8 +43,8 @@ void mmc_set_clock(struct mmc_host *host, unsigned int hz);
 void mmc_set_bus_mode(struct mmc_host *host, unsigned int mode);
 void mmc_set_bus_width(struct mmc_host *host, unsigned int width);
 u32 mmc_select_voltage(struct mmc_host *host, u32 ocr);
-int mmc_set_uhs_voltage(struct mmc_host *host, u32 ocr);
-int mmc_host_set_uhs_voltage(struct mmc_host *host);
+int mmc_set_uhs_voltage(struct mmc_host *host, int signal_voltage, u32 ocr);
+int mmc_host_set_uhs_voltage(struct mmc_host *host, int signal_voltage);
 int mmc_set_signal_voltage(struct mmc_host *host, int signal_voltage);
 void mmc_set_initial_signal_voltage(struct mmc_host *host);
 void mmc_set_timing(struct mmc_host *host, unsigned int timing);
@@ -60,12 +60,10 @@ static const unsigned int freqs[] = { 400000, 300000, 200000, 100000 };
 
 static inline void mmc_delay(unsigned int ms)
 {
-	if (ms < 1000 / HZ) {
-		cond_resched();
-		mdelay(ms);
-	} else {
+	if (ms <= 20)
+		usleep_range(ms * 1000, ms * 1250);
+	else
 		msleep(ms);
-	}
 }
 
 void mmc_rescan(struct work_struct *work);

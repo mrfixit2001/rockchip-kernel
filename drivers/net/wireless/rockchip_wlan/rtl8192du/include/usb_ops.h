@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *                                        
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -39,46 +39,28 @@ enum{
 #define MAX_USB_IO_CTL_SIZE		(MAX_VENDOR_REQ_CMD_SIZE +ALIGNMENT_UNIT)
 
 #ifdef PLATFORM_LINUX
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)) 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12))
 #define rtw_usb_control_msg(dev, pipe, request, requesttype, value, index, data, size, timeout_ms) \
-	usb_control_msg((dev), (pipe), (request), (requesttype), (value), (index), (data), (size), (timeout_ms)) 
+	usb_control_msg((dev), (pipe), (request), (requesttype), (value), (index), (data), (size), (timeout_ms))
 #define rtw_usb_bulk_msg(usb_dev, pipe, data, len, actual_length, timeout_ms) \
 	usb_bulk_msg((usb_dev), (pipe), (data), (len), (actual_length), (timeout_ms))
 #else
 #define rtw_usb_control_msg(dev, pipe, request, requesttype, value, index, data, size,timeout_ms) \
 	usb_control_msg((dev), (pipe), (request), (requesttype), (value), (index), (data), (size), \
-		((timeout_ms) == 0) ||((timeout_ms)*HZ/1000>0)?((timeout_ms)*HZ/1000):1) 
+		((timeout_ms) == 0) ||((timeout_ms)*HZ/1000>0)?((timeout_ms)*HZ/1000):1)
 #define rtw_usb_bulk_msg(usb_dev, pipe, data, len, actual_length, timeout_ms) \
 	usb_bulk_msg((usb_dev), (pipe), (data), (len), (actual_length), \
-		((timeout_ms) == 0) ||((timeout_ms)*HZ/1000>0)?((timeout_ms)*HZ/1000):1) 
+		((timeout_ms) == 0) ||((timeout_ms)*HZ/1000>0)?((timeout_ms)*HZ/1000):1)
 #endif
 #include <usb_ops_linux.h>
 #endif //PLATFORM_LINUX
 
-#ifdef CONFIG_RTL8192C
-void rtl8192cu_set_intf_ops(struct _io_ops *pops);
-#define usb_set_intf_ops	rtl8192cu_set_intf_ops
-
-void rtl8192cu_recv_tasklet(void *priv);
-
-void rtl8192cu_xmit_tasklet(void *priv);
-#endif
-
-#ifdef CONFIG_RTL8192D
 void rtl8192du_set_intf_ops(struct _io_ops *pops);
 #define usb_set_intf_ops	rtl8192du_set_intf_ops
 
-#ifndef PLATFORM_FREEBSD
 void rtl8192du_recv_tasklet(void *priv);
-#else	// PLATFORM_FREEBSD
-void rtl8192du_recv_tasklet(void *priv, int npending);
-#ifdef CONFIG_RX_INDICATE_QUEUE
-void rtw_rx_indicate_tasklet(void *priv, int npending);
-#endif	// CONFIG_RX_INDICATE_QUEUE
-#endif	// PLATFORM_FREEBSD
 
 void rtl8192du_xmit_tasklet(void *priv);
-#endif
 
 /*
 * Increase and check if the continual_urb_error of this @param dvobjprive is larger than MAX_CONTINUAL_URB_ERR
@@ -103,8 +85,7 @@ static inline int rtw_inc_and_chk_continual_urb_error(struct dvobj_priv *dvobj)
 */
 static inline void rtw_reset_continual_urb_error(struct dvobj_priv *dvobj)
 {
-	ATOMIC_SET(&dvobj->continual_urb_error, 0);	
+	ATOMIC_SET(&dvobj->continual_urb_error, 0);
 }
 
 #endif //__USB_OPS_H_
-

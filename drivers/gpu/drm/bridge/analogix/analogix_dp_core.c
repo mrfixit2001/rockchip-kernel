@@ -719,9 +719,8 @@ static int analogix_dp_config_video(struct analogix_dp_device *dp)
 			done_count = 0;
 		}
 		if (timeout_loop > DP_TIMEOUT_LOOP_COUNT) {
-			dev_warn(dp->dev,
-				 "Ignoring timeout of video streamclk ok\n");
-			break;
+			dev_err(dp->dev, "Timeout of video streamclk ok\n");
+			return -ETIMEDOUT;
 		}
 
 		usleep_range(1000, 1001);
@@ -1301,6 +1300,7 @@ analogix_dp_bind(struct device *dev, struct drm_device *drm_dev,
 		}
 	}
 
+	irq_set_status_flags(dp->irq, IRQ_NOAUTOEN);
 	ret = devm_request_threaded_irq(&pdev->dev, dp->irq,
 					analogix_dp_hardirq,
 					analogix_dp_irq_thread,
@@ -1309,7 +1309,6 @@ analogix_dp_bind(struct device *dev, struct drm_device *drm_dev,
 		dev_err(&pdev->dev, "failed to request host irq\n");
 		return ERR_PTR(ret);
 	}
-	disable_irq(dp->irq);
 
 	dp->drm_dev = drm_dev;
 	dp->encoder = dp->plat_data->encoder;

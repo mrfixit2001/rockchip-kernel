@@ -1070,7 +1070,7 @@ static inline void mmc_set_ios(struct mmc_host *host)
 		"width %u timing %u\n",
 		 mmc_hostname(host), ios->clock, ios->bus_mode,
 		 ios->power_mode, ios->chip_select, ios->vdd,
-		 ios->bus_width, ios->timing);
+		 1 << ios->bus_width, ios->timing);
 
 	host->ops->set_ios(host, ios);
 }
@@ -1256,8 +1256,12 @@ int mmc_of_parse_voltage(struct device_node *np, u32 *mask)
 
 	voltage_ranges = of_get_property(np, "voltage-ranges", &num_ranges);
 	num_ranges = num_ranges / sizeof(*voltage_ranges) / 2;
-	if (!voltage_ranges || !num_ranges) {
-		pr_info("%s: voltage-ranges unspecified\n", np->full_name);
+	if (!voltage_ranges) {
+		pr_debug("%s: voltage-ranges unspecified\n", np->full_name);
+		return -EINVAL;
+	}
+	if (!num_ranges) {
+		pr_err("%s: voltage-ranges empty\n", np->full_name);
 		return -EINVAL;
 	}
 
@@ -1578,22 +1582,6 @@ u32 mmc_select_voltage(struct mmc_host *host, u32 ocr)
 	return ocr;
 }
 
-int mmc_set_signal_voltage(struct mmc_host *host, int signal_voltage)
-{
-	int err = 0;
-	int old_signal_voltage = host->ios.signal_voltage;
-
-	host->ios.signal_voltage = signal_voltage;
-	if (host->ops->start_signal_voltage_switch)
-		err = host->ops->start_signal_voltage_switch(host, &host->ios);
-
-	if (err)
-		host->ios.signal_voltage = old_signal_voltage;
-
-	return err;
-
-}
-
 void mmc_set_initial_signal_voltage(struct mmc_host *host)
 {
 	/* Try to set signal voltage to 3.3V but fall back to 1.8v or 1.2v */
@@ -1605,7 +1593,7 @@ void mmc_set_initial_signal_voltage(struct mmc_host *host)
 		dev_dbg(mmc_dev(host), "Initial signal voltage of 1.2v\n");
 }
 
-int mmc_host_set_uhs_voltage(struct mmc_host *host)
+int mmc_host_set_uhs_voltage(struct mmc_host *host, int signal_voltage)
 {
 	u32 clock;
 
@@ -1628,7 +1616,23 @@ int mmc_host_set_uhs_voltage(struct mmc_host *host)
 	return 0;
 }
 
-int mmc_set_uhs_voltage(struct mmc_host *host, u32 ocr)
+int mmc_set_signal_voltage(struct mmc_host *host, int signal_voltage)
+{
+	int err = 0;
+	int old_signal_voltage = host->ios.signal_voltage;
+
+	host->ios.signal_voltage = signal_voltage;
+	if (host->ops->start_signal_voltage_switch)
+		err = host->ops->start_signal_voltage_switch(host, &host->ios);
+
+	if (err)
+		host->ios.signal_voltage = old_signal_voltage;
+
+	return err;
+
+}
+
+int mmc_set_uhs_voltage(struct mmc_host *host, int signal_voltage, u32 ocr)
 {
 	struct mmc_command cmd = {0};
 	int err = 0;
@@ -1666,7 +1670,7 @@ int mmc_set_uhs_voltage(struct mmc_host *host, u32 ocr)
 		goto power_cycle;
 	}
 
-	if (mmc_host_set_uhs_voltage(host)) {
+	if (mmc_host_set_uhs_voltage(host, signal_voltage)) {
 		/*
 		 * Voltages may not have been switched, but we've already
 		 * sent CMD11, so a power cycle is required anyway
@@ -1775,7 +1779,7 @@ void mmc_power_up(struct mmc_host *host, u32 ocr)
 	 * This delay should be sufficient to allow the power supply
 	 * to reach the minimum voltage.
 	 */
-	mmc_delay(10);
+	mmc_delay(host->ios.power_delay_ms);
 
 	mmc_pwrseq_post_power_on(host);
 
@@ -1788,7 +1792,7 @@ void mmc_power_up(struct mmc_host *host, u32 ocr)
 	 * This delay must be at least 74 clock sizes, or 1 ms, or the
 	 * time required to reach a stable voltage.
 	 */
-	mmc_delay(10);
+	mmc_delay(host->ios.power_delay_ms);
 }
 
 void mmc_power_off(struct mmc_host *host)

@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *                                        
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -18,10 +18,10 @@
  *
  ******************************************************************************/
 #ifndef __IOCTL_CFG80211_H__
-#define __IOCTL_CFG80211_H__ 
+#define __IOCTL_CFG80211_H__
 
 #if defined(CONFIG_IOCTL_CFG80211) && !defined(CONFIG_CFG80211) && !defined(CONFIG_CFG80211_MODULE)
-	#error "Can't define CONFIG_IOCTL_CFG80211 because neither CONFIG_CFG80211 nor CONFIG_CFG80211_MODULE is defined in kernel"
+//	#error "Can't define CONFIG_IOCTL_CFG80211 because neither CONFIG_CFG80211 nor CONFIG_CFG80211_MODULE is defined in kernel"
 #endif
 #if defined(CONFIG_IOCTL_CFG80211) && LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
 	#error "We haven't verify our cfg80211 solution below kernel version 2.6.35"
@@ -84,9 +84,9 @@ struct rtw_wdev_nego_info {
 	} while (0)
 
 struct rtw_wdev_priv
-{	
+{
 	struct wireless_dev *rtw_wdev;
-	
+
 	_adapter *padapter;
 
 	struct cfg80211_scan_request *scan_request;
@@ -108,9 +108,9 @@ struct rtw_wdev_priv
 
 #ifdef CONFIG_CONCURRENT_MODE
 	ATOMIC_T ro_ch_to;
-	ATOMIC_T switch_ch_to;	
-#endif	
-	
+	ATOMIC_T switch_ch_to;
+#endif
+
 };
 
 #define wiphy_to_adapter(x) (*((_adapter**)wiphy_priv(x)))
@@ -127,7 +127,7 @@ void rtw_cfg80211_surveydone_event_callback(_adapter *padapter);
 struct cfg80211_bss *rtw_cfg80211_inform_bss(_adapter *padapter, struct wlan_network *pnetwork);
 int rtw_cfg80211_check_bss(_adapter *padapter);
 void rtw_cfg80211_indicate_connect(_adapter *padapter);
-void rtw_cfg80211_indicate_disconnect(_adapter *padapter);
+void rtw_cfg80211_indicate_disconnect(_adapter *padapter, u16 reason, u8 locally_generated);
 void rtw_cfg80211_indicate_scan_done(_adapter *adapter, bool aborted);
 
 #ifdef CONFIG_AP_MODE
@@ -148,8 +148,12 @@ bool rtw_cfg80211_pwr_mgmt(_adapter *adapter);
 #define rtw_cfg80211_rx_mgmt(adapter, freq, sig_dbm, buf, len, gfp) cfg80211_rx_mgmt((adapter)->pnetdev, freq, buf, len, gfp)
 #elif (LINUX_VERSION_CODE < KERNEL_VERSION(3,6,0))
 #define rtw_cfg80211_rx_mgmt(adapter, freq, sig_dbm, buf, len, gfp) cfg80211_rx_mgmt((adapter)->pnetdev, freq, sig_dbm, buf, len, gfp)
-#else
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0))
 #define rtw_cfg80211_rx_mgmt(adapter, freq, sig_dbm, buf, len, gfp) cfg80211_rx_mgmt((adapter)->rtw_wdev, freq, sig_dbm, buf, len, gfp)
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(3 , 18 , 0))
+#define rtw_cfg80211_rx_mgmt(adapter , freq , sig_dbm , buf , len , gfp) cfg80211_rx_mgmt((adapter)->rtw_wdev, freq, sig_dbm, buf, len, 0, gfp)
+#else
+#define rtw_cfg80211_rx_mgmt(adapter, freq, sig_dbm, buf, len, gfp) cfg80211_rx_mgmt((adapter)->rtw_wdev, freq, sig_dbm, buf, len, 0)
 #endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0))  && !defined(COMPAT_KERNEL_RELEASE)
@@ -176,4 +180,3 @@ bool rtw_cfg80211_pwr_mgmt(_adapter *adapter);
 #endif
 
 #endif //__IOCTL_CFG80211_H__
-

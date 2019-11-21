@@ -30,7 +30,7 @@ static struct rc_map_list roc_cc_map = {
 	.map = {
 		.scan    = roc_cc,
 		.size    = ARRAY_SIZE(roc_cc),
-		.rc_type = RC_TYPE_NEC,
+		.rc_proto = RC_PROTO_NEC,
 		.name    = RC_MAP_ROC_CC,
 	}
 };

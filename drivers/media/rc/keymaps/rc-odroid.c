@@ -30,7 +30,7 @@ static struct rc_map_list odroid_map = {
 	.map = {
 		.scan    = odroid,
 		.size    = ARRAY_SIZE(odroid),
-		.rc_type = RC_TYPE_NEC,
+		.rc_proto = RC_PROTO_NEC,
 		.name    = RC_MAP_ODROID,
 	}
 };

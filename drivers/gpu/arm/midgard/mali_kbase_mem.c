@@ -2168,7 +2168,6 @@ static int kbase_jd_user_buf_map(struct kbase_context *kctx,
 	struct device *dev;
 	unsigned long offset;
 	unsigned long local_size;
-	unsigned int gup_flags;
 
 	alloc = reg->gpu_alloc;
 	pa = kbase_get_gpu_phy_pages(reg);
@@ -2179,14 +2178,18 @@ static int kbase_jd_user_buf_map(struct kbase_context *kctx,
 
 	pages = alloc->imported.user_buf.pages;
 
-	if (reg->flags & KBASE_REG_GPU_WR)
-		gup_flags = FOLL_WRITE;
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 168) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
 	pinned_pages = get_user_pages(NULL, mm,
 			address,
 			alloc->imported.user_buf.nr_pages,
-			gup_flags, pages, NULL);
+			reg->flags & KBASE_REG_GPU_WR ? FOLL_WRITE : 0,
+			pages, NULL);
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
+	pinned_pages = get_user_pages(NULL, mm,
+			address,
+			alloc->imported.user_buf.nr_pages,
+			reg->flags & KBASE_REG_GPU_WR,
+			0, pages, NULL);
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
 	pinned_pages = get_user_pages_remote(NULL, mm,
 			address,

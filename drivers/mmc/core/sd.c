@@ -750,7 +750,7 @@ try_again:
 	 */
 	if (!mmc_host_is_spi(host) && rocr &&
 	   ((*rocr & 0x41000000) == 0x41000000)) {
-		err = mmc_set_uhs_voltage(host, pocr);
+		err = mmc_set_uhs_voltage(host, MMC_SIGNAL_VOLTAGE_180, pocr);
 		if (err == -EAGAIN) {
 			retries--;
 			goto try_again;
@@ -935,6 +935,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
+
 retry:
 	err = mmc_sd_get_cid(host, ocr, cid, &rocr);
 	if (err)
@@ -1019,7 +1020,7 @@ retry:
 				goto free_card;
 		}
 		if (mmc_sd_card_using_v18(card)) {
-			if (mmc_host_set_uhs_voltage(host) ||
+			if (mmc_host_set_uhs_voltage(host, MMC_SIGNAL_VOLTAGE_180) ||
 			    mmc_sd_init_uhs_card(card)) {
 				v18_fixup_failed = true;
 				mmc_power_cycle(host, ocr);
@@ -1063,6 +1064,7 @@ retry:
 			mmc_set_bus_width(host, MMC_BUS_WIDTH_4);
 		}
 	}
+
 done:
 	host->card = card;
 	return 0;
@@ -1164,6 +1166,58 @@ static int _mmc_sd_suspend(struct mmc_host *host)
 
 out:
 	mmc_release_host(host);
+	return err;
+}
+
+static int _mmc_sd_shutdown(struct mmc_host *host)
+{
+	int err = 0;
+
+	BUG_ON(!host);
+	BUG_ON(!host->card);
+
+	mmc_claim_host(host);
+
+	if (mmc_card_suspended(host->card))
+		goto out;
+
+	if (!mmc_host_is_spi(host))
+		err = mmc_deselect_cards(host);
+
+	if (!err) {
+		mmc_power_off(host);
+		mmc_card_set_suspended(host->card);
+	}
+
+	/*
+	 * mmc_sd_shutdown is used for SD card, so what we need
+	 * is to make sure we set signal voltage to initial state
+	 * if it's used as main disk. RESTRICT_CARD_TYPE_MMC is
+	 * combined into host->restrict_caps via DT for SD cards
+	 * running system image.
+	 */
+	if (host->restrict_caps & RESTRICT_CARD_TYPE_EMMC) {
+		host->ios.signal_voltage = MMC_SIGNAL_VOLTAGE_330;
+		host->ios.vdd = fls(host->ocr_avail) - 1;
+		mmc_regulator_set_vqmmc(host, &host->ios);
+		pr_info("Set signal voltage to initial state\n");
+	}
+
+out:
+	mmc_release_host(host);
+	return err;
+}
+
+static int mmc_sd_shutdown(struct mmc_host *host)
+{
+	int err;
+
+	err = _mmc_sd_shutdown(host);
+	if (!err) {
+		pm_runtime_disable(&host->card->dev);
+		pm_runtime_set_suspended(&host->card->dev);
+	}
+
 	return err;
 }
 
@@ -1294,7 +1348,7 @@ static const struct mmc_bus_ops mmc_sd_ops = {
 	.suspend = mmc_sd_suspend,
 	.resume = mmc_sd_resume,
 	.alive = mmc_sd_alive,
-	.shutdown = mmc_sd_suspend,
+	.shutdown = mmc_sd_shutdown,
 	.reset = mmc_sd_reset,
 };
 

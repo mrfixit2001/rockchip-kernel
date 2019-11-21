@@ -23,38 +23,9 @@
 #include <drv_conf.h>
 #include <osdep_service.h>
 #include <drv_types.h>
-#ifdef PLATFORM_FREEBSD
-#include <if_ether.h>
-#endif //PLATFORM_FREEBSD
-
-#if defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
-#ifdef CONFIG_TX_AGGREGATION
-	#ifdef CONFIG_RTL8188E
-		#define MAX_XMITBUF_SZ	(10240)	// 10k
-	#else
-		#define MAX_XMITBUF_SZ	(15360)	// 15k
-	#endif
-#else
-#define MAX_XMITBUF_SZ (1664)
-#endif
-
-#if defined CONFIG_SDIO_HCI
-#define NR_XMITBUFF	(16)
-#endif
-#if defined(CONFIG_GSPI_HCI)
-#define NR_XMITBUFF	(128)
-#endif
-
-#elif defined (CONFIG_USB_HCI)
 
 #ifdef CONFIG_USB_TX_AGGREGATION
-	#if defined(CONFIG_PLATFORM_ARM_SUNxI) || defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I)
-		#define MAX_XMITBUF_SZ (12288)  //12k 1536*8
-	#elif defined (CONFIG_PLATFORM_MSTAR)
-		#define MAX_XMITBUF_SZ	7680	// 7.5k
-	#else
-		#define MAX_XMITBUF_SZ	(20480)	// 20k
-	#endif
+#define MAX_XMITBUF_SZ	(20480)	// 20k
 #else
 #define MAX_XMITBUF_SZ	(2048)
 #endif
@@ -63,24 +34,8 @@
 #else
 #define NR_XMITBUFF	(4)
 #endif //CONFIG_SINGLE_XMIT_BUF
-#elif defined (CONFIG_PCI_HCI)
-#define MAX_XMITBUF_SZ	(1664)
-#define NR_XMITBUFF	(128)
-#endif
 
-#ifdef PLATFORM_OS_CE
-#define XMITBUF_ALIGN_SZ 4
-#else
-#ifdef CONFIG_PCI_HCI
-#define XMITBUF_ALIGN_SZ 4
-#else
-#ifdef USB_XMITBUF_ALIGN_SZ
-#define XMITBUF_ALIGN_SZ (USB_XMITBUF_ALIGN_SZ)
-#else
 #define XMITBUF_ALIGN_SZ 512
-#endif
-#endif
-#endif
 
 // xmit extension buff defination
 #define MAX_XMIT_EXTBUF_SZ	(1536)
@@ -103,12 +58,6 @@
 #define TXCMD_QUEUE_INX	7
 
 #define HW_QUEUE_ENTRY	8
-
-#ifdef CONFIG_PCI_HCI
-//#define TXDESC_NUM						64
-#define TXDESC_NUM						128
-#define TXDESC_NUM_BE_QUEUE			128
-#endif
 
 #define WEP_IV(pattrib_iv, dot11txpn, keyidx)\
 do{\
@@ -157,26 +106,8 @@ do{\
 #endif
 
 
-#if defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
-#define TXDESC_OFFSET TXDESC_SIZE
-
-#endif
-
-#ifdef CONFIG_USB_HCI
-#ifdef USB_PACKET_OFFSET_SZ
-#define PACKET_OFFSET_SZ (USB_PACKET_OFFSET_SZ)
-#else
 #define PACKET_OFFSET_SZ (8)
-#endif
 #define TXDESC_OFFSET (TXDESC_SIZE + PACKET_OFFSET_SZ)
-#endif
-
-#ifdef CONFIG_PCI_HCI
-#define TXDESC_OFFSET 0
-#define TX_DESC_NEXT_DESC_OFFSET	40
-#endif
-
-
 
 struct tx_desc{
 
@@ -196,27 +127,6 @@ struct tx_desc{
 	unsigned int txdw6;
 
 	unsigned int txdw7;
-#ifdef CONFIG_PCI_HCI
-	unsigned int txdw8;
-
-	unsigned int txdw9;
-
-	unsigned int txdw10;
-
-	unsigned int txdw11;
-
-	// 2008/05/15 MH Because PCIE HW memory R/W 4K limit. And now,  our descriptor
-	// size is 40 bytes. If you use more than 102 descriptor( 103*40>4096), HW will execute
-	// memoryR/W CRC error. And then all DMA fetch will fail. We must decrease descriptor
-	// number or enlarge descriptor size as 64 bytes.
-	unsigned int txdw12;
-
-	unsigned int txdw13;
-
-	unsigned int txdw14;
-
-	unsigned int txdw15;
-#endif
 };
 
 
@@ -225,80 +135,15 @@ union txdesc {
 	unsigned int value[TXDESC_SIZE>>2];
 };
 
-#ifdef CONFIG_PCI_HCI
-#define PCI_MAX_TX_QUEUE_COUNT	8
-
-struct rtw_tx_ring {
-	struct tx_desc	*desc;
-	dma_addr_t		dma;
-	unsigned int		idx;
-	unsigned int		entries;
-	_queue			queue;
-	u32				qlen;
-};
-#endif
-
 struct	hw_xmit	{
-	//_lock xmit_lock;
-	//_list	pending;
+	//spinlock_t xmit_lock;
+	//struct list_head	pending;
 	_queue *sta_queue;
 	//struct hw_txqueue *phwtxqueue;
-	//sint	txcmdcnt;
+	//int	txcmdcnt;
 	int	accnt;
 };
 
-#if 0
-struct pkt_attrib
-{
-	u8	type;
-	u8	subtype;
-	u8	bswenc;
-	u8	dhcp_pkt;
-	u16	ether_type;
-	int	pktlen;		//the original 802.3 pkt raw_data len (not include ether_hdr data)
-	int	pkt_hdrlen;	//the original 802.3 pkt header len
-	int	hdrlen;		//the WLAN Header Len
-	int	nr_frags;
-	int	last_txcmdsz;
-	int	encrypt;	//when 0 indicate no encrypt. when non-zero, indicate the encrypt algorith
-	u8	iv[8];
-	int	iv_len;
-	u8	icv[8];
-	int	icv_len;
-	int	priority;
-	int	ack_policy;
-	int	mac_id;
-	int	vcs_mode;	//virtual carrier sense method
-
-	u8 	dst[ETH_ALEN];
-	u8	src[ETH_ALEN];
-	u8	ta[ETH_ALEN];
-	u8 	ra[ETH_ALEN];
-
-	u8	key_idx;
-
-	u8	qos_en;
-	u8	ht_en;
-	u8	raid;//rate adpative id
-	u8	bwmode;
-	u8	ch_offset;//PRIME_CHNL_OFFSET
-	u8	sgi;//short GI
-	u8	ampdu_en;//tx ampdu enable
-	u8	mdata;//more data bit
-	u8	eosp;
-
-	u8	pctrl;//per packet txdesc control enable
-	u8	triggered;//for ap mode handling Power Saving sta
-
-	u32	qsel;
-	u16	seqnum;
-
-	struct sta_info * psta;
-#ifdef CONFIG_TCP_CSUM_OFFLOAD_TX
-	u8	hw_tcp_csum;
-#endif
-};
-#else
 //reduce size
 struct pkt_attrib
 {
@@ -322,10 +167,10 @@ struct pkt_attrib
 	u8	ack_policy;
 	u8	mac_id;
 	u8	vcs_mode;	//virtual carrier sense method
-	u8 	dst[ETH_ALEN];
+	u8	dst[ETH_ALEN];
 	u8	src[ETH_ALEN];
 	u8	ta[ETH_ALEN];
-	u8 	ra[ETH_ALEN];
+	u8	ra[ETH_ALEN];
 	u8	key_idx;
 	u8	qos_en;
 	u8	ht_en;
@@ -340,30 +185,12 @@ struct pkt_attrib
 	u8	qsel;
 	u8	eosp;
 	u8	rate;
-	u8	intel_proxim;
-	u8 	retry_ctrl;
+	u8	retry_ctrl;
 	struct sta_info * psta;
 #ifdef CONFIG_TCP_CSUM_OFFLOAD_TX
 	u8	hw_tcp_csum;
 #endif
 };
-#endif
-
-#ifdef PLATFORM_FREEBSD
-#define ETH_ALEN	6		/* Octets in one ethernet addr	 */
-#define ETH_HLEN	14		/* Total octets in header.	 */
-#define ETH_P_IP	0x0800		/* Internet Protocol packet	*/
-
-/*struct rtw_ieee80211_hdr {
-	uint16_t frame_control;
-	uint16_t duration_id;
-	u8 addr1[6];
-	u8 addr2[6];
-	u8 addr3[6];
-	uint16_t seq_ctrl;
-	u8 addr4[6];
-} ;*/
-#endif //PLATFORM_FREEBSD
 
 #define WLANHDR_OFFSET	64
 
@@ -378,15 +205,13 @@ struct pkt_attrib
 
 #define MP_FRAMETAG		0x07
 
-#define TXAGG_FRAMETAG 	0x08
+#define TXAGG_FRAMETAG	0x08
 
 struct  submit_ctx{
 	u32 submit_time; /* */
 	u32 timeout_ms; /* <0: not synchronous, 0: wait forever, >0: up to ms waiting */
 	int status; /* status for operation */
-#ifdef PLATFORM_LINUX
 	struct completion done;
-#endif
 };
 
 enum {
@@ -412,9 +237,9 @@ void rtw_sctx_done(struct submit_ctx **sctx);
 
 struct xmit_buf
 {
-	_list	list;
+	struct list_head	list;
 
-	_adapter *padapter;
+	struct rtw_adapter *padapter;
 
 	u8 *pallocated_buf;
 
@@ -425,79 +250,27 @@ struct xmit_buf
 	u16 ext_tag; // 0: Normal xmitbuf, 1: extension xmitbuf.
 	u16 flags;
 	u32 alloc_sz;
-
 	u32  len;
-
 	struct submit_ctx *sctx;
-
-#ifdef CONFIG_USB_HCI
-
-	//u32 sz[8];
 	u32	ff_hwaddr;
-
-#if defined(PLATFORM_OS_XP)||defined(PLATFORM_LINUX) || defined(PLATFORM_FREEBSD)
-	PURB	pxmit_urb[8];
+	struct urb *pxmit_urb[8];
 	dma_addr_t dma_transfer_addr;	/* (in) dma addr for transfer_buffer */
-#endif
-
-#ifdef PLATFORM_OS_XP
-	PIRP		pxmit_irp[8];
-#endif
-
-#ifdef PLATFORM_OS_CE
-	USB_TRANSFER	usb_transfer_write_port;
-#endif
-
 	u8 bpending[8];
-
-	sint last[8];
-
-#endif
-
-#if defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
-	u8 *phead;
-	u8 *pdata;
-	u8 *ptail;
-	u8 *pend;
-	u32 ff_hwaddr;
-	u8	pg_num;	
-	u8	agg_num;
-#ifdef PLATFORM_OS_XP
-	PMDL pxmitbuf_mdl;
-	PIRP  pxmitbuf_irp;
-	PSDBUS_REQUEST_PACKET pxmitbuf_sdrp;
-#endif
-#endif
-
+	int last[8];
 #if defined(DBG_XMIT_BUF )|| defined(DBG_XMIT_BUF_EXT)
 	u8 no;
 #endif
-
 };
 
-
-struct xmit_frame
-{
-	_list	list;
-
+struct xmit_frame {
+	struct list_head	list;
 	struct pkt_attrib attrib;
-
-	_pkt *pkt;
-
+	struct sk_buff *pkt;
 	int	frame_tag;
-
-	_adapter *padapter;
-
+	struct rtw_adapter *padapter;
 	u8	*buf_addr;
-
 	struct xmit_buf *pxmitbuf;
 
-#if defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
-	u8	pg_num;
-	u8	agg_num;
-#endif
-
-#ifdef CONFIG_USB_HCI
 #ifdef CONFIG_USB_TX_AGGREGATION
 	u8	agg_num;
 #endif
@@ -505,7 +278,6 @@ struct xmit_frame
 #ifdef CONFIG_RTL8192D
 	u8	EMPktNum;
 	u16	EMPktLen[5];//The max value by HW
-#endif
 #endif
 
 #ifdef CONFIG_XMIT_ACK
@@ -518,7 +290,7 @@ struct xmit_frame
 };
 
 struct tx_servq {
-	_list	tx_pending;
+	struct list_head	tx_pending;
 	_queue	sta_pending;
 	int qcnt;
 };
@@ -526,9 +298,9 @@ struct tx_servq {
 
 struct sta_xmit_priv
 {
-	_lock	lock;
-	sint	option;
-	sint	apsd_setting;	//When bit mask is on, the associated edca queue supports APSD.
+	spinlock_t	lock;
+	int	option;
+	int	apsd_setting;	//When bit mask is on, the associated edca queue supports APSD.
 
 
 	//struct tx_servq blk_q[MAX_NUMBLKS];
@@ -536,8 +308,8 @@ struct sta_xmit_priv
 	struct tx_servq	bk_q;			//priority == 1,2
 	struct tx_servq	vi_q;			//priority == 4,5
 	struct tx_servq	vo_q;			//priority == 6,7
-	_list 	legacy_dz;
-	_list  apsd;
+	struct list_head legacy_dz;
+	struct list_head apsd;
 
 	u16 txseq_tid[16];
 
@@ -550,14 +322,14 @@ struct sta_xmit_priv
 
 
 struct	hw_txqueue	{
-	volatile sint	head;
-	volatile sint	tail;
-	volatile sint 	free_sz;	//in units of 64 bytes
-	volatile sint      free_cmdsz;
-	volatile sint	 txsz[8];
+	volatile int	head;
+	volatile int	tail;
+	volatile int	free_sz;	//in units of 64 bytes
+	volatile int      free_cmdsz;
+	volatile int	 txsz[8];
 	uint	ff_hwaddr;
 	uint	cmd_hwaddr;
-	sint	ac_tag;
+	int	ac_tag;
 };
 
 struct agg_pkt_info{
@@ -567,10 +339,10 @@ struct agg_pkt_info{
 
 struct	xmit_priv	{
 
-	_lock	lock;
+	spinlock_t	lock;
 
-	_sema	xmit_sema;
-	_sema	terminate_xmitthread_sema;
+	struct semaphore	xmit_sema;
+	struct semaphore	terminate_xmitthread_sema;
 
 	//_queue	blk_strms[MAX_NUMBLKS];
 	_queue	be_pending;
@@ -603,7 +375,7 @@ struct	xmit_priv	{
 
 	uint	frag_len;
 
-	_adapter	*adapter;
+	struct rtw_adapter	*adapter;
 
 	u8   vcs_setting;
 	u8	vcs;
@@ -621,49 +393,15 @@ struct	xmit_priv	{
 
 	u8	wmm_para_seq[4];//sequence for wmm ac parameter strength from large to small. it's value is 0->vo, 1->vi, 2->be, 3->bk.
 
-#ifdef CONFIG_USB_HCI
-	_sema	tx_retevt;//all tx return event;
+	struct semaphore	tx_retevt;//all tx return event;
 	u8		txirp_cnt;//
 
-#ifdef PLATFORM_OS_CE
-	USB_TRANSFER	usb_transfer_write_port;
-//	USB_TRANSFER	usb_transfer_write_mem;
-#endif
-#ifdef PLATFORM_LINUX
 	struct tasklet_struct xmit_tasklet;
-#endif
-#ifdef PLATFORM_FREEBSD
-	struct task xmit_tasklet;
-#endif
 	//per AC pending irp
 	int beq_cnt;
 	int bkq_cnt;
 	int viq_cnt;
 	int voq_cnt;
-
-#endif
-
-#ifdef CONFIG_PCI_HCI
-	// Tx
-	struct rtw_tx_ring	tx_ring[PCI_MAX_TX_QUEUE_COUNT];
-	int	txringcount[PCI_MAX_TX_QUEUE_COUNT];
-	u8 	beaconDMAing;		//flag of indicating beacon is transmiting to HW by DMA
-#ifdef PLATFORM_LINUX
-	struct tasklet_struct xmit_tasklet;
-#endif
-#endif
-
-#ifdef CONFIG_SDIO_HCI
-#ifdef CONFIG_SDIO_TX_TASKLET
-	#ifdef PLATFORM_LINUX
-	struct tasklet_struct xmit_tasklet;
-	#endif /* PLATFORM_LINUX */
-#else
-	_thread_hdl_	SdioXmitThread;
-	_sema		SdioXmitSema;
-	_sema		SdioXmitTerminateSema;
-#endif /* CONFIG_SDIO_TX_TASKLET */
-#endif /* CONFIG_SDIO_HCI */
 
 	_queue free_xmitbuf_queue;
 	_queue pending_xmitbuf_queue;
@@ -679,21 +417,17 @@ struct	xmit_priv	{
 	u16	nqos_ssn;
 	#ifdef CONFIG_TX_EARLY_MODE
 
-	#ifdef CONFIG_SDIO_HCI
-	#define MAX_AGG_PKT_NUM 20	
-	#else
-	#define MAX_AGG_PKT_NUM 256 //Max tx ampdu coounts		
-	#endif
-	
+	#define MAX_AGG_PKT_NUM 256 //Max tx ampdu coounts
+
 	struct agg_pkt_info agg_pkt[MAX_AGG_PKT_NUM];
 	#endif
 
 #ifdef CONFIG_XMIT_ACK
 	int	ack_tx;
-	_mutex ack_tx_mutex;
+	struct mutex ack_tx_mutex;
 	struct submit_ctx ack_tx_ops;
 #endif
-	_lock lock_sctx;
+	spinlock_t lock_sctx;
 };
 
 extern struct xmit_buf *rtw_alloc_xmitbuf_ext(struct xmit_priv *pxmitpriv);
@@ -702,9 +436,9 @@ extern s32 rtw_free_xmitbuf_ext(struct xmit_priv *pxmitpriv, struct xmit_buf *px
 extern struct xmit_buf *rtw_alloc_xmitbuf(struct xmit_priv *pxmitpriv);
 extern s32 rtw_free_xmitbuf(struct xmit_priv *pxmitpriv, struct xmit_buf *pxmitbuf);
 
-void rtw_count_tx_stats(_adapter *padapter, struct xmit_frame *pxmitframe, int sz);
-extern void rtw_update_protection(_adapter *padapter, u8 *ie, uint ie_len);
-extern s32 rtw_make_wlanhdr(_adapter *padapter, u8 *hdr, struct pkt_attrib *pattrib);
+void rtw_count_tx_stats(struct rtw_adapter *padapter, struct xmit_frame *pxmitframe, int sz);
+extern void rtw_update_protection(struct rtw_adapter *padapter, u8 *ie, uint ie_len);
+extern s32 rtw_make_wlanhdr(struct rtw_adapter *padapter, u8 *hdr, struct pkt_attrib *pattrib);
 extern s32 rtw_put_snap(u8 *data, u16 h_proto);
 
 extern struct xmit_frame *rtw_alloc_xmitframe(struct xmit_priv *pxmitpriv);
@@ -712,55 +446,51 @@ struct xmit_frame *rtw_alloc_xmitframe_ext(struct xmit_priv *pxmitpriv);
 struct xmit_frame *rtw_alloc_xmitframe_once(struct xmit_priv *pxmitpriv);
 extern s32 rtw_free_xmitframe(struct xmit_priv *pxmitpriv, struct xmit_frame *pxmitframe);
 extern void rtw_free_xmitframe_queue(struct xmit_priv *pxmitpriv, _queue *pframequeue);
-struct tx_servq *rtw_get_sta_pending(_adapter *padapter, struct sta_info *psta, sint up, u8 *ac);
-extern s32 rtw_xmitframe_enqueue(_adapter *padapter, struct xmit_frame *pxmitframe);
-extern struct xmit_frame* rtw_dequeue_xframe(struct xmit_priv *pxmitpriv, struct hw_xmit *phwxmit_i, sint entry);
+struct tx_servq *rtw_get_sta_pending(struct rtw_adapter *padapter, struct sta_info *psta, int up, u8 *ac);
+extern s32 rtw_xmitframe_enqueue(struct rtw_adapter *padapter, struct xmit_frame *pxmitframe);
+extern struct xmit_frame* rtw_dequeue_xframe(struct xmit_priv *pxmitpriv, struct hw_xmit *phwxmit_i, int entry);
 
-extern s32 rtw_xmit_classifier(_adapter *padapter, struct xmit_frame *pxmitframe);
+extern s32 rtw_xmit_classifier(struct rtw_adapter *padapter, struct xmit_frame *pxmitframe);
 extern u32 rtw_calculate_wlan_pkt_size_by_attribue(struct pkt_attrib *pattrib);
 #define rtw_wlan_pkt_size(f) rtw_calculate_wlan_pkt_size_by_attribue(&f->attrib)
-extern s32 rtw_xmitframe_coalesce(_adapter *padapter, _pkt *pkt, struct xmit_frame *pxmitframe);
-#ifdef CONFIG_IEEE80211W
-extern s32 rtw_mgmt_xmitframe_coalesce(_adapter *padapter, _pkt *pkt, struct xmit_frame *pxmitframe);
-#endif //CONFIG_IEEE80211W
+extern s32 rtw_xmitframe_coalesce(struct rtw_adapter *padapter, struct sk_buff *pkt, struct xmit_frame *pxmitframe);
 #ifdef CONFIG_TDLS
-s32 rtw_xmit_tdls_coalesce(_adapter *padapter, struct xmit_frame *pxmitframe, u8 action);
+s32 rtw_xmit_tdls_coalesce(struct rtw_adapter *padapter, struct xmit_frame *pxmitframe, u8 action);
 #endif
 s32 _rtw_init_hw_txqueue(struct hw_txqueue* phw_txqueue, u8 ac_tag);
 void _rtw_init_sta_xmit_priv(struct sta_xmit_priv *psta_xmitpriv);
 
 
-s32 rtw_txframes_pending(_adapter *padapter);
-s32 rtw_txframes_sta_ac_pending(_adapter *padapter, struct pkt_attrib *pattrib);
-void rtw_init_hwxmits(struct hw_xmit *phwxmit, sint entry);
+s32 rtw_txframes_pending(struct rtw_adapter *padapter);
+s32 rtw_txframes_sta_ac_pending(struct rtw_adapter *padapter, struct pkt_attrib *pattrib);
+void rtw_init_hwxmits(struct hw_xmit *phwxmit, int entry);
 
 
-s32 _rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, _adapter *padapter);
+s32 _rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, struct rtw_adapter *padapter);
 void _rtw_free_xmit_priv (struct xmit_priv *pxmitpriv);
 
 
-void rtw_alloc_hwxmits(_adapter *padapter);
-void rtw_free_hwxmits(_adapter *padapter);
+void rtw_alloc_hwxmits(struct rtw_adapter *padapter);
+void rtw_free_hwxmits(struct rtw_adapter *padapter);
 
 
-s32 rtw_xmit(_adapter *padapter, _pkt **pkt);
-bool xmitframe_hiq_filter(struct xmit_frame *xmitframe);
+s32 rtw_xmit(struct rtw_adapter *padapter, struct sk_buff **pkt);
+
 #if defined(CONFIG_AP_MODE) || defined(CONFIG_TDLS)
-sint xmitframe_enqueue_for_sleeping_sta(_adapter *padapter, struct xmit_frame *pxmitframe);
-void stop_sta_xmit(_adapter *padapter, struct sta_info *psta);
-void wakeup_sta_to_xmit(_adapter *padapter, struct sta_info *psta);
-void xmit_delivery_enabled_frames(_adapter *padapter, struct sta_info *psta);
+int xmitframe_enqueue_for_sleeping_sta(struct rtw_adapter *padapter, struct xmit_frame *pxmitframe);
+void stop_sta_xmit(struct rtw_adapter *padapter, struct sta_info *psta);
+void wakeup_sta_to_xmit(struct rtw_adapter *padapter, struct sta_info *psta);
+void xmit_delivery_enabled_frames(struct rtw_adapter *padapter, struct sta_info *psta);
 #endif
 
 u8	qos_acm(u8 acm_mask, u8 priority);
 
 #ifdef CONFIG_XMIT_THREAD_MODE
 void	enqueue_pending_xmitbuf(struct xmit_priv *pxmitpriv, struct xmit_buf *pxmitbuf);
-void enqueue_pending_xmitbuf_to_head(struct xmit_priv *pxmitpriv, struct xmit_buf *pxmitbuf);
 struct xmit_buf*	dequeue_pending_xmitbuf(struct xmit_priv *pxmitpriv);
 struct xmit_buf*	dequeue_pending_xmitbuf_under_survey(struct xmit_priv *pxmitpriv);
-sint	check_pending_xmitbuf(struct xmit_priv *pxmitpriv);
-thread_return	rtw_xmit_thread(thread_context context);
+int	check_pending_xmitbuf(struct xmit_priv *pxmitpriv);
+int	rtw_xmit_thread(void *context);
 #endif
 
 u32	rtw_get_ff_hwaddr(struct xmit_frame	*pxmitframe);
@@ -775,4 +505,3 @@ void rtw_ack_tx_done(struct xmit_priv *pxmitpriv, int status);
 #include <xmit_osdep.h>
 
 #endif	//_RTL871X_XMIT_H_
-

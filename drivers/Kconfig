@@ -14,6 +14,8 @@ source "drivers/of/Kconfig"
 
 source "drivers/parport/Kconfig"
 
+source "drivers/pcmcia/Kconfig"
+
 source "drivers/pnp/Kconfig"
 
 source "drivers/block/Kconfig"

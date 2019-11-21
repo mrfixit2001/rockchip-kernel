@@ -155,10 +155,10 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 				"snps,reset-delays-us", data->delays, 3);
 		}
 
-		if (gpio_request(data->reset_gpio, "mdio-reset")) {
+		if (devm_gpio_request(priv->device, data->reset_gpio, "mdio-reset")) {
 			pr_err("stmmac_mdio_reset: failed to request %d\n", data->reset_gpio);
 			goto phy_reset;
-		}
+ 		}
 
 		gpio_direction_output(data->reset_gpio,
 				      data->active_low ? 1 : 0);
