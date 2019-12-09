@@ -1150,7 +1150,7 @@ wl_escan_set_scan(
 
 	err = wldev_iovar_setbuf(dev, "escan", params, params_size,
 		escan->escan_ioctl_buf, WLC_IOCTL_MEDLEN, NULL);
-	printf("%s: LEGACY_SCAN\n", __FUNCTION__);
+	//printf("%s: LEGACY_SCAN\n", __FUNCTION__);
 	if (unlikely(err)) {
 		if (err == BCME_EPERM)
 			/* Scan Not permitted at this point of time */

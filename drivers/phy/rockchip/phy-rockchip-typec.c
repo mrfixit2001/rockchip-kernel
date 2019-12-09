@@ -1661,13 +1661,28 @@ static int rockchip_typec_phy_probe(struct platform_device *pdev)
 
 	typec_phy_pre_init(tcphy);
 
-	if (device_property_read_bool(dev, "extcon")) {
-		tcphy->extcon = extcon_get_edev_by_phandle(dev, 0);
-		if (IS_ERR(tcphy->extcon)) {
+	tcphy->extcon = extcon_get_edev_by_phandle(dev, 0);
+	if (IS_ERR(tcphy->extcon)) {
+		if (PTR_ERR(tcphy->extcon) == -ENODEV) {
+			tcphy->extcon = NULL;
+		} else {
 			if (PTR_ERR(tcphy->extcon) != -EPROBE_DEFER)
 				dev_err(dev, "Invalid or missing extcon\n");
 			return PTR_ERR(tcphy->extcon);
 		}
+	} else {
+		extcon_set_property_capability(tcphy->extcon, EXTCON_USB,
+					       EXTCON_PROP_USB_SS);
+		extcon_set_property_capability(tcphy->extcon, EXTCON_USB_HOST,
+					       EXTCON_PROP_USB_SS);
+		extcon_set_property_capability(tcphy->extcon, EXTCON_DISP_DP,
+					       EXTCON_PROP_USB_SS);
+		extcon_set_property_capability(tcphy->extcon, EXTCON_USB,
+					       EXTCON_PROP_USB_TYPEC_POLARITY);
+		extcon_set_property_capability(tcphy->extcon, EXTCON_USB_HOST,
+					       EXTCON_PROP_USB_TYPEC_POLARITY);
+		extcon_set_property_capability(tcphy->extcon, EXTCON_DISP_DP,
+					       EXTCON_PROP_USB_TYPEC_POLARITY);
 	}
 
 	tcphy->typec_phy_config = typec_dp_phy_config;

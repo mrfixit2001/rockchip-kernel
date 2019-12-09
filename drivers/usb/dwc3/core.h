@@ -904,7 +904,6 @@ struct dwc3 {
 	size_t			regs_size;
 
 	enum usb_dr_mode	dr_mode;
-	u32			current_dr_role;
 	enum usb_phy_interface	hsphy_mode;
 
 	u32			fladj;
