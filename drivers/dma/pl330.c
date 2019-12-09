@@ -28,7 +28,6 @@
 #include <linux/err.h>
 #include <linux/pm_runtime.h>
 #include <linux/bug.h>
-#include <linux/reset.h>
 
 #include "dmaengine.h"
 #define PL330_MAX_CHAN		8
@@ -37,8 +36,6 @@
 #define PL330_MAX_BURST         16
 
 #define PL330_QUIRK_BROKEN_NO_FLUSHP BIT(0)
-
-#define DMA_ATTR_PRIVILEGED		(1UL << 9)
 
 enum pl330_cachectrl {
 	CCTRL0,		/* Noncacheable and nonbufferable */
@@ -498,9 +495,6 @@ struct pl330_dmac {
 	unsigned int num_peripherals;
 	struct dma_pl330_chan *peripherals; /* keep at end */
 	int quirks;
-
-	struct reset_control	*rstc;
-	struct reset_control	*rstc_ocp;
 };
 
 static struct pl330_of_quirks {
@@ -1918,10 +1912,9 @@ static int dmac_alloc_resources(struct pl330_dmac *pl330)
 	if (ret) {
 		dev_err(pl330->ddma.dev, "%s:%d Can't to create channels for DMAC!\n",
 			__func__, __LINE__);
-		dma_free_attrs(pl330->ddma.dev,
+		dma_free_coherent(pl330->ddma.dev,
 				chans * pl330->mcbufsz,
-				pl330->mcode_cpu, pl330->mcode_bus,
-				DMA_ATTR_PRIVILEGED);
+				pl330->mcode_cpu, pl330->mcode_bus);
 		return ret;
 	}
 
@@ -2000,9 +1993,9 @@ static void pl330_del(struct pl330_dmac *pl330)
 	/* Free DMAC resources */
 	dmac_free_threads(pl330);
 
-	dma_free_attrs(pl330->ddma.dev,
+	dma_free_coherent(pl330->ddma.dev,
 		pl330->pcfg.num_chan * pl330->mcbufsz, pl330->mcode_cpu,
-		pl330->mcode_bus, DMA_ATTR_PRIVILEGED);
+		pl330->mcode_bus);
 }
 
 /* forward declaration */
@@ -2913,32 +2906,6 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 
 	amba_set_drvdata(adev, pl330);
 
-	pl330->rstc = devm_reset_control_get_optional(&adev->dev, "dma");
-	if (IS_ERR(pl330->rstc)) {
-		if (PTR_ERR(pl330->rstc) != -EPROBE_DEFER)
-			dev_err(&adev->dev, "Failed to get reset!\n");
-		return PTR_ERR(pl330->rstc);
-	} else {
-		ret = reset_control_deassert(pl330->rstc);
-		if (ret) {
-			dev_err(&adev->dev, "Couldn't deassert the device from reset!\n");
-			return ret;
-		}
-	}
-
-	pl330->rstc_ocp = devm_reset_control_get_optional(&adev->dev, "dma-ocp");
-	if (IS_ERR(pl330->rstc_ocp)) {
-		if (PTR_ERR(pl330->rstc_ocp) != -EPROBE_DEFER)
-			dev_err(&adev->dev, "Failed to get OCP reset!\n");
-		return PTR_ERR(pl330->rstc_ocp);
-	} else {
-		ret = reset_control_deassert(pl330->rstc_ocp);
-		if (ret) {
-			dev_err(&adev->dev, "Couldn't deassert the device from OCP reset!\n");
-			return ret;
-		}
-	}
-
 	for (i = 0; i < AMBA_NR_IRQS; i++) {
 		irq = adev->irq[i];
 		if (irq) {
@@ -3078,12 +3045,6 @@ probe_err3:
 probe_err2:
 	pl330_del(pl330);
 
-	if (pl330->rstc_ocp)
-		reset_control_assert(pl330->rstc_ocp);
-
-	if (pl330->rstc)
-		reset_control_assert(pl330->rstc);
-
 	return ret;
 }
 
@@ -3121,12 +3082,6 @@ static int pl330_remove(struct amba_device *adev)
 	}
 
 	pl330_del(pl330);
-
-	if (pl330->rstc_ocp)
-		reset_control_assert(pl330->rstc_ocp);
-
-	if (pl330->rstc)
-		reset_control_assert(pl330->rstc);
 
 	return 0;
 }
