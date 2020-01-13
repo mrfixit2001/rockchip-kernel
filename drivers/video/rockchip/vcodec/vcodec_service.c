@@ -2215,15 +2215,15 @@ static long compat_vpu_service_ioctl(struct file *file, unsigned int cmd,
 	} break;
 	}
 
+	mm_segment_t oldfs = get_fs();
 	if (compatible_arg) {
+		set_fs(USER_DS);
 		err = native_ioctl(file, cmd, (unsigned long)up);
 	} else {
-		mm_segment_t old_fs = get_fs();
-
 		set_fs(KERNEL_DS);
 		err = native_ioctl(file, cmd, (unsigned long)&req);
-		set_fs(old_fs);
 	}
+	set_fs(oldfs);
 
 	vpu_debug_leave();
 	return err;
@@ -2544,6 +2544,22 @@ static void vcodec_get_reg_freq_rk3368(struct vpu_subdev_data *data,
 	}
 }
 
+static void vcodec_get_reg_freq_rk3399(struct vpu_subdev_data *data,
+					struct vpu_reg *reg)
+{
+	vcodec_get_reg_freq_default(data, reg);
+
+	if (reg->type == VPU_DEC || reg->type == VPU_DEC_PP) {
+		if (reg_check_fmt(reg) == VPU_DEC_FMT_H264) {
+			if (reg_probe_width(reg) >= 2560) {
+				reg->freq = VPU_FREQ_500M;
+			}
+		} else if (reg_check_interlace(reg)) {
+			reg->freq = VPU_FREQ_400M;
+		}
+	}
+}
+
 static void vcodec_get_reg_freq_rk3288(struct vpu_subdev_data *data,
 				       struct vpu_reg *reg)
 {
@@ -2557,6 +2573,22 @@ static void vcodec_get_reg_freq_rk3288(struct vpu_subdev_data *data,
 				 * raise frequency for resolution larger
 				 * than 1440p avc.
 				 */
+				reg->freq = VPU_FREQ_600M;
+			}
+		} else if (reg_check_interlace(reg)) {
+			reg->freq = VPU_FREQ_400M;
+		}
+	}
+}
+
+static void vcodec_get_reg_freq_rk3328(struct vpu_subdev_data *data,
+					struct vpu_reg *reg)
+{
+	vcodec_get_reg_freq_default(data, reg);
+
+	if (reg->type == VPU_DEC || reg->type == VPU_DEC_PP) {
+		if (reg_check_fmt(reg) == VPU_DEC_FMT_H264) {
+			if (reg_probe_width(reg) >= 2560) {
 				reg->freq = VPU_FREQ_600M;
 			}
 		} else if (reg_check_interlace(reg)) {
@@ -2676,17 +2708,17 @@ static void vcodec_set_freq_rk3328(struct vpu_service_info *pservice,
 	if (pservice->dev_id == VCODEC_DEVICE_ID_RKVDEC) {
 		if (reg->reg[1] & 0x00800000) {
 			if (rkv_dec_get_fmt(reg->reg) == FMT_H264D)
-				rkvdec_set_clk(pservice, 400 * MHZ, 250 * MHZ,
+				rkvdec_set_clk(pservice, 600 * MHZ, 250 * MHZ,
 					       400 * MHZ, EVENT_ADJUST);
 			else
-				rkvdec_set_clk(pservice, 500 * MHZ, 250 * MHZ,
+				rkvdec_set_clk(pservice, 600 * MHZ, 250 * MHZ,
 					       400 * MHZ, EVENT_ADJUST);
 		} else {
 			if (rkv_dec_get_fmt(reg->reg) == FMT_H264D)
-				rkvdec_set_clk(pservice, 400 * MHZ, 300 * MHZ,
+				rkvdec_set_clk(pservice, 600 * MHZ, 300 * MHZ,
 					       400 * MHZ, EVENT_ADJUST);
 			else
-				rkvdec_set_clk(pservice, 500 * MHZ, 300 * MHZ,
+				rkvdec_set_clk(pservice, 600 * MHZ, 300 * MHZ,
 					       400 * MHZ, EVENT_ADJUST);
 		}
 	}
@@ -2921,7 +2953,7 @@ static struct vcodec_hw_ops hw_ops_default = {
 static struct vcodec_hw_ops hw_ops_rk3328_rkvdec = {
 	.power_on = vcodec_power_on_rk3328,
 	.power_off = vcodec_power_off_rk3328,
-	.get_freq = vcodec_get_reg_freq_default,
+	.get_freq = vcodec_get_reg_freq_rk3328,
 	.set_freq = vcodec_set_freq_rk3328,
 	.reduce_freq = vcodec_reduce_freq_rk3328,
 };
@@ -2982,21 +3014,27 @@ static void vcodec_set_hw_ops(struct vpu_service_info *pservice)
 
 	if (!pservice->hw_ops) {
 		pservice->hw_ops = &hw_ops_default;
-		if (of_machine_is_compatible("rockchip,rk3328") ||
-		    of_machine_is_compatible("rockchip,rk3228") ||
+		if (of_machine_is_compatible("rockchip,rk3228") ||
 		    of_machine_is_compatible("rockchip,rk3229")) {
 			pservice->hw_ops->power_on = vcodec_power_on_rk322x;
 			pservice->hw_ops->power_off = vcodec_power_off_rk322x;
 			pservice->hw_ops->get_freq = NULL;
 			pservice->hw_ops->set_freq = vcodec_set_freq_rk322x;
-			pservice->hw_ops->reduce_freq =
-						vcodec_reduce_freq_rk322x;
+			pservice->hw_ops->reduce_freq = vcodec_reduce_freq_rk322x;
+		} else if (of_machine_is_compatible("rockchip,rk3328")) {
+			pservice->hw_ops->power_on = vcodec_power_on_rk322x;
+			pservice->hw_ops->power_off = vcodec_power_off_rk322x;
+			pservice->hw_ops->get_freq = vcodec_get_reg_freq_rk3328;
+			pservice->hw_ops->set_freq = vcodec_set_freq_rk322x;
+			pservice->hw_ops->reduce_freq = vcodec_reduce_freq_rk322x;
 		} else if (of_machine_is_compatible("rockchip,rk3126") ||
 				of_machine_is_compatible("rockchip,rk3128")) {
 			pservice->hw_ops->power_on = vcodec_power_on_rk312x;
 		} else if (of_machine_is_compatible("rockchip,rk3288") ||
 				of_machine_is_compatible("rockchip,rk3288w")) {
 			pservice->hw_ops->get_freq = vcodec_get_reg_freq_rk3288;
+		} else if (of_machine_is_compatible("rockchip,rk3399")) {
+			pservice->hw_ops->get_freq = vcodec_get_reg_freq_rk3399;
 		} else if (of_machine_is_compatible("rockchip,rk3368")) {
 			pservice->hw_ops->get_freq = vcodec_get_reg_freq_rk3368;
 		}
@@ -4017,12 +4055,13 @@ static void get_hw_info(struct vpu_subdev_data *data)
 		dec->max_dec_pic_width = 4096;
 	}
 
-	/* in 3399 3228 and 3229 chips, avoid vpu timeout
+	/* in 3399 3228 3229 and 1808 chips, avoid vpu timeout
 	 * and can't recover problem
 	 */
 	if (of_machine_is_compatible("rockchip,rk3399") ||
 		of_machine_is_compatible("rockchip,rk3228") ||
-		of_machine_is_compatible("rockchip,rk3229"))
+		of_machine_is_compatible("rockchip,rk3229") ||
+		of_machine_is_compatible("rockchip,rk1808"))
 		pservice->soft_reset = true;
 	else
 		pservice->soft_reset = false;

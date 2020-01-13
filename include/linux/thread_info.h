@@ -28,6 +28,10 @@
 
 #define THREADINFO_GFP		(GFP_KERNEL | __GFP_NOTRACK | __GFP_ZERO)
 
+#ifdef CONFIG_THREAD_INFO_IN_TASK
+#define current_thread_info() ((struct thread_info *)current)
+#endif
+
 /*
  * flag set/clear/test wrappers
  * - pass TIF_xxxx constants to these functions

@@ -525,6 +525,14 @@ config VIDEO_IMX258_EEPROM
 	help
 	  This driver supports IMX258 OTP load from eeprom.
 
+config VIDEO_IMX291
+	tristate "Sony imx291 sensor support"
+	depends on VIDEO_V4L2 && I2C
+	depends on MEDIA_CAMERA_SUPPORT
+	select V4L2_FWNODE
+	help
+	  This driver supports IMX291 cameras from Sony
+
 config VIDEO_IMX307
 	tristate "Sony imx307 sensor support"
 	depends on VIDEO_V4L2 && I2C
@@ -902,6 +910,15 @@ config VIDEO_NOON010PC30
 
 source "drivers/media/i2c/m5mols/Kconfig"
 
+config VIDEO_S5K4H8
+	tristate "Samsung S5K4H8 sensor support"
+	depends on VIDEO_V4L2 && I2C
+	depends on MEDIA_CAMERA_SUPPORT
+	select V4L2_FWNODE
+	help
+	  This is a V4L2 sensor-level driver for Samsung S5K4H8 8M
+	  camera sensor with an embedded SoC image signal processor.
+
 config VIDEO_S5K6AA
 	tristate "Samsung S5K6AAFX sensor support"
 	depends on MEDIA_CAMERA_SUPPORT
@@ -970,6 +987,15 @@ config VIDEO_GC0312
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called gc0312.
+
+config VIDEO_GC2053
+	tristate "GalaxyCore GC2053 sensor support"
+	depends on VIDEO_V4L2 && I2C && VIDEO_V4L2_SUBDEV_API
+	help
+	  Support for the GalaxyCore GC2053 sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called gc2053.
 
 config VIDEO_GC2145
 	tristate "GalaxyCore GC2145 sensor support"

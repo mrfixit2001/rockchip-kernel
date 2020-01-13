@@ -28,7 +28,6 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
-#include <linux/iopoll.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/pm_runtime.h>
@@ -136,12 +135,16 @@
 
 #define VOP_WIN_GET_YRGBADDR(vop, win) \
 		vop_readl(vop, win->offset + VOP_WIN_NAME(win, yrgb_mst).offset)
+
 #define VOP_GRF_SET(vop, reg, v) \
 	do { \
 		if (vop->data->grf_ctrl) { \
 			vop_grf_writel(vop, vop->data->grf_ctrl->reg, v); \
 		} \
 	} while (0)
+
+#define VOP_WIN_TO_INDEX(vop_win) \
+	((vop_win) - (vop_win)->vop->win)
 
 #define to_vop(x) container_of(x, struct vop, crtc)
 #define to_vop_win(x) container_of(x, struct vop_win, base)
@@ -354,7 +357,7 @@ static inline void vop_mask_write(struct vop *vop, uint32_t offset,
 }
 
 static inline const struct vop_win_phy *
-vop_get_win_phy(struct vop_win *win, const struct vop_reg *reg)
+vop_get_win_phy(const struct vop_win *win, const struct vop_reg *reg)
 {
 	if (!reg->mask && win->parent)
 		return win->parent->phy;
@@ -480,21 +483,45 @@ static bool vop_is_allwin_disabled(struct vop *vop)
 	return true;
 }
 
+static void vop_win_disable(struct vop *vop, const struct vop_win *win)
+{
+	unsigned long flags;
+	spin_lock_irqsave(&vop->irq_lock, flags); // spin_lock(&vop->reg_lock);
+
+	/*
+	 * FIXUP: some of the vop scale would be abnormal after windows power
+	 * on/off so deinit scale to scale_none mode.
+	 */
+	if (win->phy->scl && win->phy->scl->ext) {
+		VOP_SCL_SET_EXT(vop, win, yrgb_hor_scl_mode, SCALE_NONE);
+		VOP_SCL_SET_EXT(vop, win, yrgb_ver_scl_mode, SCALE_NONE);
+		VOP_SCL_SET_EXT(vop, win, cbcr_hor_scl_mode, SCALE_NONE);
+		VOP_SCL_SET_EXT(vop, win, cbcr_ver_scl_mode, SCALE_NONE);
+	}
+
+	VOP_WIN_SET(vop, win, enable, 0);
+	if (win->area_id == 0)
+		VOP_WIN_SET(vop, win, gate, 0);
+
+	/*
+	 * IC design bug: in the bandwidth tension environment when close win2,
+	 * vop will access the freed memory lead to iommu pagefault.
+	 * so we add this reset to workaround.
+	 */
+	if (VOP_MAJOR(vop->version) == 2 && VOP_MINOR(vop->version) == 5 &&
+	     win->win_id == 2)
+		VOP_WIN_SET(vop, win, yrgb_mst, 0);
+
+	spin_unlock_irqrestore(&vop->irq_lock, flags); // spin_unlock(&vop->reg_lock);
+}
+
 static void vop_disable_allwin(struct vop *vop)
 {
 	int i;
 
 	for (i = 0; i < vop->num_wins; i++) {
-		struct vop_win *win = &vop->win[i];
-
-		if (win->phy->scl && win->phy->scl->ext) {
-			VOP_SCL_SET_EXT(vop, win, yrgb_hor_scl_mode, SCALE_NONE);
-			VOP_SCL_SET_EXT(vop, win, yrgb_ver_scl_mode, SCALE_NONE);
-			VOP_SCL_SET_EXT(vop, win, cbcr_hor_scl_mode, SCALE_NONE);
-			VOP_SCL_SET_EXT(vop, win, cbcr_ver_scl_mode, SCALE_NONE);
-		}
-		VOP_WIN_SET(vop, win, enable, 0);
-		VOP_WIN_SET(vop, win, gate, 0);
+		//struct vop_win *win = &vop->win[i];
+		vop_win_disable(vop, &vop->win[i]);
 	}
 }
 
@@ -1309,7 +1336,7 @@ void rockchip_vop_crtc_fb_gamma_get(struct drm_crtc *crtc, u16 *red, u16 *green,
 static void vop_power_enable(struct drm_crtc *crtc)
 {
 	struct vop *vop = to_vop(crtc);
-	int ret;
+	int ret, i;
 
 	ret = clk_prepare_enable(vop->hclk);
 	if (ret < 0) {
@@ -1335,7 +1362,12 @@ static void vop_power_enable(struct drm_crtc *crtc)
 		return;
 	}
 
-	memcpy(vop->regsbak, vop->regs, vop->len);
+	VOP_INTR_SET_TYPE(vop, clear, INTR_MASK, 1);
+	VOP_INTR_SET_TYPE(vop, enable, INTR_MASK, 0);
+
+	//memcpy(vop->regsbak, vop->regs, vop->len);
+	for (i = 0; i < vop->len; i += sizeof(u32))
+		vop->regsbak[i / 4] = readl_relaxed(vop->regs + i);
 
 	if (VOP_CTRL_SUPPORT(vop, version)) {
 		uint32_t version = VOP_CTRL_GET(vop, version);
@@ -1346,6 +1378,8 @@ static void vop_power_enable(struct drm_crtc *crtc)
 		if (version && version == 0x0a05)
 			vop->version = VOP_VERSION(3, 1);
 	}
+
+	vop_cfg_done(vop);
 
 	vop->is_enabled = true;
 
@@ -1379,7 +1413,9 @@ static void vop_initial(struct drm_crtc *crtc)
 		struct vop_win *win = &vop->win[i];
 		int channel = i * 2 + 1;
 
+		spin_lock(&vop->reg_lock);
 		VOP_WIN_SET(vop, win, channel, (channel + 1) << 4 | channel);
+		spin_unlock(&vop->reg_lock);
 	}
 	VOP_CTRL_SET(vop, afbdc_en, 0);
 	vop_enable_debug_irq(crtc);
@@ -1607,32 +1643,7 @@ static void vop_plane_atomic_disable(struct drm_plane *plane,
 	if (!old_state->crtc)
 		return;
 
-	spin_lock(&vop->reg_lock);
-
-	/*
-	 * FIXUP: some of the vop scale would be abnormal after windows power
-	 * on/off so deinit scale to scale_none mode.
-	 */
-	if (win->phy->scl && win->phy->scl->ext) {
-		VOP_SCL_SET_EXT(vop, win, yrgb_hor_scl_mode, SCALE_NONE);
-		VOP_SCL_SET_EXT(vop, win, yrgb_ver_scl_mode, SCALE_NONE);
-		VOP_SCL_SET_EXT(vop, win, cbcr_hor_scl_mode, SCALE_NONE);
-		VOP_SCL_SET_EXT(vop, win, cbcr_ver_scl_mode, SCALE_NONE);
-	}
-	VOP_WIN_SET(vop, win, enable, 0);
-	if (win->area_id == 0)
-		VOP_WIN_SET(vop, win, gate, 0);
-
-	/*
-	 * IC design bug: in the bandwidth tension environment when close win2,
-	 * vop will access the freed memory lead to iommu pagefault.
-	 * so we add this reset to workaround.
-	 */
-	if (VOP_MAJOR(vop->version) == 2 && VOP_MINOR(vop->version) == 5 &&
-	     win->win_id == 2)
-		VOP_WIN_SET(vop, win, yrgb_mst, 0);
-
-	spin_unlock(&vop->reg_lock);
+	vop_win_disable(vop, win);
 
 	vop_plane_state->enable = false;
 }
@@ -1659,6 +1670,7 @@ static void vop_plane_atomic_update(struct drm_plane *plane,
 	int ymirror, xmirror;
 	uint32_t val;
 	bool rb_swap, global_alpha_en;
+	int win_index = VOP_WIN_TO_INDEX(win);
 	int skip_lines = 0;
 
 #if defined(CONFIG_ROCKCHIP_DRM_DEBUG)
@@ -1703,7 +1715,7 @@ static void vop_plane_atomic_update(struct drm_plane *plane,
 	actual_w = drm_rect_width(src) >> 16;
 	if (actual_w == 3840 && is_yuv_support(fb->pixel_format))
 		skip_lines = 1;
-	actual_h = drm_rect_height(src) >> (16 + skip_lines);
+	actual_h = drm_rect_height(src) >> 16;
 	act_info = (actual_h - 1) << 16 | ((actual_w - 1) & 0xffff);
 
 	dsp_info = (drm_rect_height(dest) - 1) << 16;
@@ -1742,12 +1754,12 @@ static void vop_plane_atomic_update(struct drm_plane *plane,
 	VOP_WIN_SET(vop, win, xmirror, xmirror);
 	VOP_WIN_SET(vop, win, ymirror, ymirror);
 	VOP_WIN_SET(vop, win, format, vop_plane_state->format);
-	VOP_WIN_SET(vop, win, yrgb_vir, fb->pitches[0] >> (2 - skip_lines));
+	VOP_WIN_SET(vop, win, yrgb_vir, (DIV_ROUND_UP(fb->pitches[0], 4)));
 	VOP_WIN_SET(vop, win, yrgb_mst, vop_plane_state->yrgb_mst);
 	VOP_WIN_SET(vop, win, yrgb_mst1, vop_plane_state->yrgb_mst);
 
 	if (is_yuv_support(fb->pixel_format)) {
-		VOP_WIN_SET(vop, win, uv_vir, fb->pitches[1] >> (2 - skip_lines));
+		VOP_WIN_SET(vop, win, uv_vir, (DIV_ROUND_UP(fb->pitches[1], 4)));
 		VOP_WIN_SET(vop, win, uv_mst, vop_plane_state->uv_mst);
 	}
 	VOP_WIN_SET(vop, win, fmt_10, is_yuv_10bit(fb->pixel_format));
@@ -1773,7 +1785,8 @@ static void vop_plane_atomic_update(struct drm_plane *plane,
 
 	global_alpha_en = (vop_plane_state->global_alpha == 0xff) ? 0 : 1;
 	if ((is_alpha_support(fb->pixel_format) || global_alpha_en) &&
-	    (s->dsp_layer_sel & 0x3) != win->win_id) {
+	    (s->dsp_layer_sel & 0x3) != win->win_id &&
+	    win_index > 0) {
 		int src_bland_m0;
 
 		if (is_alpha_support(fb->pixel_format) && global_alpha_en)
@@ -2314,6 +2327,7 @@ vop_crtc_mode_valid(struct drm_crtc *crtc, const struct drm_display_mode *mode,
 	const struct vop_data *vop_data = vop->data;
 	int request_clock = mode->clock;
 	int clock;
+	unsigned long rate;
 
 	if (mode->hdisplay > vop_data->max_output.width)
 		return MODE_BAD_HVALUE;
@@ -2325,7 +2339,10 @@ vop_crtc_mode_valid(struct drm_crtc *crtc, const struct drm_display_mode *mode,
 
 	if (mode->flags & DRM_MODE_FLAG_DBLCLK)
 		request_clock *= 2;
-	clock = clk_round_rate(vop->dclk, request_clock * 1000) / 1000;
+	//clock = DIV_ROUND_UP(clk_round_rate(vop->dclk, request_clock * 1000), 1000);
+	rate = clk_round_rate(vop->dclk, request_clock * 1000 + 999);
+	clock = DIV_ROUND_UP(rate, 1000);
+
 
 	/*
 	 * Hdmi or DisplayPort request a Accurate clock.
@@ -2548,6 +2565,7 @@ static bool vop_crtc_mode_fixup(struct drm_crtc *crtc,
 {
 	struct vop *vop = to_vop(crtc);
 	const struct vop_data *vop_data = vop->data;
+	unsigned long rate;
 
 	if (mode->hdisplay > vop_data->max_output.width)
 		return false;
@@ -2558,8 +2576,41 @@ static bool vop_crtc_mode_fixup(struct drm_crtc *crtc,
 	if (mode->flags & DRM_MODE_FLAG_DBLCLK)
 		adj_mode->crtc_clock *= 2;
 
-	adj_mode->crtc_clock =
-		clk_round_rate(vop->dclk, adj_mode->crtc_clock * 1000) / 1000;
+	/*
+	 * Clock craziness.
+	 *
+	 * Key points:
+	 *
+	 * - DRM works in in kHz.
+	 * - Clock framework works in Hz.
+	 * - Rockchip's clock driver picks the clock rate that is the
+	 *   same _OR LOWER_ than the one requested.
+	 *
+	 * Action plan:
+	 *
+	 * 1. When DRM gives us a mode, we should add 999 Hz to it.  That way
+	 *    if the clock we need is 60000001 Hz (~60 MHz) and DRM tells us to
+	 *    make 60000 kHz then the clock framework will actually give us
+	 *    the right clock.
+	 *
+	 *    NOTE: if the PLL (maybe through a divider) could actually make
+	 *    a clock rate 999 Hz higher instead of the one we want then this
+	 *    could be a problem.  Unfortunately there's not much we can do
+	 *    since it's baked into DRM to use kHz.  It shouldn't matter in
+	 *    practice since Rockchip PLLs are controlled by tables and
+	 *    even if there is a divider in the middle I wouldn't expect PLL
+	 *    rates in the table that are just a few kHz different.
+	 *
+	 * 2. Get the clock framework to round the rate for us to tell us
+	 *    what it will actually make.
+	 *
+	 * 3. Store the rounded up rate so that we don't need to worry about
+	 *    this in the actual clk_set_rate().
+	 */
+
+	//adj_mode->crtc_clock = DIV_ROUND_UP(clk_round_rate(vop->dclk, adj_mode->crtc_clock * 1000), 1000);
+	rate = clk_round_rate(vop->dclk, adj_mode->crtc_clock * 1000 + 999);
+	adj_mode->crtc_clock = DIV_ROUND_UP(rate, 1000);
 
 	return true;
 }
@@ -3334,6 +3385,7 @@ static void vop_tv_config_update(struct drm_crtc *crtc,
 		return;
 
 	memcpy(&vop->active_tv_state, s->tv_state, sizeof(*s->tv_state));
+
 	/* post BCSH CSC */
 	s->post_r2y_en = 0;
 	s->post_y2r_en = 0;
