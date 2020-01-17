@@ -271,6 +271,7 @@ struct rockchip_pcie {
 	bool pcie_pwr_on;
 	bool pcie_init;
 	int in_remove;
+	int other_rw_disabled;
 };
 
 static u32 rockchip_pcie_read(struct rockchip_pcie *rockchip, u32 reg)
@@ -435,22 +436,12 @@ static int rockchip_pcie_rd_other_conf(struct rockchip_pcie *rockchip,
 				PCI_FUNC(devfn), where);
 
 	if (bus->number > 0x1f) {
-		*val = 0;
-		return PCIBIOS_DEVICE_NOT_FOUND;
-	}
-
-	if (bus->number > 0x1f) {
-		*val = 0;
-		return PCIBIOS_DEVICE_NOT_FOUND;
-	}
-
-	if (bus->number > 0x1f) {
 		dev_warn(dev, "invalid bus requested %d\n", bus->number);
 		*val = 0;
 		return PCIBIOS_DEVICE_NOT_FOUND;
 	}
 
-	if (!IS_ALIGNED(busdev, size)) {
+	if (!IS_ALIGNED(busdev, size) || rockchip->other_rw_disabled) {
 		*val = 0;
 		return PCIBIOS_BAD_REGISTER_NUMBER;
 	}
@@ -493,7 +484,7 @@ static int rockchip_pcie_wr_other_conf(struct rockchip_pcie *rockchip,
 		return PCIBIOS_DEVICE_NOT_FOUND;
 	}
 
-	if (!IS_ALIGNED(busdev, size))
+	if (!IS_ALIGNED(busdev, size) || rockchip->other_rw_disabled)
 		return PCIBIOS_BAD_REGISTER_NUMBER;
 
 	if (bus->parent->number == rockchip->root_bus_nr)
@@ -1421,8 +1412,6 @@ static int rockchip_cfg_atu(struct rockchip_pcie *rockchip)
 	}
 	/* Workaround for PCIe DMA transfer */
 	if (rockchip->dma_trx_enabled) {
-		rockchip_pcie_prog_ob_atu(rockchip, 0, AXI_WRAPPER_CFG0, 12,
-					  0x0, 0x0);
 		rockchip_pcie_prog_ob_atu(rockchip, 1, AXI_WRAPPER_MEM_WRITE,
 				32 - 1, rockchip->mem_reserve_start, 0x0);
 	}
@@ -1769,12 +1758,16 @@ static ssize_t pcie_reset_ep_store(struct device *dev,
 	if (err)
 		return err;
 
-	if (val == PCIE_USER_UNLINK)
+	if (val == PCIE_USER_UNLINK) {
+		rockchip->other_rw_disabled = 1;
 		rockchip_pcie_suspend_for_user(rockchip->dev);
-	else if (val == PCIE_USER_RELINK)
+	} else if (val == PCIE_USER_RELINK) {
+		rockchip->other_rw_disabled = 0;
 		rockchip_pcie_resume_for_user(rockchip->dev);
-	else
+	} else {
+		dev_err(dev, "unknown cmd %d\n", val);
 		return -EINVAL;
+	}
 
 	return size;
 }
