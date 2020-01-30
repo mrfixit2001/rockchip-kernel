@@ -228,7 +228,6 @@
 		};
 	};
 
-
 	hdmi-sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,format = "i2s";
@@ -241,14 +240,7 @@
 			sound-dai = <&hdmi>;
 		};
 	};
-/*
-	hdmi_dp_sound: hdmi-dp-sound {
-		status = "okay";
-		compatible = "rockchip,rk3399-hdmi-dp";
-		rockchip,cpu = <&i2s2>;
-		rockchip,codec = <&hdmi>, <&cdn_dp>;
-	};
-*/
+
 	spdif-sound {
 		status = "okay";
 		compatible = "simple-audio-card";
@@ -723,6 +715,7 @@
 	fusb0: fusb30x@22 {
 		compatible = "fairchild,fusb302";
 		reg = <0x22>;
+		fusb302,role = "ROLE_MODE_DRP";
 		pinctrl-names = "default";
 		pinctrl-0 = <&fusb0_int>;
 		vbus-5v-gpios = <&gpio1 RK_PA3 GPIO_ACTIVE_HIGH>;
@@ -980,12 +973,12 @@
 };
 
 &usbdrd3_0 {
-	extcon = <&fusb0>;
+	//extcon = <&fusb0>;
 	status = "okay";
 };
 
 &usbdrd_dwc3_0 {
-	dr_mode = "otg";
+	dr_mode = "host";
 	status = "okay";
 };
 
