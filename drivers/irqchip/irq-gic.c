@@ -313,22 +313,27 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 {
 	void __iomem *reg = gic_dist_base(d) + GIC_DIST_TARGET + (gic_irq(d) & ~3);
 	unsigned int cpu, shift = (gic_irq(d) % 4) * 8;
-	u32 val, mask, bit;
+	u32 val, reg_mask, bits = 0;
 	unsigned long flags;
+	const struct cpumask* cpu_mask;
 
-	if (!force)
-		cpu = cpumask_any_and(mask_val, cpu_online_mask);
+	if (force)
+		cpu_mask = mask_val;
 	else
-		cpu = cpumask_first(mask_val);
+		cpu_mask = cpu_online_mask;
 
-	if (cpu >= NR_GIC_CPU_IF || cpu >= nr_cpu_ids)
-		return -EINVAL;
+	for_each_cpu_and(cpu, mask_val, cpu_mask) {
+		if (cpu >= NR_GIC_CPU_IF || cpu >= nr_cpu_ids) {
+			return -EINVAL;
+		}
+		bits |= gic_cpu_map[cpu];
+	}
 
 	raw_spin_lock_irqsave(&irq_controller_lock, flags);
-	mask = 0xff << shift;
-	bit = gic_cpu_map[cpu] << shift;
-	val = readl_relaxed(reg) & ~mask;
-	writel_relaxed(val | bit, reg);
+	reg_mask = 0xff << shift;
+	bits <<= shift;
+	val = readl_relaxed(reg) & ~reg_mask;
+	writel_relaxed(val | bits, reg);
 	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 
 	return IRQ_SET_MASK_OK;
