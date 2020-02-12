@@ -339,16 +339,6 @@ static inline void set_fs(mm_segment_t fs)
 #define __get_user(x, ptr) get_user(x, ptr)
 #else
 
-#ifdef CONFIG_CPU_SPECTRE
-/*
- * When mitigating Spectre variant 1, it is not worth fixing the non-
- * verifying accessors, because we need to add verification of the
- * address space there.  Force these to use the standard get_user()
- * version instead.
- */
-#define __get_user(x, ptr) get_user(x, ptr)
-#else
-
 /*
  * The "__xxx" versions of the user access functions do not verify the
  * address space - it must have been done previously with a separate
