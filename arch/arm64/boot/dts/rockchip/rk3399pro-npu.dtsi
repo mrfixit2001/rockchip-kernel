@@ -44,7 +44,7 @@
 				ref-leakage = <31>;
 				static-coefficient = <100000>;
 				ts = <597400 241050 (-2450) 70>;
-				thermal-zone = "soc-thermal";
+				thermal-zone = "cpu";
 			};
 		};
 
@@ -525,7 +525,7 @@
 	};
 
 	thermal_zones: thermal-zones {
-		soc_thermal: soc-thermal {
+		soc_thermal: cpu {
 			polling-delay-passive = <20>; /* milliseconds */
 			polling-delay = <1000>; /* milliseconds */
 			sustainable-power = <977>; /* milliwatts */
@@ -1086,7 +1086,7 @@
 			static-coefficient = <100000>;
 			dynamic-coefficient = <3080>;
 			ts = <88610 303120 (-5000) 100>;
-			thermal-zone = "soc-thermal";
+			thermal-zone = "cpu";
 		};
 	};
 
@@ -1109,7 +1109,7 @@
 		rockchip,pvtm-error = <1000>;
 		rockchip,pvtm-ref-temp = <25>;
 		rockchip,pvtm-temp-prop = <(-20) (-26)>;
-		rockchip,thermal-zone = "soc-thermal";
+		rockchip,thermal-zone = "cpu";
 
 		nvmem-cells = <&npu_leakage>;
 		nvmem-cell-names = "leakage";

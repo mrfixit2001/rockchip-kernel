@@ -804,7 +804,7 @@
 	};
 
 	thermal_zones: thermal-zones {
-		soc_thermal: soc-thermal {
+		soc_thermal: cpu {
 			polling-delay-passive = <20>; /* milliseconds */
 			polling-delay = <1000>; /* milliseconds */
 			sustainable-power = <1000>; /* milliwatts */
@@ -851,7 +851,7 @@
 			};
 		};
 
-		gpu_thermal: gpu-thermal {
+		gpu_thermal: gpu {
 			polling-delay-passive = <100>; /* milliseconds */
 			polling-delay = <1000>; /* milliseconds */
 
@@ -1843,7 +1843,7 @@
 			static-coefficient = <411000>;
 			dynamic-coefficient = <733>;
 			ts = <32000 4700 (-80) 2>;
-			thermal-zone = "gpu-thermal";
+			thermal-zone = "gpu";
 		};
 	};
 
@@ -2286,7 +2286,7 @@
 	rockchip_system_monitor: rockchip-system-monitor {
 		compatible = "rockchip,system-monitor";
 
-		rockchip,thermal-zone = "soc-thermal";
+		rockchip,thermal-zone = "cpu";
 		rockchip,polling-delay = <200>; /* milliseconds */
 	};
 
