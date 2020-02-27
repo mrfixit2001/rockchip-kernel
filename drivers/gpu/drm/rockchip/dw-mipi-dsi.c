@@ -1617,6 +1617,7 @@ static int dw_mipi_dsi_register(struct drm_device *drm,
 	struct device *dev = dsi->dev;
 	int ret;
 
+	encoder->port = dev->of_node;
 	encoder->possible_crtcs = drm_of_find_possible_crtcs(drm,
 							     dev->of_node);
 	/*
