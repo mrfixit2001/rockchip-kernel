@@ -164,7 +164,7 @@ err:
 
 #ifdef CONFIG_ARCH_ROCKCHIP
 
-int serial8250_rx_dma(struct uart_8250_port *p, unsigned int iir)
+int serial8250_rx_dma(struct uart_8250_port *p)
 {
 	unsigned int rfl, i = 0, fcr = 0, cur_index = 0;
 	unsigned char buf[MAX_FIFO_SIZE];
@@ -172,10 +172,6 @@ int serial8250_rx_dma(struct uart_8250_port *p, unsigned int iir)
 	struct tty_port		*tty_port = &p->port.state->port;
 	struct dma_tx_state	state;
 	struct uart_8250_dma	*dma = p->dma;
-
-
-	if ((iir & 0xf) != UART_IIR_RX_TIMEOUT)
-		return 0;
 
 	fcr = UART_FCR_ENABLE_FIFO | UART_FCR_T_TRIG_10 | UART_FCR_R_TRIG_11;
 	serial_port_out(port, UART_FCR, fcr);
@@ -224,29 +220,10 @@ int serial8250_start_rx_dma(struct uart_8250_port *p)
 
 #else
 
-int serial8250_rx_dma(struct uart_8250_port *p, unsigned int iir)
+int serial8250_rx_dma(struct uart_8250_port *p)
 {
 	struct uart_8250_dma		*dma = p->dma;
 	struct dma_async_tx_descriptor	*desc;
-
-	switch (iir & 0x3f) {
-	case UART_IIR_RLSI:
-		/* 8250_core handles errors and break interrupts */
-		return -EIO;
-	case UART_IIR_RX_TIMEOUT:
-		/*
-		 * If RCVR FIFO trigger level was not reached, complete the
-		 * transfer and let 8250_core copy the remaining data.
-		 */
-		if (dma->rx_running) {
-			dmaengine_pause(dma->rxchan);
-			__dma_rx_complete(p);
-			dmaengine_terminate_all(dma->rxchan);
-		}
-		return -ETIMEDOUT;
-	default:
-		break;
-	}
 
 	if (dma->rx_running)
 		return 0;
@@ -269,6 +246,17 @@ int serial8250_rx_dma(struct uart_8250_port *p, unsigned int iir)
 }
 
 #endif
+
+void serial8250_rx_dma_flush(struct uart_8250_port *p)
+{
+	struct uart_8250_dma *dma = p->dma;
+
+	if (dma->rx_running) {
+		dmaengine_pause(dma->rxchan);
+		__dma_rx_complete(p);
+		dmaengine_terminate_all(dma->rxchan);
+	}
+}
 
 int serial8250_request_dma(struct uart_8250_port *p)
 {

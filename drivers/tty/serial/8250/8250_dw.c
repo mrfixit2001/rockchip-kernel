@@ -286,7 +286,12 @@ static void dw8250_set_termios(struct uart_port *p, struct ktermios *termios,
 	}
 #else
 	rate = clk_round_rate(d->clk, baud * 16);
-	ret = clk_set_rate(d->clk, rate);
+ 	if (rate < 0)
+ 		ret = rate;
+	else if (rate == 0)
+		ret = -ENOENT;
+ 	else
+ 		ret = clk_set_rate(d->clk, rate);
 #endif
 	clk_prepare_enable(d->clk);
 

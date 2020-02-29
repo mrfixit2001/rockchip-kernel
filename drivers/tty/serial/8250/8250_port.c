@@ -1515,8 +1515,6 @@ void serial8250_tx_chars(struct uart_8250_port *up)
 	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
 		uart_write_wakeup(port);
 
-	DEBUG_INTR("THRE...");
-
 	/*
 	 * With RPM enabled, we have to wait until the FIFO is empty before the
 	 * HW can go idle. So we get here once again with empty FIFO and disable
@@ -1553,6 +1551,18 @@ unsigned int serial8250_modem_status(struct uart_8250_port *up)
 }
 EXPORT_SYMBOL_GPL(serial8250_modem_status);
 
+static bool handle_rx_dma(struct uart_8250_port *up, unsigned int iir)
+{
+	switch (iir & 0x3f) {
+	case UART_IIR_RX_TIMEOUT:
+		serial8250_rx_dma_flush(up);
+		/* fall-through */
+	case UART_IIR_RLSI:
+		return true;
+	}
+	return up->dma->rx_dma(up);
+}
+
 /*
  * This handles the interrupt from one port.
  */
@@ -1570,19 +1580,20 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 
 	status = serial_port_in(port, UART_LSR);
 
-	DEBUG_INTR("status = %x...", status);
 #ifdef CONFIG_ARCH_ROCKCHIP
-	if (status & (UART_LSR_DR | UART_LSR_BI)) {
+	if (status & (UART_LSR_DR | UART_LSR_BI) &&
+	    iir & UART_IIR_RDI) {
 		if (up->dma && up->dma->rxchan)
-			dma_err = up->dma->rx_dma(up, iir);
+			dma_err = handle_rx_dma(up, iir);
 
 		if (!up->dma || dma_err)
 			status = serial8250_rx_chars(up, status);
 	}
 #else
-	if (status & (UART_LSR_DR | UART_LSR_BI)) {
+	if (status & (UART_LSR_DR | UART_LSR_BI) &&
+	    iir & UART_IIR_RDI) {
 		if (up->dma)
-			dma_err = up->dma->rx_dma(up, iir);
+			dma_err = handle_rx_dma(up, iir);
 
 		if (!up->dma || dma_err)
 			status = serial8250_rx_chars(up, status);
@@ -1943,7 +1954,11 @@ int serial8250_do_startup(struct uart_port *port)
 		serial_port_out(port, UART_LCR, 0);
 	}
 
-	if (port->irq) {
+	/* Check if we need to have shared IRQs */
+	if (port->irq && (up->port.flags & UPF_SHARE_IRQ))
+		up->port.irqflags |= IRQF_SHARED;
+
+	if (port->irq && !(up->port.flags & UPF_NO_THRE_TEST)) {
 		unsigned char iir1;
 		/*
 		 * Test for UARTs that do not reassert THRE when the
@@ -2108,8 +2123,12 @@ void serial8250_do_shutdown(struct uart_port *port)
 	/*
 	 * Disable interrupts from this port
 	 */
+	spin_lock_irqsave(&port->lock, flags);
 	up->ier = 0;
 	serial_port_out(port, UART_IER, 0);
+	spin_unlock_irqrestore(&port->lock, flags);
+
+	synchronize_irq(port->irq);
 
 	if (up->dma)
 		serial8250_release_dma(up);
