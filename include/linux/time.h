@@ -206,6 +206,7 @@ struct tm {
 };
 
 void time_to_tm(time_t totalsecs, int offset, struct tm *result);
+void time64_to_tm(time64_t totalsecs, int offset, struct tm *result);
 
 /**
  * timespec_to_ns - Convert timespec to nanoseconds

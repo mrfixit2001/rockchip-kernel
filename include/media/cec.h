@@ -75,7 +75,6 @@ struct cec_data {
 	struct delayed_work work;
 	struct completion c;
 	u8 attempts;
-	bool new_initiator;
 	bool blocking;
 	bool completed;
 };
@@ -104,7 +103,7 @@ struct cec_fh {
 	wait_queue_head_t	wait;
 	struct mutex		lock;
 	struct list_head	events[CEC_NUM_EVENTS]; /* queued events */
-	u8			queued_events[CEC_NUM_EVENTS];
+	u16			queued_events[CEC_NUM_EVENTS];
 	unsigned int		total_queued_events;
 	struct cec_event_entry	core_events[CEC_NUM_CORE_EVENTS];
 	struct list_head	msgs; /* queued messages */
@@ -122,6 +121,7 @@ struct cec_adap_ops {
 	/* Low-level callbacks */
 	int (*adap_enable)(struct cec_adapter *adap, bool enable);
 	int (*adap_monitor_all_enable)(struct cec_adapter *adap, bool enable);
+	int (*adap_monitor_pin_enable)(struct cec_adapter *adap, bool enable);
 	int (*adap_log_addr)(struct cec_adapter *adap, u8 logical_addr);
 	int (*adap_transmit)(struct cec_adapter *adap, u8 attempts,
 			     u32 signal_free_time, struct cec_msg *msg);
@@ -163,6 +163,7 @@ struct cec_adapter {
 	unsigned int transmit_queue_sz;
 	struct list_head wait_queue;
 	struct cec_data *transmitting;
+	bool transmit_in_progress;
 
 	struct task_struct *kthread_config;
 	struct completion config_completion;
@@ -181,6 +182,7 @@ struct cec_adapter {
 	bool is_configuring;
 	bool is_configured;
 	bool cec_pin_is_high;
+	u8 last_initiator;
 	u32 monitor_all_cnt;
 	u32 monitor_pin_cnt;
 	u32 follower_cnt;
@@ -222,6 +224,18 @@ static inline bool cec_has_log_addr(const struct cec_adapter *adap, u8 log_addr)
 static inline bool cec_is_sink(const struct cec_adapter *adap)
 {
 	return adap->phys_addr == 0;
+}
+
+/**
+ * cec_is_registered() - is the CEC adapter registered?
+ *
+ * @adap:	the CEC adapter, may be NULL.
+ *
+ * Return: true if the adapter is registered, false otherwise.
+ */
+static inline bool cec_is_registered(const struct cec_adapter *adap)
+{
+	return adap && adap->devnode.registered;
 }
 
 #define cec_phys_addr_exp(pa) \
@@ -285,11 +299,12 @@ static inline void cec_received_msg(struct cec_adapter *adap,
  *
  * @adap:	pointer to the cec adapter
  * @is_high:	when true the CEC pin is high, otherwise it is low
+ * @dropped_events: when true some events were dropped
  * @ts:		the timestamp for this event
  *
  */
-void cec_queue_pin_cec_event(struct cec_adapter *adap,
-			     bool is_high, ktime_t ts);
+void cec_queue_pin_cec_event(struct cec_adapter *adap, bool is_high,
+			     bool dropped_events, ktime_t ts);
 
 /**
  * cec_queue_pin_hpd_event() - queue a pin event with a given timestamp.
