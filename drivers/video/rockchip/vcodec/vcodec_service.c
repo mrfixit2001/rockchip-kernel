@@ -1872,27 +1872,30 @@ static void try_set_reg(struct vpu_subdev_data *data)
 		struct vpu_reg *reg = list_entry(pservice->waiting.next,
 				struct vpu_reg, status_link);
 
-		vpu_service_power_on(data, pservice);
+		if (!change_able || !reset_request)
+			vpu_service_power_on(data, pservice);
 
-		if (change_able) {
-			switch (reg->type) {
-			case VPU_ENC:
-			case VPU_DEC:
-			case VPU_PP:
-			case VPU_DEC_PP: {
-				can_set = 1;
-			} break;
-			default: {
-				dev_err(pservice->dev,
-					"undefined reg type %d\n",
-					reg->type);
-			} break;
+		if (reg) {
+			if (change_able) {
+				switch (reg->type) {
+				case VPU_ENC:
+				case VPU_DEC:
+				case VPU_PP:
+				case VPU_DEC_PP: {
+					can_set = 1;
+				} break;
+				default: {
+					dev_err(pservice->dev,
+						"undefined reg type %d\n",
+						reg->type);
+				} break;
+				}
 			}
-		}
 
-		if (can_set) {
-			reg_from_wait_to_run(pservice, reg);
-			reg_copy_to_hw(reg->data, reg);
+			if (can_set) {
+				reg_from_wait_to_run(pservice, reg);
+				reg_copy_to_hw(reg->data, reg);
+			}
 		}
 	}
 
@@ -2166,6 +2169,7 @@ static long compat_vpu_service_ioctl(struct file *file, unsigned int cmd,
 				     unsigned long arg)
 {
 	struct vpu_request req;
+	mm_segment_t oldfs;
 	void __user *up = compat_ptr(arg);
 	int compatible_arg = 1;
 	long err = 0;
@@ -2215,7 +2219,7 @@ static long compat_vpu_service_ioctl(struct file *file, unsigned int cmd,
 	} break;
 	}
 
-	mm_segment_t oldfs = get_fs();
+	oldfs = get_fs();
 	if (compatible_arg) {
 		set_fs(USER_DS);
 		err = native_ioctl(file, cmd, (unsigned long)up);
@@ -3885,7 +3889,7 @@ static int vcodec_probe(struct platform_device *pdev)
 	if (pservice->dev_id == VCODEC_DEVICE_ID_RKVDEC) {
 		ret = vcodec_power_model_simple_init(pservice);
 	} else {
-		ret = NULL;
+		ret = 0;
 	}
 
 	if (!ret && pservice->devfreq) {

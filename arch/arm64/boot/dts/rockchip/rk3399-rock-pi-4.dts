@@ -257,6 +257,15 @@
 	cpu-supply = <&vdd_cpu_b>;
 };
 
+&dfi {
+	status = "okay";
+};
+
+&dmc {
+	status = "okay";
+	center-supply = <&vdd_center>;
+};
+
 &display_subsystem {
 	status = "okay";
 

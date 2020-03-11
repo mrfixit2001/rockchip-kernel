@@ -623,6 +623,8 @@ static long inno_hdmi_phy_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	struct inno_hdmi_phy *inno = to_inno_hdmi_phy(hw);
 	u32 tmdsclock = inno_hdmi_phy_get_tmdsclk(inno, rate);
 
+	rate = (rate / 1000) * 1000;
+
 	for (; cfg->pixclock != ~0UL; cfg++)
 		if (cfg->pixclock == rate)
 			break;

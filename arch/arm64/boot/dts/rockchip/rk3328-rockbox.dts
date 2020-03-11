@@ -186,7 +186,25 @@
 
 &dmc {
 	center-supply = <&vdd_logic>;
+	system-status-freq = <
+		/*system status         freq(KHz)*/
+		SYS_STATUS_NORMAL       786000
+		SYS_STATUS_REBOOT       786000
+		SYS_STATUS_SUSPEND      786000
+		SYS_STATUS_VIDEO_1080P  786000
+		SYS_STATUS_VIDEO_4K     850000
+		SYS_STATUS_VIDEO_4K_10B 850000
+		SYS_STATUS_PERFORMANCE  850000
+		SYS_STATUS_BOOST        850000
+	>;
 	status = "okay";
+};
+
+&dmc_opp_table {
+	// Unstable on rockbox
+	opp-933000000 {
+		status = "disabled";
+	};
 };
 
 &display_subsystem {
@@ -229,6 +247,11 @@
 &gpu {
 	status = "okay";
 	mali-supply = <&vdd_logic>;
+};
+
+&gpu_power_model {
+	// Disable thermal throttling of the GPU
+	status = "disabled";
 };
 
 &h265e {
@@ -514,15 +537,15 @@
 };
 
 &threshold {
-	temperature = <80000>; /* millicelsius */
+	temperature = <80000>;
 };
 
 &target {
-	temperature = <95000>; /* millicelsius */
+	temperature = <90000>;
 };
 
 &soc_crit {
-	temperature = <100000>; /* millicelsius */
+	temperature = <95000>;
 };
 
 &tsadc {
