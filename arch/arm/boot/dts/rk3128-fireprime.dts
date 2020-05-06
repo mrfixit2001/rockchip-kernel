@@ -262,6 +262,7 @@
 };
 
 &dmc {
+	center-supply = <&vdd_logic>;
 	status = "okay";
 };
 
@@ -300,6 +301,14 @@
 
 &hdmi {
 	#sound-dai-cells = <0>;
+	status = "okay";
+};
+
+&hevc {
+	status = "okay";
+};
+
+&hevc_mmu {
 	status = "okay";
 };
 
@@ -362,9 +371,6 @@
 				regulator-name = "vcc_ddr";
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-state-mem {
-					regulator-on-in-suspend;
-				};
 			};
 
 			vcc_io: DCDC_REG4 {
@@ -669,5 +675,17 @@
 };
 
 &vop_mmu {
+	status = "okay";
+};
+
+&vpu {
+	status = "okay";
+};
+
+&vpu_combo {
+	status = "okay";
+};
+
+&vpu_mmu {
 	status = "okay";
 };

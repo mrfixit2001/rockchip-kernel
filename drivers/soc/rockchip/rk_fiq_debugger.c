@@ -40,6 +40,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/soc/rockchip/rk_fiq_debugger.h>
+#include <linux/console.h>
 
 #ifdef CONFIG_FIQ_DEBUGGER_TRUST_ZONE
 #include <linux/rockchip/rockchip_sip.h>
@@ -99,6 +100,8 @@ static int debug_port_init(struct platform_device *pdev)
 	int dll = 0, dlm = 0;
 	struct rk_fiq_debugger *t;
 
+	console_lock();
+
 	t = container_of(dev_get_platdata(&pdev->dev), typeof(*t), pdata);
 
 	if (rk_fiq_read(t, UART_LSR) & UART_LSR_DR)
@@ -140,6 +143,8 @@ static int debug_port_init(struct platform_device *pdev)
 	/* disbale loop back mode */
 	rk_fiq_write(t, 0x0, UART_MCR);
 
+	console_unlock();
+
 	return 0;
 }
 
@@ -171,8 +176,6 @@ static int debug_getc(struct platform_device *pdev)
 		} else {
 			return temp;
 		}
-	} else {
-		rk_fiq_read(t, UART_RX);
 	}
 
 	return FIQ_DEBUGGER_NO_CHAR;
