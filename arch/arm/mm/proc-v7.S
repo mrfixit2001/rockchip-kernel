@@ -9,7 +9,6 @@
  *
  *  This is the "shell" of the ARMv7 processor support.
  */
-#include <linux/arm-smccc.h>
 #include <linux/init.h>
 #include <linux/linkage.h>
 #include <asm/assembler.h>

@@ -258,7 +258,6 @@ setup_sigframe(struct sigframe __user *sf, struct pt_regs *regs, sigset_t *set)
 {
 	struct sigcontext context;
 	struct aux_sigframe __user *aux;
-	struct sigcontext context;
 	int err = 0;
 
 	context = (struct sigcontext) {
