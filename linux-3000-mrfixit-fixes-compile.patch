@@ -1,0 +1,205 @@
+--- a/drivers/media/rc/imon.c
++++ b/drivers/media/rc/imon.c
+@@ -1111,22 +1111,22 @@
+ 	if (*rc_type && !(*rc_type & rc->allowed_protocols))
+ 		dev_warn(dev, "Looks like you're trying to use an IR protocol this device does not support\n");
+ 
+-	if (*rc_type & RC_BIT_RC6_MCE) {
++	if (*rc_type & RC_PROTO_BIT_RC6_MCE) {
+ 		dev_dbg(dev, "Configuring IR receiver for MCE protocol\n");
+ 		ir_proto_packet[0] = 0x01;
+-		*rc_type = RC_BIT_RC6_MCE;
+-	} else if (*rc_type & RC_BIT_OTHER) {
++		*rc_type = RC_PROTO_BIT_RC6_MCE;
++	} else if (*rc_type & RC_PROTO_BIT_OTHER) {
+ 		dev_dbg(dev, "Configuring IR receiver for iMON protocol\n");
+ 		if (!pad_stabilize)
+ 			dev_dbg(dev, "PAD stabilize functionality disabled\n");
+ 		/* ir_proto_packet[0] = 0x00; // already the default */
+-		*rc_type = RC_BIT_OTHER;
++		*rc_type = RC_PROTO_BIT_OTHER;
+ 	} else {
+ 		dev_warn(dev, "Unsupported IR protocol specified, overriding to iMON IR protocol\n");
+ 		if (!pad_stabilize)
+ 			dev_dbg(dev, "PAD stabilize functionality disabled\n");
+ 		/* ir_proto_packet[0] = 0x00; // already the default */
+-		*rc_type = RC_BIT_OTHER;
++		*rc_type = RC_PROTO_BIT_OTHER;
+ 	}
+ 
+ 	memcpy(ictx->usb_tx_buf, &ir_proto_packet, sizeof(ir_proto_packet));
+@@ -1416,7 +1416,7 @@
+ 		rel_x = buf[2];
+ 		rel_y = buf[3];
+ 
+-		if (ictx->rc_type == RC_BIT_OTHER && pad_stabilize) {
++		if (ictx->rc_type == RC_PROTO_BIT_OTHER && pad_stabilize) {
+ 			if ((buf[1] == 0) && ((rel_x != 0) || (rel_y != 0))) {
+ 				dir = stabilize((int)rel_x, (int)rel_y,
+ 						timeout, threshold);
+@@ -1483,7 +1483,7 @@
+ 		buf[0] = 0x01;
+ 		buf[1] = buf[4] = buf[5] = buf[6] = buf[7] = 0;
+ 
+-		if (ictx->rc_type == RC_BIT_OTHER && pad_stabilize) {
++		if (ictx->rc_type == RC_PROTO_BIT_OTHER && pad_stabilize) {
+ 			dir = stabilize((int)rel_x, (int)rel_y,
+ 					timeout, threshold);
+ 			if (!dir) {
+@@ -1605,7 +1605,7 @@
+ 		ictx->release_code = false;
+ 	} else {
+ 		scancode = be32_to_cpu(*((__be32 *)buf));
+-		if (ictx->rc_type == RC_BIT_RC6_MCE) {
++		if (ictx->rc_type == RC_PROTO_BIT_RC6_MCE) {
+ 			ktype = IMON_KEY_IMON;
+ 			if (buf[0] == 0x80)
+ 				ktype = IMON_KEY_MCE;
+@@ -1670,10 +1670,10 @@
+ 		if (press_type == 0)
+ 			rc_keyup(ictx->rdev);
+ 		else {
+-			if (ictx->rc_type == RC_BIT_RC6_MCE ||
+-			    ictx->rc_type == RC_BIT_OTHER)
++			if (ictx->rc_type == RC_PROTO_BIT_RC6_MCE ||
++			    ictx->rc_type == RC_PROTO_BIT_OTHER)
+ 				rc_keydown(ictx->rdev,
+-					   ictx->rc_type == RC_BIT_RC6_MCE ? RC_TYPE_RC6_MCE : RC_TYPE_OTHER,
++					   ictx->rc_type == RC_PROTO_BIT_RC6_MCE ? RC_PROTO_RC6_MCE : RC_PROTO_OTHER,
+ 					   ictx->rc_scancode, ictx->rc_toggle);
+ 			spin_lock_irqsave(&ictx->kc_lock, flags);
+ 			ictx->last_keycode = ictx->kc;
+@@ -1831,7 +1831,7 @@
+ {
+ 	u8 ffdc_cfg_byte = ictx->usb_rx_buf[6];
+ 	u8 detected_display_type = IMON_DISPLAY_TYPE_NONE;
+-	u64 allowed_protos = RC_BIT_OTHER;
++	u64 allowed_protos = RC_PROTO_BIT_OTHER;
+ 
+ 	switch (ffdc_cfg_byte) {
+ 	/* iMON Knob, no display, iMON IR + vol knob */
+@@ -1862,20 +1862,20 @@
+ 	case 0x9e:
+ 		dev_info(ictx->dev, "0xffdc iMON VFD, MCE IR");
+ 		detected_display_type = IMON_DISPLAY_TYPE_VFD;
+-		allowed_protos = RC_BIT_RC6_MCE;
++		allowed_protos = RC_PROTO_BIT_RC6_MCE;
+ 		break;
+ 	/* iMON LCD, MCE IR */
+ 	case 0x9f:
+ 		dev_info(ictx->dev, "0xffdc iMON LCD, MCE IR");
+ 		detected_display_type = IMON_DISPLAY_TYPE_LCD;
+-		allowed_protos = RC_BIT_RC6_MCE;
++		allowed_protos = RC_PROTO_BIT_RC6_MCE;
+ 		break;
+ 	default:
+ 		dev_info(ictx->dev, "Unknown 0xffdc device, defaulting to VFD and iMON IR");
+ 		detected_display_type = IMON_DISPLAY_TYPE_VFD;
+ 		/* We don't know which one it is, allow user to set the
+ 		 * RC6 one from userspace if OTHER wasn't correct. */
+-		allowed_protos |= RC_BIT_RC6_MCE;
++		allowed_protos |= RC_PROTO_BIT_RC6_MCE;
+ 		break;
+ 	}
+ 
+@@ -1960,7 +1960,7 @@
+ 	rdev->dev.parent = ictx->dev;
+ 
+ 	rdev->priv = ictx;
+-	rdev->allowed_protocols = RC_BIT_OTHER | RC_BIT_RC6_MCE; /* iMON PAD or MCE */
++	rdev->allowed_protocols = RC_PROTO_BIT_OTHER | RC_PROTO_BIT_RC6_MCE; /* iMON PAD or MCE */
+ 	rdev->change_protocol = imon_ir_change_protocol;
+ 	rdev->driver_name = MOD_NAME;
+ 
+@@ -1978,7 +1978,7 @@
+ 
+ 	imon_set_display_type(ictx);
+ 
+-	if (ictx->rc_type == RC_BIT_RC6_MCE)
++	if (ictx->rc_type == RC_PROTO_BIT_RC6_MCE)
+ 		rdev->map_name = RC_MAP_IMON_MCE;
+ 	else
+ 		rdev->map_name = RC_MAP_IMON_PAD;
+
+--- a/drivers/media/rc/mceusb.c
++++ b/drivers/media/rc/mceusb.c
+@@ -979,7 +979,7 @@
+ 
+ static void mceusb_process_ir_data(struct mceusb_dev *ir, int buf_len)
+ {
+-	DEFINE_IR_RAW_EVENT(rawir);
++	struct ir_raw_event rawir = {};
+ 	bool event = false;
+ 	int i = 0;
+ 
+@@ -1002,11 +1002,9 @@
+ 			break;
+ 		case PARSE_IRDATA:
+ 			ir->rem--;
+-			init_ir_raw_event(&rawir);
+ 			rawir.pulse = ((ir->buf_in[i] & MCE_PULSE_BIT) != 0);
+ 			rawir.duration = (ir->buf_in[i] & MCE_PULSE_MASK)
+ 					 * US_TO_NS(MCE_TIME_UNIT);
+-
+ 			dev_dbg(ir->dev, "Storing %s with duration %d",
+ 				rawir.pulse ? "pulse" : "space",
+ 				rawir.duration);
+
+--- a/drivers/media/rc/redrat3.c
++++ b/drivers/media/rc/redrat3.c
+@@ -336,7 +336,7 @@
+ 
+ static void redrat3_process_ir_data(struct redrat3_dev *rr3)
+ {
+-	DEFINE_IR_RAW_EVENT(rawir);
++	struct ir_raw_event rawir = {};
+ 	struct device *dev;
+ 	unsigned i, trailer = 0;
+ 	unsigned sig_size, single_len, offset, val;
+@@ -855,7 +855,7 @@
+ 	int ret = -ENODEV;
+ 	u16 prod = le16_to_cpu(rr3->udev->descriptor.idProduct);
+ 
+-	rc = rc_allocate_device();
++	rc = rc_allocate_device(RC_DRIVER_IR_RAW);
+ 	if (!rc) {
+ 		dev_err(dev, "remote input dev allocation failed\n");
+ 		goto out;
+@@ -873,7 +873,7 @@
+ 	rc->dev.parent = dev;
+ 	rc->priv = rr3;
+ 	rc->driver_type = RC_DRIVER_IR_RAW;
+-	rc->allowed_protocols = RC_BIT_ALL;
++	rc->allowed_protocols = RC_PROTO_BIT_ALL;
+ 	rc->timeout = US_TO_NS(2750);
+ 	rc->tx_ir = redrat3_transmit_ir;
+ 	rc->s_tx_carrier = redrat3_set_tx_carrier;
+
+--- a/drivers/media/rc/igorplugusb.c
++++ b/drivers/media/rc/igorplugusb.c
+@@ -190,8 +190,8 @@
+ 
+ 	usb_make_path(udev, ir->phys, sizeof(ir->phys));
+ 
+-	rc = rc_allocate_device();
+-	rc->input_name = DRIVER_DESC;
++	rc = rc_allocate_device(RC_DRIVER_IR_RAW);
++	rc->device_name = DRIVER_DESC;
+ 	rc->input_phys = ir->phys;
+ 	usb_to_input_id(udev, &rc->input_id);
+ 	rc->dev.parent = &intf->dev;
+
+
+--- a/drivers/video/rockchip/vpu/mpp_dev_rkvenc.c
++++ b/drivers/video/rockchip/vpu/mpp_dev_rkvenc.c
+@@ -691,7 +691,7 @@
+ 						       struct mpp_session,
+ 						       list_session);
+ 	int ret;
+-	size_t tmp;
++	unsigned long tmp;
+ 
+ 	enc->idev.ops = &rkvenc_ops;
+ 
+
+

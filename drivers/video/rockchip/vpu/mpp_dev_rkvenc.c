@@ -691,7 +691,7 @@ static int rockchip_mpp_rkvenc_probe(struct rockchip_mpp_dev *mpp)
 						       struct mpp_session,
 						       list_session);
 	int ret;
-	size_t tmp;
+	unsigned long tmp;
 
 	enc->idev.ops = &rkvenc_ops;
 

@@ -190,8 +190,8 @@ static int igorplugusb_probe(struct usb_interface *intf,
 
 	usb_make_path(udev, ir->phys, sizeof(ir->phys));
 
-	rc = rc_allocate_device();
-	rc->input_name = DRIVER_DESC;
+	rc = rc_allocate_device(RC_DRIVER_IR_RAW);
+	rc->device_name = DRIVER_DESC;
 	rc->input_phys = ir->phys;
 	usb_to_input_id(udev, &rc->input_id);
 	rc->dev.parent = &intf->dev;

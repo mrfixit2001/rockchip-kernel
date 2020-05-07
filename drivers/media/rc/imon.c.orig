@@ -1111,22 +1111,22 @@ static int imon_ir_change_protocol(struct rc_dev *rc, u64 *rc_type)
 	if (*rc_type && !(*rc_type & rc->allowed_protocols))
 		dev_warn(dev, "Looks like you're trying to use an IR protocol this device does not support\n");
 
-	if (*rc_type & RC_PROTO_BIT_RC6_MCE) {
+	if (*rc_type & RC_BIT_RC6_MCE) {
 		dev_dbg(dev, "Configuring IR receiver for MCE protocol\n");
 		ir_proto_packet[0] = 0x01;
-		*rc_type = RC_PROTO_BIT_RC6_MCE;
-	} else if (*rc_type & RC_PROTO_BIT_OTHER) {
+		*rc_type = RC_BIT_RC6_MCE;
+	} else if (*rc_type & RC_BIT_OTHER) {
 		dev_dbg(dev, "Configuring IR receiver for iMON protocol\n");
 		if (!pad_stabilize)
 			dev_dbg(dev, "PAD stabilize functionality disabled\n");
 		/* ir_proto_packet[0] = 0x00; // already the default */
-		*rc_type = RC_PROTO_BIT_OTHER;
+		*rc_type = RC_BIT_OTHER;
 	} else {
 		dev_warn(dev, "Unsupported IR protocol specified, overriding to iMON IR protocol\n");
 		if (!pad_stabilize)
 			dev_dbg(dev, "PAD stabilize functionality disabled\n");
 		/* ir_proto_packet[0] = 0x00; // already the default */
-		*rc_type = RC_PROTO_BIT_OTHER;
+		*rc_type = RC_BIT_OTHER;
 	}
 
 	memcpy(ictx->usb_tx_buf, &ir_proto_packet, sizeof(ir_proto_packet));
@@ -1416,7 +1416,7 @@ static void imon_pad_to_keys(struct imon_context *ictx, unsigned char *buf)
 		rel_x = buf[2];
 		rel_y = buf[3];
 
-		if (ictx->rc_type == RC_PROTO_BIT_OTHER && pad_stabilize) {
+		if (ictx->rc_type == RC_BIT_OTHER && pad_stabilize) {
 			if ((buf[1] == 0) && ((rel_x != 0) || (rel_y != 0))) {
 				dir = stabilize((int)rel_x, (int)rel_y,
 						timeout, threshold);
@@ -1483,7 +1483,7 @@ static void imon_pad_to_keys(struct imon_context *ictx, unsigned char *buf)
 		buf[0] = 0x01;
 		buf[1] = buf[4] = buf[5] = buf[6] = buf[7] = 0;
 
-		if (ictx->rc_type == RC_PROTO_BIT_OTHER && pad_stabilize) {
+		if (ictx->rc_type == RC_BIT_OTHER && pad_stabilize) {
 			dir = stabilize((int)rel_x, (int)rel_y,
 					timeout, threshold);
 			if (!dir) {
@@ -1605,7 +1605,7 @@ static void imon_incoming_packet(struct imon_context *ictx,
 		ictx->release_code = false;
 	} else {
 		scancode = be32_to_cpu(*((__be32 *)buf));
-		if (ictx->rc_type == RC_PROTO_BIT_RC6_MCE) {
+		if (ictx->rc_type == RC_BIT_RC6_MCE) {
 			ktype = IMON_KEY_IMON;
 			if (buf[0] == 0x80)
 				ktype = IMON_KEY_MCE;
@@ -1669,10 +1669,10 @@ static void imon_incoming_packet(struct imon_context *ictx,
 		if (press_type == 0)
 			rc_keyup(ictx->rdev);
 		else {
-			if (ictx->rc_type == RC_PROTO_BIT_RC6_MCE ||
-			    ictx->rc_type == RC_PROTO_BIT_OTHER)
+			if (ictx->rc_type == RC_BIT_RC6_MCE ||
+			    ictx->rc_type == RC_BIT_OTHER)
 				rc_keydown(ictx->rdev,
-					   ictx->rc_type == RC_PROTO_BIT_RC6_MCE ? RC_PROTO_RC6_MCE : RC_PROTO_OTHER,
+					   ictx->rc_type == RC_BIT_RC6_MCE ? RC_TYPE_RC6_MCE : RC_TYPE_OTHER,
 					   ictx->rc_scancode, ictx->rc_toggle);
 			spin_lock_irqsave(&ictx->kc_lock, flags);
 			ictx->last_keycode = ictx->kc;
@@ -1830,7 +1830,7 @@ static void imon_get_ffdc_type(struct imon_context *ictx)
 {
 	u8 ffdc_cfg_byte = ictx->usb_rx_buf[6];
 	u8 detected_display_type = IMON_DISPLAY_TYPE_NONE;
-	u64 allowed_protos = RC_PROTO_BIT_OTHER;
+	u64 allowed_protos = RC_BIT_OTHER;
 
 	switch (ffdc_cfg_byte) {
 	/* iMON Knob, no display, iMON IR + vol knob */
@@ -1861,20 +1861,20 @@ static void imon_get_ffdc_type(struct imon_context *ictx)
 	case 0x9e:
 		dev_info(ictx->dev, "0xffdc iMON VFD, MCE IR");
 		detected_display_type = IMON_DISPLAY_TYPE_VFD;
-		allowed_protos = RC_PROTO_BIT_RC6_MCE;
+		allowed_protos = RC_BIT_RC6_MCE;
 		break;
 	/* iMON LCD, MCE IR */
 	case 0x9f:
 		dev_info(ictx->dev, "0xffdc iMON LCD, MCE IR");
 		detected_display_type = IMON_DISPLAY_TYPE_LCD;
-		allowed_protos = RC_PROTO_BIT_RC6_MCE;
+		allowed_protos = RC_BIT_RC6_MCE;
 		break;
 	default:
 		dev_info(ictx->dev, "Unknown 0xffdc device, defaulting to VFD and iMON IR");
 		detected_display_type = IMON_DISPLAY_TYPE_VFD;
 		/* We don't know which one it is, allow user to set the
 		 * RC6 one from userspace if OTHER wasn't correct. */
-		allowed_protos |= RC_PROTO_BIT_RC6_MCE;
+		allowed_protos |= RC_BIT_RC6_MCE;
 		break;
 	}
 
@@ -1959,7 +1959,7 @@ static struct rc_dev *imon_init_rdev(struct imon_context *ictx)
 	rdev->dev.parent = ictx->dev;
 
 	rdev->priv = ictx;
-	rdev->allowed_protocols = RC_PROTO_BIT_OTHER | RC_PROTO_BIT_RC6_MCE; /* iMON PAD or MCE */
+	rdev->allowed_protocols = RC_BIT_OTHER | RC_BIT_RC6_MCE; /* iMON PAD or MCE */
 	rdev->change_protocol = imon_ir_change_protocol;
 	rdev->driver_name = MOD_NAME;
 
@@ -1977,7 +1977,7 @@ static struct rc_dev *imon_init_rdev(struct imon_context *ictx)
 
 	imon_set_display_type(ictx);
 
-	if (ictx->rc_type == RC_PROTO_BIT_RC6_MCE)
+	if (ictx->rc_type == RC_BIT_RC6_MCE)
 		rdev->map_name = RC_MAP_IMON_MCE;
 	else
 		rdev->map_name = RC_MAP_IMON_PAD;
