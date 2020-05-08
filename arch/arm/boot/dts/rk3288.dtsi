@@ -1921,6 +1921,10 @@
 			opp-hz = /bits/ 64 <500000000>;
 			opp-microvolt = <1200000>;
 		};
+		opp-600000000 {
+ 			opp-hz = /bits/ 64 <600000000>;
+ 			opp-microvolt = <1250000>;
+ 		};
 	};
 
 	noc: syscon@ffac0000 {
