@@ -134,7 +134,7 @@
 
 		clocks = <&cru PLL_APLL>;
 		rockchip,avs-scale = <17>;
-		rockchip,max-volt = <1350000>;
+		rockchip,max-volt = <1500000>;
 		nvmem-cells = <&cpu_leakage>, <&special_function>,
 			      <&performance>, <&process_version>,
 			      <&performance_w>, <&package_info>;
@@ -263,71 +263,71 @@
 			opp-microvolt-L3 = <1250000 1250000 1350000>;
 			clock-latency-ns = <40000>;
 		};
-		opp@1704000000 {
+		opp-1704000000 {
 			opp-hz = /bits/ 64 <1704000000>;
 			opp-microvolt = <1350000>;
 		};
-		opp@1800000000 {
+		opp-1800000000 {
 			opp-hz = /bits/ 64 <1800000000>;
 			opp-microvolt = <1400000>;
 		};
 		/* boot-only frequencies below */
-		opp@1896000000 {
+		opp-1896000000 {
 			opp-hz = /bits/ 64 <1896000000>;
 			opp-microvolt = <1425000>;
 			turbo-mode;
 		};
-		opp@1920000000 {
+		opp-1920000000 {
 			opp-hz = /bits/ 64 <1920000000>;
 			opp-microvolt = <1425000>;
 			turbo-mode;
 		};
-		opp@1992000000 {
+		opp-1992000000 {
 			opp-hz = /bits/ 64 <1992000000>;
 			opp-microvolt = <1450000>;
 			turbo-mode;
 		};
-		opp@2016000000 {
+		opp-2016000000 {
 			opp-hz = /bits/ 64 <2016000000>;
 			opp-microvolt = <1475000>;
 			turbo-mode;
 		};
-		opp@2040000000 {
+		opp-2040000000 {
 			opp-hz = /bits/ 64 <2040000000>;
 			opp-microvolt = <1475000>;
 			turbo-mode;
 		};
-		opp@2064000000 {
+		opp-2064000000 {
 			opp-hz = /bits/ 64 <2064000000>;
 			opp-microvolt = <1475000>;
 			turbo-mode;
 		};
-		opp@2088000000 {
+		opp-2088000000 {
 			opp-hz = /bits/ 64 <2088000000>;
 			opp-microvolt = <1500000>;
 			turbo-mode;
 		};
-		opp@2112000000 {
+		opp-2112000000 {
 			opp-hz = /bits/ 64 <2112000000>;
 			opp-microvolt = <1500000>;
 			turbo-mode;
 		};
-		opp@2136000000 {
+		opp-2136000000 {
 			opp-hz = /bits/ 64 <2136000000>;
 			opp-microvolt = <1500000>;
 			turbo-mode;
 		};
-		opp@2160000000 {
+		opp-2160000000 {
 			opp-hz = /bits/ 64 <2160000000>;
 			opp-microvolt = <1500000>;
 			turbo-mode;
 		};
-		opp@2184000000 {
+		opp-2184000000 {
 			opp-hz = /bits/ 64 <2184000000>;
 			opp-microvolt = <1500000>;
 			turbo-mode;
 		};
-		opp@2208000000 {
+		opp-2208000000 {
 			opp-hz = /bits/ 64 <2208000000>;
 			opp-microvolt = <1500000>;
 			turbo-mode;
