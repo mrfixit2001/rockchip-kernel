@@ -19,6 +19,9 @@ obj-$(CONFIG_CPU_FREQ_GOV_MRFIXEDFREQ12)	+= cpufreq_mrfixedfreq12.o
 obj-$(CONFIG_CPU_FREQ_GOV_MRFIXEDFREQ13)	+= cpufreq_mrfixedfreq13.o
 obj-$(CONFIG_CPU_FREQ_GOV_MRFIXEDFREQ14)	+= cpufreq_mrfixedfreq14.o
 obj-$(CONFIG_CPU_FREQ_GOV_MRFIXEDFREQ15)	+= cpufreq_mrfixedfreq15.o
+obj-$(CONFIG_CPU_FREQ_GOV_MRFIXEDFREQ18)	+= cpufreq_mrfixedfreq18.o
+obj-$(CONFIG_CPU_FREQ_GOV_MRFIXEDFREQ20)	+= cpufreq_mrfixedfreq20.o
+obj-$(CONFIG_CPU_FREQ_GOV_MRFIXEDFREQ22)	+= cpufreq_mrfixedfreq22.o
 
 obj-$(CONFIG_CPUFREQ_DT)		+= cpufreq-dt.o
 obj-$(CONFIG_CPU_WAKE_BOOST)		+= cpu_wake_boost.o

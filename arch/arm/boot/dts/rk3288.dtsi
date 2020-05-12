@@ -80,15 +80,6 @@
 		dsi1 = &dsi1;
 	};
 
-	arm-pmu {
-		compatible = "arm,cortex-a12-pmu";
-		interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 153 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 154 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-affinity = <&cpu0>, <&cpu1>, <&cpu2>, <&cpu3>;
-	};
-
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -111,6 +102,9 @@
 			reg = <0x501>;
 			resets = <&cru SRST_CORE1>;
 			operating-points-v2 = <&cpu0_opp_table>;
+			#cooling-cells = <2>; /* min followed by max */
+			dynamic-power-coefficient = <322>;
+			clocks = <&cru ARMCLK>;
 		};
 		cpu2: cpu@502 {
 			device_type = "cpu";
@@ -118,6 +112,9 @@
 			reg = <0x502>;
 			resets = <&cru SRST_CORE2>;
 			operating-points-v2 = <&cpu0_opp_table>;
+			#cooling-cells = <2>; /* min followed by max */
+			dynamic-power-coefficient = <322>;
+			clocks = <&cru ARMCLK>;
 		};
 		cpu3: cpu@503 {
 			device_type = "cpu";
@@ -125,6 +122,9 @@
 			reg = <0x503>;
 			resets = <&cru SRST_CORE3>;
 			operating-points-v2 = <&cpu0_opp_table>;
+			#cooling-cells = <2>; /* min followed by max */
+			dynamic-power-coefficient = <322>;
+			clocks = <&cru ARMCLK>;
 		};
 	};
 
@@ -134,7 +134,7 @@
 
 		clocks = <&cru PLL_APLL>;
 		rockchip,avs-scale = <17>;
-		rockchip,max-volt = <1500000>;
+		rockchip,max-volt = <1350000>;
 		nvmem-cells = <&cpu_leakage>, <&special_function>,
 			      <&performance>, <&process_version>,
 			      <&performance_w>, <&package_info>;
@@ -263,75 +263,15 @@
 			opp-microvolt-L3 = <1250000 1250000 1350000>;
 			clock-latency-ns = <40000>;
 		};
-		opp-1704000000 {
-			opp-hz = /bits/ 64 <1704000000>;
-			opp-microvolt = <1350000>;
-		};
-		opp-1800000000 {
-			opp-hz = /bits/ 64 <1800000000>;
-			opp-microvolt = <1400000>;
-		};
-		/* boot-only frequencies below */
-		opp-1896000000 {
-			opp-hz = /bits/ 64 <1896000000>;
-			opp-microvolt = <1425000>;
-			turbo-mode;
-		};
-		opp-1920000000 {
-			opp-hz = /bits/ 64 <1920000000>;
-			opp-microvolt = <1425000>;
-			turbo-mode;
-		};
-		opp-1992000000 {
-			opp-hz = /bits/ 64 <1992000000>;
-			opp-microvolt = <1450000>;
-			turbo-mode;
-		};
-		opp-2016000000 {
-			opp-hz = /bits/ 64 <2016000000>;
-			opp-microvolt = <1475000>;
-			turbo-mode;
-		};
-		opp-2040000000 {
-			opp-hz = /bits/ 64 <2040000000>;
-			opp-microvolt = <1475000>;
-			turbo-mode;
-		};
-		opp-2064000000 {
-			opp-hz = /bits/ 64 <2064000000>;
-			opp-microvolt = <1475000>;
-			turbo-mode;
-		};
-		opp-2088000000 {
-			opp-hz = /bits/ 64 <2088000000>;
-			opp-microvolt = <1500000>;
-			turbo-mode;
-		};
-		opp-2112000000 {
-			opp-hz = /bits/ 64 <2112000000>;
-			opp-microvolt = <1500000>;
-			turbo-mode;
-		};
-		opp-2136000000 {
-			opp-hz = /bits/ 64 <2136000000>;
-			opp-microvolt = <1500000>;
-			turbo-mode;
-		};
-		opp-2160000000 {
-			opp-hz = /bits/ 64 <2160000000>;
-			opp-microvolt = <1500000>;
-			turbo-mode;
-		};
-		opp-2184000000 {
-			opp-hz = /bits/ 64 <2184000000>;
-			opp-microvolt = <1500000>;
-			turbo-mode;
-		};
-		opp-2208000000 {
-			opp-hz = /bits/ 64 <2208000000>;
-			opp-microvolt = <1500000>;
-			turbo-mode;
-		};
+	};
+
+	arm-pmu {
+		compatible = "arm,cortex-a12-pmu";
+		interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 153 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 154 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-affinity = <&cpu0>, <&cpu1>, <&cpu2>, <&cpu3>;
 	};
 
 	amba {
@@ -1921,10 +1861,6 @@
 			opp-hz = /bits/ 64 <500000000>;
 			opp-microvolt = <1200000>;
 		};
-		opp-600000000 {
- 			opp-hz = /bits/ 64 <600000000>;
- 			opp-microvolt = <1250000>;
- 		};
 	};
 
 	noc: syscon@ffac0000 {

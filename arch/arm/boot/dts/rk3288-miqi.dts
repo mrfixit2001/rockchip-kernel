@@ -178,6 +178,71 @@
 	cpu0-supply = <&vdd_cpu>;
 };
 
+&cpu1 {
+	cpu0-supply = <&vdd_cpu>;
+};
+
+&cpu2 {
+	cpu0-supply = <&vdd_cpu>;
+};
+
+&cpu3 {
+	cpu0-supply = <&vdd_cpu>;
+};
+
+&cpu0_opp_table {
+	rockchip,max-volt = <1500000>;
+	/* overclock frequencies below - use governors to set desired freq */
+	opp-1896000000 {
+		opp-hz = /bits/ 64 <1896000000>;
+		opp-microvolt = <1425000>;
+	};
+	opp-1920000000 {
+		opp-hz = /bits/ 64 <1920000000>;
+		opp-microvolt = <1425000>;
+	};
+	opp-1992000000 {
+		opp-hz = /bits/ 64 <1992000000>;
+		opp-microvolt = <1450000>;
+	};
+	opp-2016000000 {
+		opp-hz = /bits/ 64 <2016000000>;
+		opp-microvolt = <1475000>;
+	};
+	opp-2040000000 {
+		opp-hz = /bits/ 64 <2040000000>;
+		opp-microvolt = <1475000>;
+	};
+	opp-2064000000 {
+		opp-hz = /bits/ 64 <2064000000>;
+		opp-microvolt = <1475000>;
+	};
+	opp-2088000000 {
+		opp-hz = /bits/ 64 <2088000000>;
+		opp-microvolt = <1500000>;
+	};
+	opp-2112000000 {
+		opp-hz = /bits/ 64 <2112000000>;
+		opp-microvolt = <1500000>;
+	};
+	opp-2136000000 {
+		opp-hz = /bits/ 64 <2136000000>;
+		opp-microvolt = <1500000>;
+	};
+	opp-2160000000 {
+		opp-hz = /bits/ 64 <2160000000>;
+		opp-microvolt = <1500000>;
+	};
+	opp-2184000000 {
+		opp-hz = /bits/ 64 <2184000000>;
+		opp-microvolt = <1500000>;
+	};
+	opp-2208000000 {
+		opp-hz = /bits/ 64 <2208000000>;
+		opp-microvolt = <1500000>;
+	};
+};
+
 &gpu {
 	status = "okay";
 	mali-supply = <&vdd_gpu>;

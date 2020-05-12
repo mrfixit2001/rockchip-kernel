@@ -536,6 +536,15 @@ extern struct cpufreq_governor cpufreq_gov_mrfixedfreq14;
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_MRFIXEDFREQ15)
 extern struct cpufreq_governor cpufreq_gov_mrfixedfreq15;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_mrfixedfreq15)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_MRFIXEDFREQ18)
+extern struct cpufreq_governor cpufreq_gov_mrfixedfreq18;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_mrfixedfreq18)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_MRFIXEDFREQ20)
+extern struct cpufreq_governor cpufreq_gov_mrfixedfreq20;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_mrfixedfreq20)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_MRFIXEDFREQ22)
+extern struct cpufreq_governor cpufreq_gov_mrfixedfreq22;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_mrfixedfreq22)
 #endif
 
 static inline void cpufreq_policy_apply_limits(struct cpufreq_policy *policy)
