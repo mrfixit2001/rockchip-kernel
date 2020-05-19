@@ -264,20 +264,29 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	#sound-dai-cells = <0>;
-	pinctrl-0 = <&hdmi_ddc>, <&hdmi_cec>;
-	rockchip,phy-table =
-		<74250000 0x8009 0x0004 0x0272>,
-		<165000000 0x802b 0x0004 0x0209>,
-		<297000000 0x8039 0x0005 0x028d>,
-		<594000000 0x8039 0x0000 0x019d>,
-		<000000000 0x0000 0x0000 0x0000>;
 	status = "okay";
-	/* Don't use vopl for HDMI */
 	ports {
 		hdmi_in: port {
-			/delete-node/ endpoint@1;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			hdmi_in_vopb: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&vopb_out_hdmi>;
+			};
+			hdmi_in_vopl: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&vopl_out_hdmi>;
+			};
 		};
 	};
+};
+
+&hdmi_in_vopb {
+	status = "disabled";
+};
+
+&hdmi_in_vopl {
+	status = "okay";
 };
 
 &hevc_service {
@@ -551,18 +560,29 @@ I2C
 
 &vopb {
 	status = "okay";
-};
-
-&vopb_mmu {
-	status = "okay";
+		vopb_out: port {
+			vopb_out_edp: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&edp_in_vopb>;
+			};
+		};
 };
 
 &vopl {
 	status = "okay";
-	/* Don't use vopl for HDMI */
 	vopl_out: port {
-		/delete-node/ endpoint@0;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		vopl_out_hdmi: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&hdmi_in_vopl>;
+		};
 	};
+};
+
+&vopb_mmu {
+	status = "okay";
 };
 
 &vopl_mmu {
