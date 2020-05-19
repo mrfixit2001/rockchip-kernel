@@ -952,7 +952,6 @@
 
 &pwm1 {
 	status = "okay";
-	pinctrl-names = "active";
 };
 
 &pwm2 {
