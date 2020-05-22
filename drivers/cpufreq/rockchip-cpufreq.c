@@ -74,90 +74,10 @@ static int px30_get_soc_info(struct device *dev, struct device_node *np,
 	return ret;
 }
 
-static int rk3288_get_soc_info(struct device *dev, struct device_node *np,
-			       int *bin, int *process)
-{
-	int ret = 0, value = -EINVAL;
-	char *name;
-
-	if (!bin)
-		goto next;
-	if (of_property_match_string(np, "nvmem-cell-names", "special") >= 0) {
-		ret = rockchip_get_efuse_value(np, "special", &value);
-		if (ret) {
-			dev_err(dev, "Failed to get soc special value\n");
-			goto out;
-		}
-		if (value == 0xc)
-			*bin = 0;
-		else
-			*bin = 1;
-	}
-
-	if (soc_is_rk3288w()) {
-		if (of_property_match_string(np, "nvmem-cell-names",
-					     "package") >= 0) {
-			ret = rockchip_get_efuse_value(np, "package", &value);
-			if (ret) {
-				dev_err(dev, "Failed to get soc package value\n");
-				goto out;
-			}
-			if (value == 0x2)
-				*bin = 0;
-		}
-	}
-
-	if (soc_is_rk3288w())
-		name = "performance-w";
-	else
-		name = "performance";
-
-	if (of_property_match_string(np, "nvmem-cell-names", name) >= 0) {
-		ret = rockchip_get_efuse_value(np, name, &value);
-		if (ret) {
-			dev_err(dev, "Failed to get soc performance value\n");
-			goto out;
-		}
-		if (value & 0x2)
-			*bin = 3;
-		else if (value & 0x01)
-			*bin = 2;
-	}
-	if (*bin >= 0)
-		dev_info(dev, "bin=%d\n", *bin);
-
-next:
-	if (!process)
-		goto out;
-	if (of_property_match_string(np, "nvmem-cell-names",
-				     "process") >= 0) {
-		ret = rockchip_get_efuse_value(np, "process", &value);
-		if (ret) {
-			dev_err(dev, "Failed to get soc process version\n");
-			goto out;
-		}
-		if (soc_is_rk3288() && (value == 0 || value == 1))
-			*process = 0;
-	}
-	if (*process >= 0)
-		dev_info(dev, "process=%d\n", *process);
-
-out:
-	return ret;
-}
-
 static const struct of_device_id rockchip_cpufreq_of_match[] = {
 	{
 		.compatible = "rockchip,px30",
 		.data = (void *)&px30_get_soc_info,
-	},
-	{
-		.compatible = "rockchip,rk3288",
-		.data = (void *)&rk3288_get_soc_info,
-	},
-	{
-		.compatible = "rockchip,rk3288w",
-		.data = (void *)&rk3288_get_soc_info,
 	},
 	{
 		.compatible = "rockchip,rk3326",
