@@ -326,7 +326,7 @@ int dma_direction_to_prot(enum dma_data_direction dir, bool coherent)
 static struct iova *__alloc_iova(struct iommu_domain *domain, size_t size,
 		dma_addr_t dma_limit, struct device *dev)
 {
-	struct iova_domain *iovad = cookie_iovad(domain);
+	struct iova_domain *iovad = domain->iova_cookie;
 	unsigned long shift = iova_shift(iovad);
 	unsigned long length = iova_align(iovad, size) >> shift;
 	struct iova *iova = NULL;
