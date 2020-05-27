@@ -242,61 +242,73 @@
 		opp-hz = /bits/ 64 <1896000000>;
 		opp-microvolt = <1425000>;
 		turbo-mode;
+		status = "disabled";
 	};
 	opp-1920000000 {
 		opp-hz = /bits/ 64 <1920000000>;
 		opp-microvolt = <1425000>;
 		turbo-mode;
+		status = "disabled";
 	};
 	opp-1992000000 {
 		opp-hz = /bits/ 64 <1992000000>;
 		opp-microvolt = <1450000>;
 		turbo-mode;
+		status = "disabled";
 	};
 	opp-2016000000 {
 		opp-hz = /bits/ 64 <2016000000>;
 		opp-microvolt = <1475000>;
 		turbo-mode;
+		status = "disabled";
 	};
 	opp-2040000000 {
 		opp-hz = /bits/ 64 <2040000000>;
 		opp-microvolt = <1475000>;
 		turbo-mode;
+		status = "disabled";
 	};
 	opp-2064000000 {
 		opp-hz = /bits/ 64 <2064000000>;
 		opp-microvolt = <1475000>;
 		turbo-mode;
+		status = "disabled";
 	};
 	opp-2088000000 {
 		opp-hz = /bits/ 64 <2088000000>;
 		opp-microvolt = <1500000>;
 		turbo-mode;
+		status = "disabled";
 	};
 	opp-2112000000 {
 		opp-hz = /bits/ 64 <2112000000>;
 		opp-microvolt = <1500000>;
 		turbo-mode;
+		status = "disabled";
 	};
 	opp-2136000000 {
 		opp-hz = /bits/ 64 <2136000000>;
 		opp-microvolt = <1500000>;
 		turbo-mode;
+		status = "disabled";
 	};
 	opp-2160000000 {
 		opp-hz = /bits/ 64 <2160000000>;
 		opp-microvolt = <1500000>;
 		turbo-mode;
+		status = "disabled";
 	};
 	opp-2184000000 {
 		opp-hz = /bits/ 64 <2184000000>;
 		opp-microvolt = <1500000>;
 		turbo-mode;
+		status = "disabled";
 	};
 	opp-2208000000 {
 		opp-hz = /bits/ 64 <2208000000>;
 		opp-microvolt = <1500000>;
 		turbo-mode;
+		status = "disabled";
 	};
 };
 
@@ -393,7 +405,7 @@
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <750000>;
-				regulator-max-microvolt = <1500000>;
+				regulator-max-microvolt = <1450000>;
 				regulator-name = "vdd_arm";
 				regulator-ramp-delay = <6000>;
 				regulator-state-mem {
