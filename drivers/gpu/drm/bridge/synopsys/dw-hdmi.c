@@ -276,6 +276,7 @@ struct dw_hdmi {
 	void (*disable_audio)(struct dw_hdmi *hdmi);
 
 	bool initialized;		/* hdmi is enabled before bind */
+	bool modes_init;
 };
 
 #define HDMI_IH_PHY_STAT0_RX_SENSE \
@@ -2879,9 +2880,25 @@ static void dw_hdmi_connector_force(struct drm_connector *connector)
 	mutex_unlock(&hdmi->mutex);
 }
 
+static int dw_hdmi_fill_modes(struct drm_connector *connector, u32 max_x, u32 max_y)
+{
+	/* 
+	 * Some cards detect that the HDMI is disconnected during their initial 
+	 * fill_modes, so force the connection just the first time to ensure
+	 * they get populated correctly
+	 */
+	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
+					     connector);
+	if (!hdmi->modes_init) {
+		connector->force = DRM_FORCE_ON;
+		hdmi->modes_init = true;
+	}
+	return drm_helper_probe_single_connector_modes(connector, max_x, max_y);
+}
+
 static const struct drm_connector_funcs dw_hdmi_connector_funcs = {
 	.dpms = drm_helper_connector_dpms,
-	.fill_modes = drm_helper_probe_single_connector_modes,
+	.fill_modes = dw_hdmi_fill_modes,
 	.detect = dw_hdmi_connector_detect,
 	.destroy = dw_hdmi_connector_destroy,
 	.force = dw_hdmi_connector_force,
@@ -2889,7 +2906,7 @@ static const struct drm_connector_funcs dw_hdmi_connector_funcs = {
 
 static const struct drm_connector_funcs dw_hdmi_atomic_connector_funcs = {
 	.dpms = drm_atomic_helper_connector_dpms,
-	.fill_modes = drm_helper_probe_single_connector_modes,
+	.fill_modes = dw_hdmi_fill_modes,
 	.detect = dw_hdmi_connector_detect,
 	.destroy = dw_hdmi_connector_destroy,
 	.force = dw_hdmi_connector_force,
