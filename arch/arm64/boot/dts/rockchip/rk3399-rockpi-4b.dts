@@ -51,10 +51,28 @@
 	model = "Radxa ROCK Pi 4";
 	compatible = "radxa,rockpi4", "rockchip,rk3399";
 
+	/* first 64k(0xff8c0000~0xff8d0000) for ddr and suspend */
+	iram: sram@ff8d0000 {
+		compatible = "mmio-sram";
+		reg = <0x0 0xff8d0000 0x0 0x20000>; /* 128k */
+	};
+
+	aliases {
+		ethernet0 = &gmac;
+		uart0 = &uart0;
+	};
+
 	xin32k: xin32k {
 		compatible = "fixed-clock";
 		clock-frequency = <32768>;
 		clock-output-names = "xin32k";
+		#clock-cells = <0>;
+	};
+
+	clkin_gmac: external-gmac-clock {
+		compatible = "fixed-clock";
+		clock-frequency = <125000000>;
+		clock-output-names = "clkin_gmac";
 		#clock-cells = <0>;
 	};
 
@@ -67,27 +85,13 @@
 		regulator-max-microvolt = <12000000>;
 	};
 
-	clkin_gmac: external-gmac-clock {
-		compatible = "fixed-clock";
-		clock-frequency = <125000000>;
-		clock-output-names = "clkin_gmac";
-		#clock-cells = <0>;
-	};
-
-	vcc1v8_s0: vcc1v8-s0 {
-		compatible = "regulator-fixed";
-		regulator-name = "vcc1v8_s0";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-		regulator-always-on;
-	};
-
 	vcc_sys: vcc-sys {
 		compatible = "regulator-fixed";
 		regulator-name = "vcc_sys";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 		regulator-always-on;
+		vin-supply = <&dc_12v>;
 	};
 
 	vcc_phy: vcc-phy-regulator {
@@ -106,6 +110,40 @@
 		vin-supply = <&vcc_sys>;
 	};
 
+	vcc5v0_host: vcc5v0-host-regulator {
+		compatible = "regulator-fixed";
+		enable-active-high;
+		gpio = <&gpio4 RK_PD1 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&host_vbus_drv>;
+		regulator-name = "vcc5v0_host";
+		regulator-always-on;
+	};
+
+	vdd_log: vdd-log {
+		compatible = "pwm-regulator";
+		pwms = <&pwm2 0 25000 1>;
+		regulator-name = "vdd_log";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <1400000>;
+		regulator-always-on;
+		regulator-boot-on;
+
+		/* for rockchip boot on */
+		rockchip,pwm_id= <2>;
+		rockchip,pwm_voltage = <900000>;
+
+		vin-supply = <&vcc_sys>;
+	};
+
+	vcc12v_pcie: vcc12v-pcie-regulator {
+		compatible = "regulator-fixed";
+		regulator-min-microvolt = <12000000>;
+		regulator-max-microvolt = <12000000>;
+		regulator-name = "vcc12v_pcie";
+		vin-supply = <&dc_12v>;
+	};
+
 	vcc3v3_pcie: vcc3v3-pcie-regulator {
 		compatible = "regulator-fixed";
 		enable-active-high;
@@ -116,14 +154,6 @@
 		regulator-always-on;
 		regulator-name = "vcc3v3_pcie";
 		vin-supply = <&vcc3v3_sys>;
-	};
-
-	vcc12v_pcie: vcc12v-pcie-regulator {
-		compatible = "regulator-fixed";
-		regulator-min-microvolt = <12000000>;
-		regulator-max-microvolt = <12000000>;
-		regulator-name = "vcc12v_pcie";
-		vin-supply = <&dc_12v>;
 	};
 
 	vcc1v8_pcie: vcc1v8-pcie {
@@ -142,16 +172,6 @@
 		vin-supply = <&vcc3v3_sys>;
 	};
 
-	vcc5v0_host: vcc5v0-host-regulator {
-		compatible = "regulator-fixed";
-		enable-active-high;
-		gpio = <&gpio4 RK_PD1 GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&host_vbus_drv>;
-		regulator-name = "vcc5v0_host";
-		regulator-always-on;
-	};
-
 	vcc5v0_otg: vcc5v0-otg-regulator {
 		compatible = "regulator-fixed";
 		enable-active-high;
@@ -162,20 +182,8 @@
 		regulator-always-on;
 	};
 
-	vdd_log: vdd-log {
-		compatible = "pwm-regulator";
-		pwms = <&pwm2 0 25000 1>;
-		regulator-name = "vdd_log";
-		regulator-min-microvolt = <800000>;
-		regulator-max-microvolt = <1400000>;
-		regulator-always-on;
-		regulator-boot-on;
-
-		/* for rockchip boot on */
-		rockchip,pwm_id= <2>;
-		rockchip,pwm_voltage = <900000>;
-
-		vin-supply = <&vcc_sys>;
+	test-power {
+		status = "okay";
 	};
 
 	leds {
@@ -205,7 +213,7 @@
 			"Headphone Jack", "HPOR",
 			"Mic Jack", "MIC1";
 		simple-audio-card,cpu {
-			sound-dai = <&i2s0>;
+			sound-dai = <&i2s1>;
 		};
 		simple-audio-card,codec {
 			sound-dai = <&es8316>;
@@ -226,7 +234,7 @@
 	};
 
 	spdif-sound {
-		status = "disabled";
+		status = "okay";
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "ROCKCHIP,SPDIF";
 		simple-audio-card,cpu {
@@ -238,9 +246,9 @@
 	};
 
 	spdif_out: spdif-out {
-		status = "disabled";
 		compatible = "linux,spdif-dit";
 		#sound-dai-cells = <0>;
+		status = "okay";
 	};
 
 	sdio_pwrseq: sdio-pwrseq {
@@ -307,6 +315,15 @@
 	cpu-supply = <&vdd_cpu_b>;
 };
 
+&dfi {
+	status = "okay";
+};
+
+&dmc {
+	status = "okay";
+	center-supply = <&vdd_center>;
+};
+
 &display_subsystem {
 	status = "okay";
 
@@ -324,8 +341,8 @@
 
 &i2c0 {
 	status = "okay";
-	i2c-scl-rising-time-ns = <168>;
-	i2c-scl-falling-time-ns = <4>;
+	i2c-scl-rising-time-ns = <180>;
+	i2c-scl-falling-time-ns = <30>;
 	clock-frequency = <400000>;
 
 	vdd_cpu_b: syr827@40 {
@@ -356,6 +373,7 @@
 		regulator-name = "vdd_gpu";
 		regulator-min-microvolt = <712500>;
 		regulator-max-microvolt = <1500000>;
+		regulator-enable-ramp-delay = <300>;
 		regulator-ramp-delay = <1000>;
 		fcs,suspend-voltage-selector = <1>;
 		regulator-always-on;
@@ -392,11 +410,15 @@
 		vcc12-supply = <&vcc3v3_sys>;
 		vddio-supply = <&vcc_1v8>;
 
+		rtc {
+			status = "okay";
+		};
+
 		regulators {
 			vdd_center: DCDC_REG1 {
 				regulator-name = "vdd_center";
-				regulator-min-microvolt = <750000>;
-				regulator-max-microvolt = <1350000>;
+				regulator-min-microvolt = <900000>;
+				regulator-max-microvolt = <900000>;
 				regulator-ramp-delay = <6001>;
 				regulator-always-on;
 				regulator-boot-on;
@@ -438,8 +460,8 @@
 				};
 			};
 
-			vcc1v8_dvp: LDO_REG1 {
-				regulator-name = "vcc1v8_dvp";
+			vcca1v8_codec: LDO_REG1 {
+				regulator-name = "vcca1v8_codec";
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <1800000>;
 				regulator-always-on;
@@ -453,7 +475,7 @@
 			vcca1v8_hdmi: LDO_REG2 {
 				regulator-name = "vcca1v8_hdmi";
 				regulator-min-microvolt = <1800000>;
-				regulator-max-microvolt = <1800000>;
+				regulator-max-microvolt = <3000000>;
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-state-mem {
@@ -474,8 +496,8 @@
 				};
 			};
 
-			vcc_sd: LDO_REG4 {
-				regulator-name = "vcc_sd";
+			vcc_sdio: LDO_REG4 {
+				regulator-name = "vcc_sdio";
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <3000000>;
 				regulator-always-on;
@@ -486,8 +508,8 @@
 				};
 			};
 
-			vcc3v0_sd: LDO_REG5 {
-				regulator-name = "vcc3v0_sd";
+			vcca3v0_codec: LDO_REG5 {
+				regulator-name = "vcca3v0_codec";
 				regulator-min-microvolt = <3000000>;
 				regulator-max-microvolt = <3000000>;
 				regulator-always-on;
@@ -557,8 +579,8 @@
 
 &i2c1 {
 	status = "okay";
-	i2c-scl-rising-time-ns = <300>;
-	i2c-scl-falling-time-ns = <15>;
+	i2c-scl-rising-time-ns = <168>;
+	i2c-scl-falling-time-ns = <4>;
 
 	es8316: es8316@11 {
 		#sound-dai-cells = <0>;
@@ -571,34 +593,27 @@
 	};
 
 	rockpi_mcu: rockpi_mcu@45 {
-	    compatible = "rockpi_mcu";
-	    reg = <0x45>;
+		compatible = "rockpi_mcu";
+		reg = <0x45>;
+		status = "disabled";
 	};
 
 	rockpi_ft5406: rockpi_ft5406@38 {
 		compatible = "rockpi_ft5406";
 		reg = <0x38>;
+		status = "disabled";
 	};
 };
 
-&i2c2 {
+&i2c8 {
 	status = "okay";
 };
 
-&i2c7 {
-	status = "okay";
-};
-
-&i2s0 {
+&i2s1 {
 	status = "okay";
 	rockchip,i2s-broken-burst-len;
 	rockchip,playback-channels = <8>;
 	rockchip,capture-channels = <8>;
-	#sound-dai-cells = <0>;
-};
-
-&i2s1 {
-	status = "disabled";
 	#sound-dai-cells = <0>;
 };
 
@@ -612,6 +627,7 @@
 	phy-supply = <&vcc_phy>;
 	phy-mode = "rgmii";
 	clock_in_out = "input";
+	rockchip,bugged_tx_coe;
 	snps,reset-gpio = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
 	snps,reset-active-low;
 	snps,reset-delays-us = <0 10000 50000>;
@@ -643,12 +659,20 @@
 		<000000000 0x0000 0x0000 0x0000>;
 };
 
+&iep {
+	status = "okay";
+};
+
+&iep_mmu {
+	status = "okay";
+};
+
 &io_domains {
 	status = "okay";
 
-	bt656-supply = <&vcc_3v0>; /* bt656_gpio2ab_ms */
-	audio-supply = <&vcc_3v0>; /* audio_gpio3d4a_ms */
-	sdmmc-supply = <&vcc_sd>; /* sdmmc_gpio4b_ms */
+	bt656-supply = <&vcca_1v8>; /* bt656_gpio2ab_ms */
+	audio-supply = <&vcca3v0_codec>; /* audio_gpio3d4a_ms */
+	sdmmc-supply = <&vcc_sdio>; /* sdmmc_gpio4b_ms */
 	gpio1830-supply = <&vcc_3v0>; /* gpio1833_gpio4cd_ms */
 };
 
@@ -667,7 +691,7 @@
 	sd-uhs-sdr25;
 	sd-uhs-sdr50;
 	sd-uhs-sdr104;
-	vqmmc-supply = <&vcc_sd>;
+	vqmmc-supply = <&vcc_sdio>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&sdmmc_clk &sdmmc_cmd &sdmmc_cd &sdmmc_bus4>;
 	card-detect-delay = <800>;
@@ -695,9 +719,16 @@
 	bus-width = <8>;
 	mmc-hs400-1_8v;
 	mmc-hs400-enhanced-strobe;
+	mmc-hs200-1_8v;
 	supports-emmc;
 	non-removable;
 	status = "okay";
+};
+
+&spdif {
+	status = "okay";
+	pinctrl-0 = <&spdif_bus_1>;
+	#sound-dai-cells = <0>;
 };
 
 &threshold {
@@ -768,10 +799,6 @@
 	status = "okay";
 };
 
-&uart4 {
-	status = "okay";
-};
-
 &usb_host0_ehci {
 	status = "okay";
 };
@@ -809,6 +836,7 @@
 
 &pwm2 {
 	status = "okay";
+	pinctrl-0 = <&pwm2_pin_pull_down>;
 };
 
 &pinctrl {
@@ -819,25 +847,10 @@
 		};
 	};
 
-	i2s0 {
-		i2s0_8ch_bus: i2s0-8ch-bus {
-			rockchip,pins =
-				<3 24 RK_FUNC_1 &pcfg_pull_none>,
-				<3 25 RK_FUNC_1 &pcfg_pull_none>,
-				<3 26 RK_FUNC_1 &pcfg_pull_none>,
-				<3 27 RK_FUNC_1 &pcfg_pull_none>,
-				<3 31 RK_FUNC_1 &pcfg_pull_none>;
-		};
-
-		i2s_8ch_mclk: i2s-8ch-mclk {
-			rockchip,pins = <4 0 RK_FUNC_1 &pcfg_pull_none>;
-		};
-	};
-
 	pcie {
 		pcie_drv: pcie-drv {
 			rockchip,pins =
-				<2 RK_PD2 RK_FUNC_GPIO &pcfg_pull_none>;
+				<2 RK_PD2 RK_FUNC_GPIO &pcfg_pull_up_20ma>;
 			};
 	};
 
@@ -1023,11 +1036,15 @@
 };
 
 &vopl {
-	status = "disabled";
+	status = "okay";
+	assigned-clocks = <&cru DCLK_VOP1_DIV>;
+	assigned-clock-parents = <&cru PLL_CPLL>;
 };
 
 &vopl_mmu {
 	status = "okay";
-	assigned-clocks = <&cru DCLK_VOP1_DIV>;
-	assigned-clock-parents = <&cru PLL_CPLL>;
+};
+
+&rga {
+	status = "okay";
 };
