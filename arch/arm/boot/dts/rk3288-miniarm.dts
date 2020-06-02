@@ -353,6 +353,7 @@
 	#size-cells = <0>;
 	#sound-dai-cells = <0>;
 	status = "okay";
+	pinctrl-0 = <&hdmi_ddc>, <&hdmi_cec>;
 	rockchip,phy-table =
 		<74250000 0x8009 0x0004 0x0272>,
 		<165000000 0x802b 0x0004 0x0209>,
