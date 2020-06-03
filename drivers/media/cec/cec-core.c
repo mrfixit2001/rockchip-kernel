@@ -40,6 +40,10 @@ static bool debug_phys_addr;
 module_param(debug_phys_addr, bool, 0644);
 MODULE_PARM_DESC(debug_phys_addr, "add CEC_CAP_PHYS_ADDR if set");
 
+int cec_debounce;
+module_param_named(debounce, cec_debounce, int, 0644);
+MODULE_PARM_DESC(debounce, "debounce invalid phys addr");
+
 static dev_t cec_dev_t;
 
 /* Active devices */

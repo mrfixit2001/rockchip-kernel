@@ -23,10 +23,13 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/kref.h>
+#include <linux/workqueue.h>
 
 #include <media/cec.h>
 #include <media/cec-notifier.h>
 #include <drm/drm_edid.h>
+
+#include "cec-priv.h"
 
 struct cec_notifier {
 	struct mutex lock;
@@ -37,10 +40,24 @@ struct cec_notifier {
 	void (*callback)(struct cec_adapter *adap, u16 pa);
 
 	u16 phys_addr;
+	struct delayed_work work;
 };
 
 static LIST_HEAD(cec_notifiers);
 static DEFINE_MUTEX(cec_notifiers_lock);
+
+static void cec_notifier_delayed_work(struct work_struct *work)
+{
+	struct cec_notifier *n =
+		container_of(to_delayed_work(work), struct cec_notifier, work);
+
+	mutex_lock(&n->lock);
+	if (n->callback)
+		n->callback(n->cec_adap, n->phys_addr);
+	else if (n->cec_adap)
+		cec_s_phys_addr(n->cec_adap, n->phys_addr, false);
+	mutex_unlock(&n->lock);
+}
 
 struct cec_notifier *cec_notifier_get(struct device *dev)
 {
@@ -59,6 +76,7 @@ struct cec_notifier *cec_notifier_get(struct device *dev)
 		goto unlock;
 	n->dev = dev;
 	n->phys_addr = CEC_PHYS_ADDR_INVALID;
+	INIT_DELAYED_WORK(&n->work, cec_notifier_delayed_work);
 	mutex_init(&n->lock);
 	kref_init(&n->kref);
 	list_add_tail(&n->head, &cec_notifiers);
@@ -90,9 +108,12 @@ void cec_notifier_set_phys_addr(struct cec_notifier *n, u16 pa)
 	if (n == NULL)
 		return;
 
+	cancel_delayed_work_sync(&n->work);
 	mutex_lock(&n->lock);
 	n->phys_addr = pa;
-	if (n->callback)
+	if (cec_debounce > 0 && pa == CEC_PHYS_ADDR_INVALID)
+		schedule_delayed_work(&n->work, msecs_to_jiffies(cec_debounce));
+	else if (n->callback)
 		n->callback(n->cec_adap, n->phys_addr);
 	mutex_unlock(&n->lock);
 }

@@ -45,7 +45,7 @@
 #include "dw-hdmi-cec.h"
 #include "dw-hdmi-hdcp.h"
 
-#define HDMI_EDID_LEN		512
+// define HDMI_EDID_LEN		512
 #define DDC_SEGMENT_ADDR       0x30
 
 enum hdmi_datamap {
@@ -227,7 +227,10 @@ struct dw_hdmi {
 
 	int vic;
 
-	u8 edid[HDMI_EDID_LEN];
+	struct edid *cached_edid;
+	enum drm_connector_status last_connector_status;
+
+	//u8 edid[HDMI_EDID_LEN];
 	bool cable_plugin;
 
 	struct {
@@ -2494,6 +2497,7 @@ static void dw_hdmi_poweroff(struct dw_hdmi *hdmi)
 static void dw_hdmi_update_power(struct dw_hdmi *hdmi)
 {
 	int force = hdmi->force;
+	u8 old_mask = hdmi->phy_mask;
 
 	if (hdmi->disabled) {
 		force = DRM_FORCE_OFF;
@@ -2515,24 +2519,19 @@ static void dw_hdmi_update_power(struct dw_hdmi *hdmi)
 		if (!hdmi->bridge_is_on)
 			dw_hdmi_poweron(hdmi);
 	}
-}
 
-/*
- * Adjust the detection of RXSENSE according to whether we have a forced
- * connection mode enabled, or whether we have been disabled.  There is
- * no point processing RXSENSE interrupts if we have a forced connection
- * state, or DRM has us disabled.
- *
- * We also disable rxsense interrupts when we think we're disconnected
- * to avoid floating TDMS signals giving false rxsense interrupts.
- *
- * Note: we still need to listen for HPD interrupts even when DRM has us
- * disabled so that we can detect a connect event.
- */
-static void dw_hdmi_update_phy_mask(struct dw_hdmi *hdmi)
-{
-	u8 old_mask = hdmi->phy_mask;
-
+	/* dw_hdmi_update_phy_mask:
+	 * Adjust the detection of RXSENSE according to whether we have a forced
+	 * connection mode enabled, or whether we have been disabled.  There is
+	 * no point processing RXSENSE interrupts if we have a forced connection
+	 * state, or DRM has us disabled.
+	 *
+	 * We also disable rxsense interrupts when we think we're disconnected
+	 * to avoid floating TDMS signals giving false rxsense interrupts.
+	 *
+	 * Note: we still need to listen for HPD interrupts even when DRM has us
+	 * disabled so that we can detect a connect event.
+	*/
 	if (hdmi->force || hdmi->disabled || !hdmi->rxsense)
 		hdmi->phy_mask |= HDMI_PHY_RX_SENSE;
 	else
@@ -2563,7 +2562,6 @@ static void dw_hdmi_bridge_disable(struct drm_bridge *bridge)
 	mutex_lock(&hdmi->mutex);
 	hdmi->disabled = true;
 	dw_hdmi_update_power(hdmi);
-	dw_hdmi_update_phy_mask(hdmi);
 	mutex_unlock(&hdmi->mutex);
 }
 
@@ -2574,13 +2572,58 @@ static void dw_hdmi_bridge_enable(struct drm_bridge *bridge)
 	mutex_lock(&hdmi->mutex);
 	hdmi->disabled = false;
 	dw_hdmi_update_power(hdmi);
-	dw_hdmi_update_phy_mask(hdmi);
 	mutex_unlock(&hdmi->mutex);
 }
 
 static void dw_hdmi_bridge_nop(struct drm_bridge *bridge)
 {
 	/* do nothing */
+}
+
+static void dw_hdmi_clear_edid(struct drm_connector *connector)
+{
+	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
+					     connector);
+
+	hdmi->sink_is_hdmi = false;
+	hdmi->sink_has_audio = false;
+
+	if (hdmi->cached_edid) {
+		kfree(hdmi->cached_edid);
+		hdmi->cached_edid = NULL;
+	}
+
+	cec_notifier_phys_addr_invalidate(hdmi->cec_notifier);
+}
+
+static void dw_hdmi_get_edid(struct drm_connector *connector)
+{
+	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
+					     connector);
+	struct edid *edid;
+	struct hdr_static_metadata *metedata =
+			&connector->display_info.hdmi.hdr_panel_metadata;
+
+	if (!hdmi->ddc || hdmi->cached_edid)
+		return;
+
+	edid = drm_get_edid(connector, hdmi->ddc);
+	if (edid) {
+		dev_dbg(hdmi->dev, "got edid: width[%d] x height[%d]\n",
+			edid->width_cm, edid->height_cm);
+
+		hdmi->sink_is_hdmi = drm_detect_hdmi_monitor(edid);
+		hdmi->sink_has_audio = drm_detect_monitor_audio(edid);
+
+		hdmi->cached_edid = edid;
+		drm_edid_to_eld(connector, edid);
+		drm_mode_connector_update_hdr_property(connector, metedata);
+		drm_mode_connector_update_edid_property(connector, edid);
+		cec_notifier_set_phys_addr_from_edid(hdmi->cec_notifier, edid);
+	} else {
+		kfree(edid);
+		edid = NULL;
+	}
 }
 
 static enum drm_connector_status
@@ -2593,25 +2636,23 @@ dw_hdmi_connector_detect(struct drm_connector *connector, bool force)
 	mutex_lock(&hdmi->mutex);
 	hdmi->force = DRM_FORCE_UNSPECIFIED;
 	dw_hdmi_update_power(hdmi);
-	dw_hdmi_update_phy_mask(hdmi);
 	mutex_unlock(&hdmi->mutex);
 
 	status = hdmi->phy.ops->read_hpd(hdmi, hdmi->phy.data);
 
-	if (status == connector_status_connected && hdmi->ddc) {
-		struct edid *edid = drm_get_edid(connector, hdmi->ddc);
-		if (edid) {
-			dev_dbg(hdmi->dev, "got edid: width[%d] x height[%d]\n",
-				edid->width_cm, edid->height_cm);
+	if (status == connector_status_disconnected)
+		dw_hdmi_clear_edid(connector);
+	else
+		dw_hdmi_get_edid(connector);
 
-			hdmi->sink_is_hdmi = drm_detect_hdmi_monitor(edid);
-			hdmi->sink_has_audio = drm_detect_monitor_audio(edid);
-			drm_mode_connector_update_edid_property(connector, edid);
-			cec_notifier_set_phys_addr_from_edid(hdmi->cec_notifier, edid);
-			drm_edid_to_eld(connector, edid);
-			kfree(edid);
-		}
+	mutex_lock(&hdmi->mutex);
+	if (status != hdmi->last_connector_status) {
+		//if (hdmi->plat_data->plugged_event)
+		//	hdmi->plat_data->plugged_event(hdmi->plat_data->phy_data, status);
+
+		hdmi->last_connector_status = status;
 	}
+	mutex_unlock(&hdmi->mutex);
 
 	return status;
 }
@@ -2620,39 +2661,29 @@ static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
 {
 	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
 					     connector);
-	struct edid *edid;
-	struct drm_display_mode *mode;
-	const u8 def_modes[6] = {4, 16, 31, 19, 17, 2};
-	struct drm_display_info *info = &connector->display_info;
-	struct hdr_static_metadata *metedata =
-			&connector->display_info.hdmi.hdr_panel_metadata;
 	int i, ret = 0;
 
 	if (!hdmi->ddc)
 		return 0;
 
-	edid = drm_get_edid(connector, hdmi->ddc);
-	if (edid) {
-		dev_dbg(hdmi->dev, "got edid: width[%d] x height[%d]\n",
-			edid->width_cm, edid->height_cm);
+	if (!hdmi->cached_edid)
+		dw_hdmi_get_edid(connector);
 
-		hdmi->sink_is_hdmi = drm_detect_hdmi_monitor(edid);
-		hdmi->sink_has_audio = drm_detect_monitor_audio(edid);
-		drm_mode_connector_update_edid_property(connector, edid);
-		cec_notifier_set_phys_addr_from_edid(hdmi->cec_notifier, edid);
-		ret = drm_add_edid_modes(connector, edid);
-		/* Store the ELD */
-		drm_edid_to_eld(connector, edid);
-		drm_mode_connector_update_hdr_property(connector, metedata);
-		kfree(edid);
+	if (hdmi->cached_edid) {
+		ret = drm_add_edid_modes(connector, hdmi->cached_edid);
 	} else {
+		// Output common tv resolution and hdmi mode if EDID could not be read
+		struct drm_display_mode *mode;
+		const u8 def_modes[6] = {4, 16, 31, 19, 17, 2};
+		struct drm_display_info *info = &connector->display_info;
+		dev_info(hdmi->dev, "failed to get edid\n");
 		hdmi->sink_is_hdmi = true;
 		hdmi->sink_has_audio = true;
 		for (i = 0; i < sizeof(def_modes); i++) {
-			mode = drm_display_mode_from_vic_index(connector,
-							       def_modes,
-							       31, i);
+			mode = drm_display_mode_from_vic_index(connector, def_modes, 31, i);
 			if (mode) {
+				dev_dbg(hdmi->dev, "Adding common mode: [%d]: %u x %u @%u\n",
+					i, mode->hdisplay, mode->vdisplay, mode->vrefresh);
 				if (!i)
 					mode->type = DRM_MODE_TYPE_PREFERRED;
 				drm_mode_probed_add(connector, mode);
@@ -2662,8 +2693,6 @@ static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
 		info->edid_hdmi_dc_modes = 0;
 		info->hdmi.y420_dc_modes = 0;
 		info->color_formats = 0;
-
-		dev_info(hdmi->dev, "failed to get edid\n");
 	}
 
 	return ret;
@@ -2876,8 +2905,14 @@ static void dw_hdmi_connector_force(struct drm_connector *connector)
 #endif
 	hdmi->force = connector->force;
 	dw_hdmi_update_power(hdmi);
-	dw_hdmi_update_phy_mask(hdmi);
 	mutex_unlock(&hdmi->mutex);
+
+	dw_hdmi_clear_edid(connector);
+
+	if (connector->status != connector_status_connected)
+		return;
+
+	dw_hdmi_get_edid(connector);
 }
 
 static int dw_hdmi_fill_modes(struct drm_connector *connector, u32 max_x, u32 max_y)
@@ -3029,7 +3064,6 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
 				hdmi->rxsense = true;
 
 			dw_hdmi_update_power(hdmi);
-			dw_hdmi_update_phy_mask(hdmi);
 		}
 		mutex_unlock(&hdmi->mutex);
 	}
@@ -4001,7 +4035,6 @@ void dw_hdmi_suspend(struct device *dev)
 	if (!hdmi->disabled) {
 		hdmi->disabled = true;
 		dw_hdmi_update_power(hdmi);
-		dw_hdmi_update_phy_mask(hdmi);
 	}
 	mutex_unlock(&hdmi->mutex);
 
@@ -4024,6 +4057,7 @@ void dw_hdmi_resume(struct device *dev)
 
 	pinctrl_pm_select_default_state(dev);
 	mutex_lock(&hdmi->mutex);
+	dw_hdmi_clear_edid(&hdmi->connector);
 	dw_hdmi_reg_initial(hdmi);
 	if (hdmi->i2c)
 		dw_hdmi_i2c_init(hdmi);
@@ -4043,6 +4077,7 @@ void dw_hdmi_resume(struct device *dev)
 			mod_delayed_work(hdmi->workqueue, &hdmi->work,
 					 msecs_to_jiffies(20));
 		}
+	dw_hdmi_get_edid(&hdmi->connector);
 	mutex_unlock(&hdmi->mutex);
 }
 EXPORT_SYMBOL_GPL(dw_hdmi_resume);
