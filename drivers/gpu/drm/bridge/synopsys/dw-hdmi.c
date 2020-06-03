@@ -2604,6 +2604,11 @@ static void dw_hdmi_get_edid(struct drm_connector *connector)
 	struct hdr_static_metadata *metedata =
 			&connector->display_info.hdmi.hdr_panel_metadata;
 
+	if (connector->status != connector_status_connected) {
+		dw_hdmi_clear_edid(connector);
+		return;
+	}
+
 	if (!hdmi->ddc || hdmi->cached_edid)
 		return;
 
@@ -2640,10 +2645,7 @@ dw_hdmi_connector_detect(struct drm_connector *connector, bool force)
 
 	status = hdmi->phy.ops->read_hpd(hdmi, hdmi->phy.data);
 
-	if (status == connector_status_disconnected)
-		dw_hdmi_clear_edid(connector);
-	else
-		dw_hdmi_get_edid(connector);
+	dw_hdmi_get_edid(connector);
 
 	mutex_lock(&hdmi->mutex);
 	if (status != hdmi->last_connector_status) {
@@ -2906,11 +2908,6 @@ static void dw_hdmi_connector_force(struct drm_connector *connector)
 	hdmi->force = connector->force;
 	dw_hdmi_update_power(hdmi);
 	mutex_unlock(&hdmi->mutex);
-
-	dw_hdmi_clear_edid(connector);
-
-	if (connector->status != connector_status_connected)
-		return;
 
 	dw_hdmi_get_edid(connector);
 }
@@ -4023,9 +4020,8 @@ void dw_hdmi_suspend(struct device *dev)
 		dev_warn(dev, "Hdmi has not been initialized\n");
 		return;
 	}
-
+	dw_hdmi_clear_edid(&hdmi->connector);
 	mutex_lock(&hdmi->mutex);
-
 	/*
 	 * When system shutdown, hdmi should be disabled.
 	 * When system suspend, dw_hdmi_bridge_disable will disable hdmi first.
@@ -4057,7 +4053,6 @@ void dw_hdmi_resume(struct device *dev)
 
 	pinctrl_pm_select_default_state(dev);
 	mutex_lock(&hdmi->mutex);
-	dw_hdmi_clear_edid(&hdmi->connector);
 	dw_hdmi_reg_initial(hdmi);
 	if (hdmi->i2c)
 		dw_hdmi_i2c_init(hdmi);
