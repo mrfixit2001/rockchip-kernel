@@ -16,28 +16,6 @@
 	model = "Pine64 Pinebook Pro";
 	compatible = "pine64,pinebook-pro", "rockchip,rk3399";
 
-	chosen {
-		// disable USB autosuspend as this solves USB stability issues
-		bootargs = "earlycon=uart8250,mmio32,0xff1a0000 swiotlb=1 usbcore.autosuspend=-1 net.ifnames=0";
-	};
-
-	reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
-		drm_logo: drm-logo@00000000 {
-			compatible = "rockchip,drm-logo";
-			reg = <0x0 0x0 0x0 0x0>;
-		};
-	};
-
-	/* first 64k(0xff8c0000~0xff8d0000) for ddr and suspend */
-	iram: sram@ff8d0000 {
-		compatible = "mmio-sram";
-		reg = <0x0 0xff8d0000 0x0 0x20000>; /* 128k */
-	};
-	
 	switches {
 		compatible = "gpio-leds";
 
@@ -736,15 +714,6 @@
 	mali-supply = <&vdd_gpu>;
 };
 
-/* HACK: keep MALI version on linux */
-&gpu_power_model {
-	// for DDK r14.
-	voltage = <900>;
-	frequency = <500>;
-	static-power = <300>;
-	dynamic-power = <396>;
-};
-
 &io_domains {
 	status = "okay";
 
@@ -752,10 +721,6 @@
 	audio-supply = <&vcca3v0_codec>; /* audio_gpio3d4a_ms */
 	sdmmc-supply = <&vcc_sd>; /* sdmmc_gpio4b_ms */
 	gpio1830-supply = <&vcc_3v0>; /* gpio1833_gpio4cd_ms */
-};
-
-&saradc {
-	status = "okay";
 };
 
 &threshold {
@@ -816,43 +781,6 @@
 	non-removable;
 	keep-power-in-suspend;
 	status = "okay";
-};
-
-&spi1 {
-	status = "okay";
-	max-freq = <10000000>;
-	pinctrl-names = "default", "sleep";
-	pinctrl-1 = <&spi1_sleep>;
-
-	flash@0 {
-		#address-cells = <0x1>;
-		#size-cells = <1>;
-		compatible = "gigadevice,gd25q128", "jedec,spi-nor";
-		reg = <0x0>;
-		spi-max-frequency = <10000000>;
-		status = "okay";
-
-		partitions {
-			compatible = "fixed-partitions";
-			#address-cells = <1>;
-			#size-cells = <1>;
-
-			loader@8000 {
-				label = "loader";
-				reg = <0x0 0x3F8000>;
-			};
-
-			env@3f8000 {
-				label = "env";
-				reg = <0x3F8000 0x8000>;
-			};
-
-			vendor@7c0000 {
-				label = "vendor";
-				reg = <0x7C0000 0x40000>;
-			};
-		};
-	};
 };
 
 &tcphy0 {
@@ -951,7 +879,6 @@
 
 &pwm2 {
 	status = "okay";
-	pinctrl-names = "active";
 	pinctrl-0 = <&pwm2_pin>;
 };
 
@@ -1038,27 +965,6 @@
 			rockchip,pins = <0 RK_PA1 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
-
-	spi1 {
-		spi1_sleep: spi1-sleep {
-			/*
-			 * Pull down SPI1 CLK/CS/RX/TX during suspend, to
-			 * prevent leakage.
-			 */
-			rockchip,pins = <1 9 RK_FUNC_GPIO &pcfg_pull_down>,
-					<1 10 RK_FUNC_GPIO &pcfg_pull_down>,
-					<1 7 RK_FUNC_GPIO &pcfg_pull_down>,
-					<1 8 RK_FUNC_GPIO &pcfg_pull_down>;
-		};
-	};
-};
-
-&pvtm {
-	status = "okay";
-};
-
-&pmu_pvtm {
-	status = "okay";
 };
 
 &pmu_io_domains {
@@ -1079,22 +985,6 @@
 	max-link-speed = <2>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pcie_clkreqn>;
-	status = "okay";
-};
-
-&rkvdec {
-	status = "okay";
-};
-
-&vdec_mmu {
-	status = "okay";
-};
-
-&vpu {
-	status = "okay";
-};
-
-&vpu_mmu {
 	status = "okay";
 };
 

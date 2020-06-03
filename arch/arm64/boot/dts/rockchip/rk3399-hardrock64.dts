@@ -15,18 +15,8 @@
 	model = "Pine64 HardRock64";
 	compatible = "pine64,hardrock64", "rockchip,rk3399";
 
-	chosen {
-		// disable USB autosuspend as this solves USB stability issues
-		bootargs = "earlycon=uart8250,mmio32,0xff1a0000 swiotlb=1 usbcore.autosuspend=-1 net.ifnames=0";
-	};
-
-	/* first 64k(0xff8c0000~0xff8d0000) for ddr and suspend */
-	iram: sram@ff8d0000 {
-		compatible = "mmio-sram";
-		reg = <0x0 0xff8d0000 0x0 0x20000>; /* 128k */
-	};
-
 	aliases {
+		ethernet0 = &gmac;
 		uart0 = &uart0;
 	};
 
@@ -168,7 +158,7 @@
 	es8316-sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,format = "i2s";
-		simple-audio-card,name = "es8316-spk-sound";
+		simple-audio-card,name = "ES8316";
 		simple-audio-card,mclk-fs = <256>;
 		simple-audio-card,widgets =
 			"Microphone", "Mic Jack",
@@ -592,10 +582,6 @@
 	};
 };
 
-&i2c4 {
-	status = "okay";
-};
-
 &i2c8 {
 	status = "okay";
 };
@@ -637,15 +623,6 @@
 	mali-supply = <&vdd_gpu>;
 };
 
-/* HACK: keep MALI version on linux */
-&gpu_power_model {
-	// for DDK r14.
-	voltage = <900>;
-	frequency = <500>;
-	static-power = <300>;
-	dynamic-power = <396>;
-};
-
 &hdmi {
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -674,10 +651,6 @@
 	audio-supply = <&vcca3v0_codec>; /* audio_gpio3d4a_ms */
 	sdmmc-supply = <&vcc_sdio>; /* sdmmc_gpio4b_ms */
 	gpio1830-supply = <&vcc_3v0>; /* gpio1833_gpio4cd_ms */
-};
-
-&saradc {
-	status = "okay";
 };
 
 &sdmmc {
@@ -735,43 +708,6 @@
 	status = "okay";
 	pinctrl-0 = <&spdif_bus_1>;
 	#sound-dai-cells = <0>;
-};
-
-&spi1 {
-	status = "okay";
-	max-freq = <10000000>;
-	pinctrl-names = "default", "sleep";
-	pinctrl-1 = <&spi1_sleep>;
-
-	flash@0 {
-		#address-cells = <0x1>;
-		#size-cells = <1>;
-		compatible = "gigadevice,gd25q128", "jedec,spi-nor";
-		reg = <0x0>;
-		spi-max-frequency = <10000000>;
-		status = "okay";
-
-		partitions {
-			compatible = "fixed-partitions";
-			#address-cells = <1>;
-			#size-cells = <1>;
-
-			loader@8000 {
-				label = "loader";
-				reg = <0x0 0x3F8000>;
-			};
-
-			env@3f8000 {
-				label = "env";
-				reg = <0x3F8000 0x8000>;
-			};
-
-			vendor@7c0000 {
-				label = "vendor";
-				reg = <0x7C0000 0x40000>;
-			};
-		};
-	};
 };
 
 &threshold {
@@ -893,12 +829,10 @@
 
 &pwm1 {
 	status = "okay";
-	pinctrl-names = "active";
 };
 
 &pwm2 {
 	status = "okay";
-	pinctrl-names = "active";
 	pinctrl-0 = <&pwm2_pin_pull_down>;
 };
 
@@ -941,56 +875,6 @@
 		};
 	};
 
-	sdio0 {
-		sdio0_bus1: sdio0-bus1 {
-			rockchip,pins =
-				<2 RK_PC4 RK_FUNC_1 &pcfg_pull_up_20ma>;
-		};
-
-		sdio0_bus4: sdio0-bus4 {
-			rockchip,pins =
-				<2 RK_PC4 RK_FUNC_1 &pcfg_pull_up_20ma>,
-				<2 RK_PC5 RK_FUNC_1 &pcfg_pull_up_20ma>,
-				<2 RK_PC6 RK_FUNC_1 &pcfg_pull_up_20ma>,
-				<2 RK_PC7 RK_FUNC_1 &pcfg_pull_up_20ma>;
-		};
-
-		sdio0_cmd: sdio0-cmd {
-			rockchip,pins =
-				<2 RK_PD0 RK_FUNC_1 &pcfg_pull_up_20ma>;
-		};
-
-		sdio0_clk: sdio0-clk {
-			rockchip,pins =
-				<2 RK_PD1 RK_FUNC_1 &pcfg_pull_none_20ma>;
-		};
-	};
-
-	sdmmc {
-		sdmmc_bus1: sdmmc-bus1 {
-			rockchip,pins =
-				<4 RK_PB0 RK_FUNC_1 &pcfg_pull_up_8ma>;
-		};
-
-		sdmmc_bus4: sdmmc-bus4 {
-			rockchip,pins =
-				<4 RK_PB0 RK_FUNC_1 &pcfg_pull_up_8ma>,
-				<4 RK_PB1 RK_FUNC_1 &pcfg_pull_up_8ma>,
-				<4 RK_PB2 RK_FUNC_1 &pcfg_pull_up_8ma>,
-				<4 RK_PB3 RK_FUNC_1 &pcfg_pull_up_8ma>;
-		};
-
-		sdmmc_clk: sdmmc-clk {
-			rockchip,pins =
-				<4 RK_PB4 RK_FUNC_1 &pcfg_pull_none_18ma>;
-		};
-
-		sdmmc_cmd: sdmmc-cmd {
-			rockchip,pins =
-				<4 RK_PB5 RK_FUNC_1 &pcfg_pull_up_8ma>;
-		};
-	};
-
 	usb {
 		host_vbus_drv: host-vbus-drv {
 			rockchip,pins =
@@ -1011,48 +895,11 @@
 				<2 RK_PC3 RK_FUNC_1 &pcfg_pull_up>;
 		};
 	};
-
-	spi1 {
-		spi1_sleep: spi1-sleep {
-			/*
-			 * Pull down SPI1 CLK/CS/RX/TX during suspend, to
-			 * prevent leakage.
-			 */
-			rockchip,pins = <1 9 RK_FUNC_GPIO &pcfg_pull_down>,
-					<1 10 RK_FUNC_GPIO &pcfg_pull_down>,
-					<1 7 RK_FUNC_GPIO &pcfg_pull_down>,
-					<1 8 RK_FUNC_GPIO &pcfg_pull_down>;
-		};
-	};
-};
-
-&pvtm {
-	status = "okay";
-};
-
-&pmu_pvtm {
-	status = "okay";
 };
 
 &pmu_io_domains {
 	status = "okay";
 	pmu1830-supply = <&vcc_3v0>;
-};
-
-&rkvdec {
-	status = "okay";
-};
-
-&vdec_mmu {
-	status = "okay";
-};
-
-&vpu {
-	status = "okay";
-};
-
-&vpu_mmu {
-	status = "okay";
 };
 
 &vopb {
@@ -1072,10 +919,6 @@
 };
 
 &vopl_mmu {
-	status = "okay";
-};
-
-&rga {
 	status = "okay";
 };
 
