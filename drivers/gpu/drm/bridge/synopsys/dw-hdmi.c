@@ -4072,8 +4072,8 @@ void dw_hdmi_resume(struct device *dev)
 			mod_delayed_work(hdmi->workqueue, &hdmi->work,
 					 msecs_to_jiffies(20));
 		}
-	dw_hdmi_get_edid(&hdmi->connector);
 	mutex_unlock(&hdmi->mutex);
+	dw_hdmi_get_edid(&hdmi->connector);
 }
 EXPORT_SYMBOL_GPL(dw_hdmi_resume);
 
