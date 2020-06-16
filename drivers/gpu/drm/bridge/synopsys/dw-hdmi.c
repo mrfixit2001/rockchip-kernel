@@ -1611,13 +1611,7 @@ static int hdmi_phy_configure(struct dw_hdmi *hdmi)
 
 	dw_hdmi_phy_power_off(hdmi);
 
-	/* Control for TMDS Bit Period/TMDS Clock-Period Ratio */
-	if (hdmi->connector.display_info.hdmi.scdc.supported) {
-		if (mtmdsclock > 340000000)
-			drm_scdc_set_high_tmds_clock_ratio(hdmi->ddc, 1);
-		else
-			drm_scdc_set_high_tmds_clock_ratio(hdmi->ddc, 0);
-	}
+	dw_hdmi_set_high_tmds_clock_ratio(hdmi);
 
 	/* Leave low power consumption mode by asserting SVSRET. */
 	if (phy->has_svsret)
