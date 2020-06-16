@@ -263,24 +263,6 @@
 			opp-microvolt-L3 = <1250000 1250000 1350000>;
 			clock-latency-ns = <40000>;
 		};
-		opp-1704000000 {
-			opp-hz = /bits/ 64 <1704000000>;
-			opp-microvolt = <1350000 1350000 1400000>;
-			opp-microvolt-L0 = <1400000 1400000 1400000>;
-			opp-microvolt-L1 = <1400000 1400000 1400000>;
-			opp-microvolt-L2 = <1350000 1350000 1400000>;
-			opp-microvolt-L3 = <1300000 1300000 1400000>;
-			clock-latency-ns = <40000>;
-		};
-		opp-1800000000 {
-			opp-hz = /bits/ 64 <1800000000>;
-			opp-microvolt = <1350000 1350000 1400000>;
-			opp-microvolt-L0 = <1400000 1400000 1400000>;
-			opp-microvolt-L1 = <1400000 1400000 1400000>;
-			opp-microvolt-L2 = <1350000 1350000 1400000>;
-			opp-microvolt-L3 = <1300000 1300000 1400000>;
-			clock-latency-ns = <40000>;
-		};
 	};
 
 	arm-pmu {
@@ -374,9 +356,11 @@
 		arm,no-tick-in-suspend;
 	};
 
-	display-subsystem {
+	display_subsystem: display-subsystem {
 		compatible = "rockchip,display-subsystem";
-		ports = <&vopl_out>, <&vopb_out>;
+		ports = <&vopb_out>, <&vopl_out>;
+		clocks = <&cru PLL_NPLL>;
+		clock-names = "hdmi-tmds-pll";
 	};
 
 	sdmmc: dwmmc@ff0c0000 {
@@ -1086,14 +1070,14 @@
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 		assigned-clocks =
-				<&cru PLL_GPLL>, <&cru PLL_NPLL>,
+				<&cru PLL_GPLL>, /*<&cru PLL_NPLL>,*/
 				<&cru ACLK_CPU>, <&cru HCLK_CPU>,
 				<&cru PCLK_CPU>, <&cru ACLK_PERI>,
 				<&cru HCLK_PERI>, <&cru PCLK_PERI>,
 				<&cru ACLK_VIO0>, <&cru ACLK_VIO1>,
 				<&cru ACLK_GPU>;
 		assigned-clock-rates =
-				<594000000>, <1250000000>,
+				<594000000>, /*<1250000000>,*/
 				<300000000>, <150000000>,
 				<75000000>, <300000000>,
 				<150000000>, <75000000>,
@@ -1707,12 +1691,14 @@
 		reg-io-width = <4>;
 		rockchip,grf = <&grf>;
 		interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&cru  PCLK_HDMI_CTRL>, <&cru SCLK_HDMI_HDCP>, <&cru SCLK_HDMI_CEC>;
-		clock-names = "iahb", "isfr", "cec";
+		clocks = <&cru PCLK_HDMI_CTRL>, <&cru SCLK_HDMI_HDCP>, <&cru PLL_NPLL>, <&cru SCLK_HDMI_CEC>;
+		clock-names = "iahb", "isfr", "vpll", "cec";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&hdmi_ddc>;
 		pinctrl-1 = <&hdmi_gpio>;
 		power-domains = <&power RK3288_PD_VIO>;
+		resets = <&cru SRST_HDMI>;
+		reset-names = "hdmi";
 		status = "disabled";
 
 		ports {
@@ -1879,10 +1865,6 @@
 		opp-500000000 {
 			opp-hz = /bits/ 64 <500000000>;
 			opp-microvolt = <1200000>;
-		};
-		opp-600000000 {
-			opp-hz = /bits/ 64 <600000000>;
-			opp-microvolt = <1250000>;
 		};
 	};
 

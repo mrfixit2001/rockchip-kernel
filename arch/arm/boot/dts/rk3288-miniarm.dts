@@ -49,7 +49,7 @@
 	compatible = "rockchip,rk3288-miniarm", "rockchip,rk3288";
 
 	chosen {
-		bootargs = "earlyprintk=uart8250-32bit,0xff690000";
+		bootargs = "earlycon=uart8250,mmio32,0xff690000 console=ttyS2,115200n8 swiotlb=1 coherent_pool=1m usbcore.autosuspend=-1 net.ifnames=0";
 	};
 
 	cpuinfo {
@@ -185,13 +185,13 @@
 		vin-supply = <&vcc_io>;
 	};
 
-        vcc_flash: flash-regulator {
-        compatible = "regulator-fixed";
-        regulator-name = "vcc_flash";
-        regulator-min-microvolt = <1800000>;
-        regulator-max-microvolt = <1800000>;
-        vin-supply = <&vcc_io>;
-    };
+	vcc_flash: flash-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_flash";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		vin-supply = <&vcc_io>;
+	};
 
 	vcc_cam: vcc-camera {
 		compatible = "regulator-fixed";
@@ -312,6 +312,16 @@
 	};
 };
 
+&display_subsystem {
+	status = "okay";
+	route {
+		route_hdmi: route-hdmi {
+			status = "okay";
+			connect = <&vopb_out_hdmi>;
+		};
+	};
+};
+
 &emmc {
 	bus-width = <8>;
 	cap-mmc-highspeed;
@@ -322,7 +332,7 @@
 	num-slots = <1>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&emmc_clk &emmc_cmd &emmc_pwr &emmc_bus8>;
-    max-frequency = <150000000>;
+	max-frequency = <150000000>;
 	status = "okay";
 };
 
@@ -353,23 +363,13 @@
 	#size-cells = <0>;
 	#sound-dai-cells = <0>;
 	status = "okay";
-	pinctrl-0 = <&hdmi_ddc>, <&hdmi_cec>;
-	rockchip,phy-table =
-		<74250000 0x8009 0x0004 0x0272>,
-		<165000000 0x802b 0x0004 0x0209>,
-		<297000000 0x8039 0x0005 0x028d>,
-		<594000000 0x8039 0x0000 0x019d>,
-		<000000000 0x0000 0x0000 0x0000>;
+	pinctrl-0 = <&hdmi_cec>;
+	ddc-i2c-bus = <&i2c5>;
 };
 
-&hdmi_in_vopb {
-	status = "disabled";
-};
-
-&hdmi_in_vopl {
+&i2c5 {
 	status = "okay";
 };
-
 
 &hevc_service {
 	status = "okay";
@@ -406,6 +406,10 @@
 		vcc11-supply = <&vcc_sys>;
 		vcc12-supply = <&vcc_io>;
 		vddio-supply = <&vcc_io>;
+
+		rtc {
+			status = "okay";
+		};
 
 		regulators {
 			vdd_cpu: DCDC_REG1 {
@@ -689,8 +693,8 @@
 &io_domains {
 	status = "okay";
 
-    flash0-supply = <&vcc_flash>;
-    gpio30-supply = <&vcc_io>;
+	flash0-supply = <&vcc_flash>;
+	gpio30-supply = <&vcc_io>;
 	sdcard-supply = <&vccio_sd>;
 	wifi-supply = <&vcc_18>;
 };
@@ -786,27 +790,16 @@
 	status = "okay";
 };
 
+&video_phy {
+	status = "okay";
+};
+
 &vopb {
 	status = "okay";
-		vopb_out: port {
-			vopb_out_edp: endpoint@1 {
-				reg = <1>;
-				remote-endpoint = <&edp_in_vopb>;
-			};
-		};
 };
 
 &vopl {
 	status = "okay";
-	vopl_out: port {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		vopl_out_hdmi: endpoint@0 {
-			reg = <0>;
-			remote-endpoint = <&hdmi_in_vopl>;
-		};
-	};
 };
 
 &vopb_mmu {
@@ -814,6 +807,14 @@
 };
 
 &vopl_mmu {
+	status = "okay";
+};
+
+&vpu {
+	status = "okay";
+};
+
+&vpu_mmu {
 	status = "okay";
 };
 

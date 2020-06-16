@@ -8,7 +8,7 @@
 
 / {
 	chosen {
-		bootargs = "earlyprintk console=ttyFIQ0 rw root=PARTUUID=614e0000-0000 rootfstype=ext4 rootwait";
+		bootargs = "earlyprintk console=tty1 console=ttyS2,115200n8";
 	};
 
 	/delete-node/ dmc@ff610000;
@@ -49,7 +49,7 @@
 		>;
 		auto-min-freq = <396000>;
 		auto-freq-en = <0>;
-		status = "diasbled";
+		status = "disabled";
 	};
 
 	dmc_opp_table: opp_table2 {
@@ -93,24 +93,12 @@
 		memory-region = <&ramoops_mem>;
 	};
 
-	fiq-debugger {
-		compatible = "rockchip,fiq-debugger";
-		interrupts = <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>;
-		rockchip,serial-id = <2>;
-		rockchip,wake-irq = <0>;
-		/* If enable uart uses irq instead of fiq */
-		rockchip,irq-mode-enable = <0>;
-		rockchip,baudrate = <115200>;  /* Only 115200 and 1500000 */
-		pinctrl-names = "default";
-		pinctrl-0 = <&uart2_xfer>;
-	};
-
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
 	};
 
-	display-subsystem {
+	display_subsystem {
 		status = "okay";
 
 		ports = <&vopb_out>, <&vopl_out>;
