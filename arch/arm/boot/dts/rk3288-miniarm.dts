@@ -44,6 +44,9 @@
 #include "rk3288-rkisp1.dtsi"
 #include "rk3288cg-opp.dtsi"
 
+#include <dt-bindings/soc/rockchip-system-status.h>
+#include "rk3288-dram-default-timing.dtsi"
+
 / {
 	model = "ASUS Tinker Board";
 	compatible = "rockchip,rk3288-miniarm", "rockchip,rk3288";
@@ -322,6 +325,27 @@
 	};
 };
 
+&dmc {
+	upthreshold = <55>;
+	downdifferential = <10>;
+	rockchip,ddr_timing = <&ddr_timing>;
+	system-status-freq = <
+		/*system status		freq(KHz)*/
+		SYS_STATUS_NORMAL	396000
+		SYS_STATUS_REBOOT	396000
+		SYS_STATUS_SUSPEND	192000
+		SYS_STATUS_VIDEO_1080P	300000
+		SYS_STATUS_VIDEO_4K	396000
+		SYS_STATUS_VIDEO_4K_10B	528000
+		SYS_STATUS_PERFORMANCE	528000
+		SYS_STATUS_BOOST	396000
+		SYS_STATUS_DUALVIEW	396000
+		SYS_STATUS_ISP		396000
+	>;
+	auto-min-freq = <396000>;
+	auto-freq-en = <0>;
+};
+
 &emmc {
 	bus-width = <8>;
 	cap-mmc-highspeed;
@@ -365,6 +389,12 @@
 	status = "okay";
 	pinctrl-0 = <&hdmi_cec>;
 	ddc-i2c-bus = <&i2c5>;
+	rockchip,phy-table =
+		<74250000 0x8009 0x0004 0x0272>,
+		<165000000 0x802b 0x0004 0x0209>,
+		<297000000 0x8039 0x0005 0x028d>,
+		<594000000 0x8039 0x0000 0x019d>,
+		<000000000 0x0000 0x0000 0x0000>;
 };
 
 &i2c5 {
