@@ -382,6 +382,15 @@
 	status = "okay";
 };
 
+/* GPU Devfreq Req Settings */
+&gpu_power_model {
+	// for DDK r14.
+	voltage = <900>;
+	frequency = <500>;
+	static-power = <300>;
+	dynamic-power = <396>;
+};
+
 &hdmi {
 	#address-cells = <1>;
 	#size-cells = <0>;
