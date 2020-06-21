@@ -260,6 +260,15 @@
 	mali-supply = <&vdd_gpu>;
 };
 
+/* GPU Devfreq Req Settings */
+&gpu_power_model {
+	// for DDK r14.
+	voltage = <900>;
+	frequency = <500>;
+	static-power = <300>;
+	dynamic-power = <396>;
+};
+
 &emmc {
 	bus-width = <8>;
 	cap-mmc-highspeed;
