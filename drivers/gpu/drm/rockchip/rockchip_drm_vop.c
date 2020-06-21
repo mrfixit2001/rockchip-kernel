@@ -1038,12 +1038,6 @@ static int vop_setup_csc_table(const struct vop_csc_table *csc_table,
 		if (!is_input_yuv)
 			return 0;
 
-		/*
-		 * is possible use bt2020 on rgb mode?
-		 */
-		if (WARN_ON(output_csc == V4L2_COLORSPACE_BT2020))
-			return -EINVAL;
-
 		if (input_csc == V4L2_COLORSPACE_BT2020)
 			*y2r_table = csc_table->y2r_bt2020;
 		else if ((input_csc == V4L2_COLORSPACE_REC709) ||
