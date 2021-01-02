@@ -1332,16 +1332,10 @@ static void vop_power_enable(struct drm_crtc *crtc)
 	struct vop *vop = to_vop(crtc);
 	int ret, i;
 
-	ret = pm_runtime_get_sync(vop->dev);
-	if (ret < 0) {
-		dev_err(vop->dev, "failed to get pm runtime: %d\n", ret);
-		return;
-	}
-
 	ret = clk_prepare_enable(vop->hclk);
 	if (ret < 0) {
 		dev_err(vop->dev, "failed to enable hclk - %d\n", ret);
-		goto err_put_pm_runtime;
+		return;
 	}
 
 	ret = clk_prepare_enable(vop->dclk);
@@ -1354,6 +1348,12 @@ static void vop_power_enable(struct drm_crtc *crtc)
 	if (ret < 0) {
 		dev_err(vop->dev, "failed to enable aclk - %d\n", ret);
 		goto err_disable_dclk;
+	}
+
+	ret = pm_runtime_get_sync(vop->dev);
+	if (ret < 0) {
+		dev_err(vop->dev, "failed to get pm runtime: %d\n", ret);
+		return;
 	}
 
 	VOP_INTR_SET_TYPE(vop, clear, INTR_MASK, 1);
@@ -1383,8 +1383,6 @@ err_disable_dclk:
 	clk_disable_unprepare(vop->dclk);
 err_disable_hclk:
 	clk_disable_unprepare(vop->hclk);
-err_put_pm_runtime:
-	pm_runtime_put_sync(vop->dev);
 }
 
 static void vop_initial(struct drm_crtc *crtc)
