@@ -18,6 +18,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/phy/phy.h>
 
+#include <drm/drm_atomic.h>
 #include <drm/drm_of.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
@@ -328,6 +329,46 @@ static const struct dw_hdmi_mpll_config rockchip_mpll_cfg_420[] = {
 		600000000, {
 			{ 0x0041, 0x0003 },
 			{ 0x3b4d, 0x0003 },
+			{ 0x5a65, 0x0003 },
+		},
+	},  {
+		~0UL, {
+			{ 0x0000, 0x0000 },
+			{ 0x0000, 0x0000 },
+			{ 0x0000, 0x0000 },
+		},
+	}
+};
+
+static const struct dw_hdmi_mpll_config rockchip_rk3288w_mpll_cfg_420[] = {
+	{
+		30666000, {
+			{ 0x00b7, 0x0000 },
+			{ 0x2157, 0x0000 },
+			{ 0x40f7, 0x0000 },
+		},
+	},  {
+		92000000, {
+			{ 0x00b7, 0x0000 },
+			{ 0x2143, 0x0001 },
+			{ 0x40a3, 0x0001 },
+		},
+	},  {
+		184000000, {
+			{ 0x0073, 0x0001 },
+			{ 0x2146, 0x0002 },
+			{ 0x4062, 0x0002 },
+		},
+	},  {
+		340000000, {
+			{ 0x0052, 0x0003 },
+			{ 0x214d, 0x0003 },
+			{ 0x4065, 0x0003 },
+		},
+	},  {
+		600000000, {
+			{ 0x0040, 0x0003 },
+			{ 0x3b4c, 0x0003 },
 			{ 0x5a65, 0x0003 },
 		},
 	},  {
@@ -1096,10 +1137,18 @@ dw_hdmi_rockchip_set_property(struct drm_connector *connector,
 	} else if (property == hdmi->quant_range) {
 		hdmi->hdmi_quant_range = val;
 		return 0;
+	} else if (property == hdmi->outputmode_capacity) {
+		return -EINVAL;
+	} else if (property == hdmi->colordepth_capacity) {
+		return -EINVAL;
+	} else {
+		if (!state)
+			return drm_atomic_helper_connector_set_property(connector,
+									property, val);
+		else
+			return drm_atomic_connector_set_property(connector, state,
+								 property, val);
 	}
-
-	DRM_WARN_ONCE("unsupported connector property: %s\n", property->name);
-	return -EINVAL;
 }
 
 static int
@@ -1192,6 +1241,7 @@ static const struct dw_hdmi_plat_data rk3228_hdmi_drv_data = {
 static const struct dw_hdmi_plat_data rk3288_hdmi_drv_data = {
 	.mode_valid = dw_hdmi_rockchip_mode_valid,
 	.mpll_cfg   = rockchip_mpll_cfg,
+	.mpll_cfg_420 = rockchip_rk3288w_mpll_cfg_420,
 	.cur_ctr    = rockchip_cur_ctr,
 	.phy_config = rockchip_phy_config,
 	.dev_type   = RK3288_HDMI,

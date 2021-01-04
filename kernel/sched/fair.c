@@ -31,6 +31,9 @@
 #include <linux/migrate.h>
 #include <linux/task_work.h>
 #include <linux/module.h>
+#ifdef CONFIG_ROCKCHIP_SCHED_PERFORMANCE_BIAS
+#include <linux/cpufreq.h>
+#endif
 
 #include <trace/events/sched.h>
 
@@ -124,6 +127,10 @@ unsigned int __read_mostly sysctl_sched_shares_window = 10000000UL;
  * default: 5 msec, units: microseconds
   */
 unsigned int sysctl_sched_cfs_bandwidth_slice = 5000UL;
+#endif
+
+#ifdef CONFIG_ROCKCHIP_SCHED_PERFORMANCE_BIAS
+unsigned int sysctl_sched_performance_bias = 1;
 #endif
 
 /*
@@ -757,8 +764,19 @@ void init_entity_runnable_average(struct sched_entity *se)
 	/*
 	 * At this point, util_avg won't be used in select_task_rq_fair anyway
 	 */
+#ifdef CONFIG_ROCKCHIP_SCHED_PERFORMANCE_BIAS
+	if (sysctl_sched_performance_bias) {
+		/* init util_avg of new task to half the util of big core */
+		sa->util_avg = scale_load_down(SCHED_CAPACITY_SCALE >> 1);
+		sa->util_sum = sa->util_avg * LOAD_AVG_MAX;
+	} else {
+		sa->util_avg = 0;
+		sa->util_sum = 0;
+	}
+#else
 	sa->util_avg = 0;
 	sa->util_sum = 0;
+#endif
 	/* when this task enqueue'ed, it will contribute to its cfs_rq's load_avg */
 }
 
@@ -798,7 +816,11 @@ void post_init_entity_util_avg(struct sched_entity *se)
 	struct sched_avg *sa = &se->avg;
 	long cap = (long)(SCHED_CAPACITY_SCALE - cfs_rq->avg.util_avg) / 2;
 
+#ifdef CONFIG_ROCKCHIP_SCHED_PERFORMANCE_BIAS
+	if (!sysctl_sched_performance_bias && (cap > 0)) {
+#else
 	if (cap > 0) {
+#endif
 		if (cfs_rq->avg.util_avg != 0) {
 			sa->util_avg  = cfs_rq->avg.util_avg * se->load.weight;
 			sa->util_avg /= (cfs_rq->avg.load_avg + 1);
@@ -2481,7 +2503,7 @@ void task_tick_numa(struct rq *rq, struct task_struct *curr)
 	/*
 	 * We don't care about NUMA placement if we don't have memory.
 	 */
-	if (!curr->mm || (curr->flags & PF_EXITING) || work->next != work)
+	if ((curr->flags & (PF_EXITING | PF_KTHREAD)) || work->next != work)
 		return;
 
 	/*
@@ -3207,7 +3229,12 @@ static inline void update_load_avg(struct sched_entity *se, int flags)
 	if (se->avg.last_update_time && !(flags & SKIP_AGE_LOAD)) {
 		__update_load_avg(now, cpu, &se->avg,
 			  se->on_rq * scale_load_down(se->load.weight),
+#ifdef CONFIG_ROCKCHIP_SCHED_PERFORMANCE_BIAS
+			  (sysctl_sched_performance_bias && se->on_rq) ||
+			  (cfs_rq->curr == se), NULL);
+#else
 			  cfs_rq->curr == se, NULL);
+#endif
 	}
 
 	decayed  = update_cfs_rq_load_avg(now, cfs_rq, true);
@@ -3318,6 +3345,13 @@ void sync_entity_load_avg(struct sched_entity *se)
 {
 	struct cfs_rq *cfs_rq = cfs_rq_of(se);
 	u64 last_update_time;
+
+#ifdef CONFIG_ROCKCHIP_SCHED_PERFORMANCE_BIAS
+	if (sysctl_sched_performance_bias) {
+		if (!se->avg.last_update_time)
+			return;
+	}
+#endif
 
 	last_update_time = cfs_rq_last_update_time(cfs_rq);
 	__update_load_avg(last_update_time, cpu_of(rq_of(cfs_rq)), &se->avg, 0, 0, NULL);
@@ -4731,6 +4765,7 @@ static inline void hrtick_update(struct rq *rq)
 static bool __cpu_overutilized(int cpu, int delta);
 static bool cpu_overutilized(int cpu);
 unsigned long boosted_cpu_util(int cpu);
+static inline unsigned long boosted_task_util(struct task_struct *task);
 #else
 #define boosted_cpu_util(cpu) cpu_util_freq(cpu)
 #endif
@@ -4747,6 +4782,11 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	struct sched_entity *se = &p->se;
 #ifdef CONFIG_SMP
 	int task_new = flags & ENQUEUE_WAKEUP_NEW;
+#endif
+
+#ifdef CONFIG_ROCKCHIP_SCHED_PERFORMANCE_BIAS
+	if (sysctl_sched_performance_bias)
+		cpufreq_task_boost(rq->cpu, boosted_task_util(p));
 #endif
 
 	/*
@@ -5922,8 +5962,6 @@ static inline unsigned long task_util(struct task_struct *p)
 	return p->se.avg.util_avg;
 }
 
-static inline unsigned long boosted_task_util(struct task_struct *task);
-
 static inline bool __task_fits(struct task_struct *p, int cpu, int util)
 {
 	unsigned long capacity = capacity_of(cpu);
@@ -6086,6 +6124,13 @@ find_idlest_group(struct sched_domain *sd, struct task_struct *p,
 		if (!cpumask_intersects(sched_group_cpus(group),
 					tsk_cpus_allowed(p)))
 			continue;
+
+#ifdef CONFIG_ROCKCHIP_SCHED_PERFORMANCE_BIAS
+		if (sysctl_sched_performance_bias) {
+			if (!task_fits_max(p, group_first_cpu(group)))
+				continue;
+		}
+#endif
 
 		local_group = cpumask_test_cpu(this_cpu,
 					       sched_group_cpus(group));
@@ -6741,6 +6786,14 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync
 	sd = rcu_dereference(per_cpu(sd_ea, prev_cpu));
 	/* Find a cpu with sufficient capacity */
 	tmp_target = find_best_target(p, &tmp_backup, boosted, prefer_idle);
+#ifdef CONFIG_ROCKCHIP_SCHED_PERFORMANCE_BIAS
+	if (sysctl_sched_performance_bias) {
+		if ((tmp_target < 0) || (!task_fits_max(p, prev_cpu))) {
+			target_cpu = tmp_target;
+			goto unlock;
+		}
+	}
+#endif
 
 	if (!sd)
 		goto unlock;
@@ -6834,8 +6887,16 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 			      cpumask_test_cpu(cpu, &p->cpus_allowed);
 	}
 
-	if (energy_aware() && !(cpu_rq(prev_cpu)->rd->overutilized))
+	if (energy_aware() && !(cpu_rq(prev_cpu)->rd->overutilized)) {
+#ifdef CONFIG_ROCKCHIP_SCHED_PERFORMANCE_BIAS
+		new_cpu = select_energy_cpu_brute(p, prev_cpu, sync);
+		if (new_cpu >= 0)
+			return new_cpu;
+		new_cpu = prev_cpu;
+#else
 		return select_energy_cpu_brute(p, prev_cpu, sync);
+#endif
+	}
 
 	rcu_read_lock();
 	for_each_domain(cpu, tmp) {
@@ -7697,10 +7758,26 @@ static int detach_tasks(struct lb_env *env)
 			break;
 		}
 
+#ifdef CONFIG_ROCKCHIP_SCHED_PERFORMANCE_BIAS
+		if (sysctl_sched_performance_bias) {
+			if ((env->idle == CPU_NOT_IDLE) &&
+			    (!task_fits_max(p, env->dst_cpu)))
+				goto next;
+		}
+#endif
+
 		if (!can_migrate_task(p, env))
 			goto next;
 
-		load = task_h_load(p);
+		/*
+		 * Depending of the number of CPUs and tasks and the
+		 * cgroup hierarchy, task_h_load() can return a null
+		 * value. Make sure that env->imbalance decreases
+		 * otherwise detach_tasks() will stop only after
+		 * detaching up to loop_max tasks.
+		 */
+		load = max_t(unsigned long, task_h_load(p), 1);
+
 
 		if (sched_feat(LB_MIN) && load < 16 && !env->sd->nr_balance_failed)
 			goto next;
@@ -9534,6 +9611,7 @@ static int active_load_balance_cpu_stop(void *data)
 	rcu_read_unlock();
 out_unlock:
 	busiest_rq->active_balance = 0;
+	push_task = busiest_rq->push_task;
 
 	if (push_task)
 		busiest_rq->push_task = NULL;
@@ -10041,6 +10119,10 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 			return;
 
 		new_cpu = select_energy_cpu_brute(p, cpu, 0);
+#ifdef CONFIG_ROCKCHIP_SCHED_PERFORMANCE_BIAS
+		if (new_cpu < 0)
+			return;
+#endif
 		if (capacity_orig_of(new_cpu) > capacity_orig_of(cpu)) {
 			active_balance = kick_active_balance(rq, p, new_cpu);
 			if (active_balance)

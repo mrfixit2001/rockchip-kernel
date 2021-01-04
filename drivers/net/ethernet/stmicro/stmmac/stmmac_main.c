@@ -1813,6 +1813,8 @@ static int stmmac_open(struct net_device *dev)
 		goto init_error;
 	}
 
+	stmmac_check_ether_addr(priv);
+
 	ret = stmmac_hw_setup(dev, true);
 	if (ret < 0) {
 		pr_err("%s: Hw setup failed\n", __func__);
@@ -1893,9 +1895,6 @@ static int stmmac_release(struct net_device *dev)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 
-	if (priv->eee_enabled)
-		del_timer_sync(&priv->eee_ctrl_timer);
-
 	/* Stop and disconnect the PHY */
 	if (priv->phydev) {
 		phy_stop(priv->phydev);
@@ -1915,6 +1914,11 @@ static int stmmac_release(struct net_device *dev)
 		free_irq(priv->wol_irq, dev);
 	if (priv->lpi_irq > 0)
 		free_irq(priv->lpi_irq, dev);
+
+	if (priv->eee_enabled) {
+		priv->tx_path_in_lpi_mode = false;
+		del_timer_sync(&priv->eee_ctrl_timer);
+	}
 
 	/* Stop TX/RX DMA and clear the descriptors */
 	priv->hw->dma->stop_tx(priv->ioaddr);
@@ -2961,8 +2965,6 @@ int stmmac_dvr_probe(struct device *device,
 	if (ret)
 		goto error_hw_init;
 
-	stmmac_check_ether_addr(priv);
-
 	ndev->netdev_ops = &stmmac_netdev_ops;
 
 	ndev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
@@ -3112,6 +3114,11 @@ int stmmac_suspend(struct device *dev)
 	netif_stop_queue(ndev);
 
 	napi_disable(&priv->napi);
+
+	if (priv->eee_enabled) {
+		priv->tx_path_in_lpi_mode = false;
+		del_timer_sync(&priv->eee_ctrl_timer);
+	}
 
 	/* Stop TX/RX DMA */
 	priv->hw->dma->stop_tx(priv->ioaddr);

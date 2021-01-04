@@ -83,6 +83,13 @@ struct SFNAND_DEV {
 	u8 page_prog_cmd;
 };
 
+struct nand_mega_area {
+	u8 off0;
+	u8 off1;
+	u8 off2;
+	u8 off3;
+};
+
 struct nand_info {
 	u32 id;
 
@@ -106,8 +113,7 @@ struct nand_info {
 	u8 QE_address;
 	u8 QE_bits;
 
-	u8 spare_offs_1;
-	u8 spare_offs_2;
+	struct nand_mega_area meta;
 	u32 (*ecc_status)(void);
 };
 
@@ -125,6 +131,8 @@ u32 sfc_nand_ecc_status_sp5(void);
 u32 sfc_nand_erase_block(u8 cs, u32 addr);
 u32 sfc_nand_prog_page(u8 cs, u32 addr, u32 *p_data, u32 *p_spare);
 u32 sfc_nand_read_page(u8 cs, u32 addr, u32 *p_data, u32 *p_spare);
+u32 sfc_nand_prog_page_raw(u8 cs, u32 addr, u32 *p_page_buf);
+u32 sfc_nand_read_page_raw(u8 cs, u32 addr, u32 *p_page_buf);
 u32 sfc_nand_check_bad_block(u8 cs, u32 addr);
 u32 sfc_nand_mark_bad_block(u8 cs, u32 addr);
 void sfc_nand_ftl_ops_init(void);

@@ -481,7 +481,7 @@ static struct dentry *f2fs_lookup(struct inode *dir, struct dentry *dentry,
 	    !fscrypt_has_permitted_context(dir, inode)) {
 		f2fs_warn(F2FS_I_SB(inode), "Inconsistent encryption contexts: %lu/%lu",
 			  dir->i_ino, inode->i_ino);
-		err = -EPERM;
+		err = -EXDEV;
 		goto out_iput;
 	}
 out_splice:

@@ -1034,7 +1034,7 @@ static long ffs_epfile_ioctl(struct file *file, unsigned code,
 		case FUNCTIONFS_ENDPOINT_DESC:
 		{
 			int desc_idx;
-			struct usb_endpoint_descriptor *desc;
+			struct usb_endpoint_descriptor desc1, *desc;
 
 			switch (epfile->ffs->gadget->speed) {
 			case USB_SPEED_SUPER:
@@ -1046,10 +1046,12 @@ static long ffs_epfile_ioctl(struct file *file, unsigned code,
 			default:
 				desc_idx = 0;
 			}
+
 			desc = epfile->ep->descs[desc_idx];
+			memcpy(&desc1, desc, desc->bLength);
 
 			spin_unlock_irq(&epfile->ffs->eps_lock);
-			ret = copy_to_user((void *)value, desc, sizeof(*desc));
+			ret = copy_to_user((void *)value, &desc1, desc1.bLength);
 			if (ret)
 				ret = -EFAULT;
 			return ret;
@@ -3137,7 +3139,7 @@ static struct configfs_item_operations ffs_item_ops = {
 	.release	= ffs_attr_release,
 };
 
-static struct config_item_type ffs_func_type = {
+static const struct config_item_type ffs_func_type = {
 	.ct_item_ops	= &ffs_item_ops,
 	.ct_owner	= THIS_MODULE,
 };

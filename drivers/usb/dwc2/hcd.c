@@ -345,6 +345,22 @@ static void dwc2_gusbcfg_init(struct dwc2_hsotg *hsotg)
 	dwc2_writel(usbcfg, hsotg->regs + GUSBCFG);
 }
 
+static int dwc2_vbus_supply_init(struct dwc2_hsotg *hsotg)
+{
+	if (hsotg->vbus_supply)
+		return regulator_enable(hsotg->vbus_supply);
+
+	return 0;
+}
+
+static int dwc2_vbus_supply_exit(struct dwc2_hsotg *hsotg)
+{
+	if (hsotg->vbus_supply)
+		return regulator_disable(hsotg->vbus_supply);
+
+	return 0;
+}
+
 /**
  * dwc2_enable_host_interrupts() - Enables the Host mode interrupts
  *
@@ -3307,6 +3323,7 @@ static void dwc2_conn_id_status_change(struct work_struct *work)
 
 	/* B-Device connector (Device Mode) */
 	if (gotgctl & GOTGCTL_CONID_B) {
+		dwc2_vbus_supply_exit(hsotg);
 		/* Wait for switch to device mode */
 		dev_dbg(hsotg->dev, "connId B\n");
 		if (hsotg->bus_suspended) {
@@ -3500,6 +3517,7 @@ static int dwc2_hcd_hub_control(struct dwc2_hsotg *hsotg, u16 typereq,
 	u32 port_status;
 	u32 speed;
 	u32 pcgctl;
+	u32 pwr;
 
 	switch (typereq) {
 	case ClearHubFeature:
@@ -3544,8 +3562,11 @@ static int dwc2_hcd_hub_control(struct dwc2_hsotg *hsotg, u16 typereq,
 			dev_dbg(hsotg->dev,
 				"ClearPortFeature USB_PORT_FEAT_POWER\n");
 			hprt0 = dwc2_read_hprt0(hsotg);
+			pwr = hprt0 & HPRT0_PWR;
 			hprt0 &= ~HPRT0_PWR;
 			dwc2_writel(hprt0, hsotg->regs + HPRT0);
+			if (pwr)
+				dwc2_vbus_supply_exit(hsotg);
 			break;
 
 		case USB_PORT_FEAT_INDICATOR:
@@ -3752,8 +3773,11 @@ static int dwc2_hcd_hub_control(struct dwc2_hsotg *hsotg, u16 typereq,
 			dev_dbg(hsotg->dev,
 				"SetPortFeature - USB_PORT_FEAT_POWER\n");
 			hprt0 = dwc2_read_hprt0(hsotg);
+			pwr = hprt0 & HPRT0_PWR;
 			hprt0 |= HPRT0_PWR;
 			dwc2_writel(hprt0, hsotg->regs + HPRT0);
+			if (!pwr)
+				dwc2_vbus_supply_init(hsotg);
 			break;
 
 		case USB_PORT_FEAT_RESET:
@@ -3767,6 +3791,7 @@ static int dwc2_hcd_hub_control(struct dwc2_hsotg *hsotg, u16 typereq,
 			dwc2_writel(0, hsotg->regs + PCGCTL);
 
 			hprt0 = dwc2_read_hprt0(hsotg);
+			pwr = hprt0 & HPRT0_PWR;
 			/* Clear suspend bit if resetting from suspend state */
 			hprt0 &= ~HPRT0_SUSP;
 
@@ -3780,6 +3805,8 @@ static int dwc2_hcd_hub_control(struct dwc2_hsotg *hsotg, u16 typereq,
 				dev_dbg(hsotg->dev,
 					"In host mode, hprt0=%08x\n", hprt0);
 				dwc2_writel(hprt0, hsotg->regs + HPRT0);
+				if (!pwr)
+					dwc2_vbus_supply_init(hsotg);
 			}
 
 			/* Clear reset bit in 10ms (FS/LS) or 50ms (HS) */
@@ -4420,6 +4447,8 @@ static int _dwc2_hcd_start(struct usb_hcd *hcd)
 	struct dwc2_hsotg *hsotg = dwc2_hcd_to_hsotg(hcd);
 	struct usb_bus *bus = hcd_to_bus(hcd);
 	unsigned long flags;
+	u32 hprt0;
+	int ret;
 
 	dev_dbg(hsotg->dev, "DWC OTG HCD START\n");
 
@@ -4435,6 +4464,17 @@ static int _dwc2_hcd_start(struct usb_hcd *hcd)
 
 	dwc2_hcd_reinit(hsotg);
 
+	hprt0 = dwc2_read_hprt0(hsotg);
+	/* Has vbus power been turned on in dwc2_core_host_init ? */
+	if (hprt0 & HPRT0_PWR) {
+		/* Enable external vbus supply before resuming root hub */
+		spin_unlock_irqrestore(&hsotg->lock, flags);
+		ret = dwc2_vbus_supply_init(hsotg);
+		if (ret)
+			return ret;
+		spin_lock_irqsave(&hsotg->lock, flags);
+	}
+
 	/* Initialize and connect root hub if one is not already attached */
 	if (bus->root_hub) {
 		dev_dbg(hsotg->dev, "DWC OTG HCD Has Root Hub\n");
@@ -4443,6 +4483,7 @@ static int _dwc2_hcd_start(struct usb_hcd *hcd)
 	}
 
 	spin_unlock_irqrestore(&hsotg->lock, flags);
+
 	return 0;
 }
 
@@ -4454,6 +4495,7 @@ static void _dwc2_hcd_stop(struct usb_hcd *hcd)
 {
 	struct dwc2_hsotg *hsotg = dwc2_hcd_to_hsotg(hcd);
 	unsigned long flags;
+	u32 hprt0;
 
 	/* Turn off all host-specific interrupts */
 	dwc2_disable_host_interrupts(hsotg);
@@ -4462,6 +4504,7 @@ static void _dwc2_hcd_stop(struct usb_hcd *hcd)
 	synchronize_irq(hcd->irq);
 
 	spin_lock_irqsave(&hsotg->lock, flags);
+	hprt0 = dwc2_read_hprt0(hsotg);
 	/* Ensure hcd is disconnected */
 	dwc2_hcd_disconnect(hsotg, true);
 	dwc2_hcd_stop(hsotg);
@@ -4469,6 +4512,10 @@ static void _dwc2_hcd_stop(struct usb_hcd *hcd)
 	hcd->state = HC_STATE_HALT;
 	clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
 	spin_unlock_irqrestore(&hsotg->lock, flags);
+
+	/* keep balanced supply init/exit by checking HPRT0_PWR */
+	if (hprt0 & HPRT0_PWR)
+		dwc2_vbus_supply_exit(hsotg);
 
 	usleep_range(1000, 3000);
 }
@@ -4506,6 +4553,9 @@ static int _dwc2_hcd_suspend(struct usb_hcd *hcd)
 		hprt0 |= HPRT0_SUSP;
 		hprt0 &= ~HPRT0_PWR;
 		dwc2_writel(hprt0, hsotg->regs + HPRT0);
+		spin_unlock_irqrestore(&hsotg->lock, flags);
+		dwc2_vbus_supply_exit(hsotg);
+		spin_lock_irqsave(&hsotg->lock, flags);
 	}
 
 	/* Enter hibernation */
@@ -4586,6 +4636,8 @@ static int _dwc2_hcd_resume(struct usb_hcd *hcd)
 		spin_unlock_irqrestore(&hsotg->lock, flags);
 		dwc2_port_resume(hsotg);
 	} else {
+		dwc2_vbus_supply_init(hsotg);
+
 		/* Wait for controller to correctly update D+/D- level */
 		usleep_range(3000, 5000);
 

@@ -542,6 +542,13 @@ extern struct cpufreq_governor cpufreq_gov_mrfixedfreq20;
 extern struct cpufreq_governor cpufreq_gov_mrfixedfreq22;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_mrfixedfreq22)
 #endif
+#if defined(CONFIG_ARCH_ROCKCHIP) && defined(CONFIG_CPU_FREQ_GOV_INTERACTIVE)
+void cpufreq_task_boost(int cpu, unsigned long util);
+#else
+static inline void cpufreq_task_boost(int cpu, unsigned long util)
+{
+}
+#endif
 
 static inline void cpufreq_policy_apply_limits(struct cpufreq_policy *policy)
 {

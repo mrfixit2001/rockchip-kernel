@@ -876,6 +876,12 @@ static inline void _execute_DBGINSN(struct pl330_thread *thrd,
 	void __iomem *regs = thrd->dmac->base;
 	u32 val;
 
+	/* If timed out due to halted state-machine */
+	if (_until_dmac_idle(thrd)) {
+		dev_err(thrd->dmac->ddma.dev, "DMAC halted!\n");
+		return;
+	}
+
 	val = (insn[0] << 16) | (insn[1] << 24);
 	if (!as_manager) {
 		val |= (1 << 0);
@@ -885,12 +891,6 @@ static inline void _execute_DBGINSN(struct pl330_thread *thrd,
 
 	val = le32_to_cpu(*((__le32 *)&insn[2]));
 	writel(val, regs + DBGINST1);
-
-	/* If timed out due to halted state-machine */
-	if (_until_dmac_idle(thrd)) {
-		dev_err(thrd->dmac->ddma.dev, "DMAC halted!\n");
-		return;
-	}
 
 	/* Get going */
 	writel(0, regs + DBGCMD);
@@ -2714,14 +2714,14 @@ pl330_prep_dma_memcpy(struct dma_chan *chan, dma_addr_t dst,
 	while (burst != (1 << desc->rqcfg.brst_size))
 		desc->rqcfg.brst_size++;
 
+	desc->rqcfg.brst_len = get_burst_len(desc, len);
 	/*
 	 * If burst size is smaller than bus width then make sure we only
 	 * transfer one at a time to avoid a burst stradling an MFIFO entry.
 	 */
-	if (desc->rqcfg.brst_size * 8 < pl330->pcfg.data_bus_width)
+	if (burst * 8 < pl330->pcfg.data_bus_width)
 		desc->rqcfg.brst_len = 1;
 
-	desc->rqcfg.brst_len = get_burst_len(desc, len);
 	desc->bytes_requested = len;
 
 	desc->txd.flags = flags;

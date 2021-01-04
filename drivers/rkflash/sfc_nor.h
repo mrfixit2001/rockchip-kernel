@@ -10,7 +10,7 @@
 #define NOR_PAGE_SIZE		256
 #define NOR_BLOCK_SIZE		(64 * 1024)
 #define NOR_SECS_BLK		(NOR_BLOCK_SIZE / 512)
-#define NOR_SECS_PAGE		4
+#define NOR_SECS_PAGE		8
 
 #define FEA_READ_STATUE_MASK	(0x3 << 0)
 #define FEA_STATUE_MODE1	0
@@ -110,6 +110,7 @@ struct SFNOR_DEV {
 	enum SFC_DATA_LINES prog_lines;
 
 	SNOR_WRITE_STATUS write_status;
+	u32 max_iosize;
 };
 
 struct flash_info {
@@ -131,6 +132,30 @@ struct flash_info {
 	u8 reserved2;
 };
 
+/* flash table packet for easy boot */
+#define SNOR_INFO_PACKET_ID	0x464E494E
+#define SNOR_INFO_PACKET_HEAD_LEN	14
+
+#define SNOR_INFO_PACKET_SPI_MODE_RATE_SHIFT	25
+
+struct snor_info_packet {
+	u32 id;
+	u32 head_hash; /*hash for head, check by bootrom.*/
+	u16 head_len;  /*320 - 16 bytes*/
+	u16 version;
+	u8 read_cmd;
+	u8 prog_cmd;
+	u8 read_cmd_4;
+	u8 prog_cmd_4;
+
+	u8 sector_erase_cmd;
+	u8 block_erase_cmd;
+	u8 feature;
+	u8 QE_bits;
+
+	u32 spi_mode;
+};
+
 int snor_init(struct SFNOR_DEV *p_dev);
 u32 snor_get_capacity(struct SFNOR_DEV *p_dev);
 int snor_read(struct SFNOR_DEV *p_dev, u32 sec, u32 n_sec, void *p_data);
@@ -143,5 +168,6 @@ int snor_prog_page(struct SFNOR_DEV *p_dev, u32 addr, void *p_data, u32 size);
 int snor_read_data(struct SFNOR_DEV *p_dev, u32 addr, void *p_data, u32 size);
 int snor_reset_device(void);
 int snor_disable_QE(struct SFNOR_DEV *p_dev);
-
+int snor_reinit_from_table_packet(struct SFNOR_DEV *p_dev,
+				  struct snor_info_packet *packet);
 #endif

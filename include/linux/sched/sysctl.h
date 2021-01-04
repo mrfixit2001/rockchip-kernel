@@ -84,6 +84,9 @@ extern int sysctl_sched_rt_runtime;
 #ifdef CONFIG_CFS_BANDWIDTH
 extern unsigned int sysctl_sched_cfs_bandwidth_slice;
 #endif
+#ifdef CONFIG_ROCKCHIP_SCHED_PERFORMANCE_BIAS
+extern unsigned int sysctl_sched_performance_bias;
+#endif
 
 #ifdef CONFIG_SCHED_TUNE
 extern unsigned int sysctl_sched_cfs_boost;
@@ -105,6 +108,7 @@ static inline unsigned int get_sysctl_sched_cfs_boost(void)
 extern unsigned int sysctl_sched_autogroup_enabled;
 #endif
 
+extern int sysctl_sched_rr_timeslice;
 extern int sched_rr_timeslice;
 
 extern int sched_rr_handler(struct ctl_table *table, int write,

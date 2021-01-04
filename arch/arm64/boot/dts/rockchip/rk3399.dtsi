@@ -1601,6 +1601,7 @@
 			clock-names = "phyclk";
 			#clock-cells = <0>;
 			clock-output-names = "clk_usbphy0_480m";
+			power-domains = <&power RK3399_PD_PERIHP>;
 			status = "disabled";
 
 			u2phy0_host: host-port {
@@ -1628,6 +1629,7 @@
 			clock-names = "phyclk";
 			#clock-cells = <0>;
 			clock-output-names = "clk_usbphy1_480m";
+			power-domains = <&power RK3399_PD_PERIHP>;
 			status = "disabled";
 
 			u2phy1_host: host-port {

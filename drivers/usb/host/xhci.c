@@ -1371,6 +1371,7 @@ static int xhci_check_maxpacket(struct xhci_hcd *xhci, unsigned int slot_id,
 				xhci->devs[slot_id]->out_ctx, ep_index);
 
 		ep_ctx = xhci_get_ep_ctx(xhci, command->in_ctx, ep_index);
+		ep_ctx->ep_info &= cpu_to_le32(~EP_STATE_MASK);/* must clear */
 		ep_ctx->ep_info2 &= cpu_to_le32(~MAX_PACKET_MASK);
 		ep_ctx->ep_info2 |= cpu_to_le32(MAX_PACKET(max_packet_size));
 
@@ -1709,8 +1710,7 @@ int xhci_drop_endpoint(struct usb_hcd *hcd, struct usb_device *udev,
 	/* If the HC already knows the endpoint is disabled,
 	 * or the HCD has noted it is disabled, ignore this request
 	 */
-	if (((ep_ctx->ep_info & cpu_to_le32(EP_STATE_MASK)) ==
-	     cpu_to_le32(EP_STATE_DISABLED)) ||
+	if ((GET_EP_CTX_STATE(ep_ctx) == EP_STATE_DISABLED) ||
 	    le32_to_cpu(ctrl_ctx->drop_flags) &
 	    xhci_get_endpoint_flag(&ep->desc)) {
 		/* Do not warn when called after a usb_device_reset */
@@ -1890,7 +1890,7 @@ static int xhci_configure_endpoint_result(struct xhci_hcd *xhci,
 
 	switch (*cmd_status) {
 	case COMP_COMMAND_ABORTED:
-	case COMP_STOPPED:
+	case COMP_COMMAND_RING_STOPPED:
 		xhci_warn(xhci, "Timeout while waiting for configure endpoint command\n");
 		ret = -ETIME;
 		break;
@@ -1940,7 +1940,7 @@ static int xhci_evaluate_context_result(struct xhci_hcd *xhci,
 
 	switch (*cmd_status) {
 	case COMP_COMMAND_ABORTED:
-	case COMP_STOPPED:
+	case COMP_COMMAND_RING_STOPPED:
 		xhci_warn(xhci, "Timeout while waiting for evaluate context command\n");
 		ret = -ETIME;
 		break;
@@ -3555,7 +3555,7 @@ int xhci_discover_or_reset_device(struct usb_hcd *hcd, struct usb_device *udev)
 	ret = reset_device_cmd->status;
 	switch (ret) {
 	case COMP_COMMAND_ABORTED:
-	case COMP_STOPPED:
+	case COMP_COMMAND_RING_STOPPED:
 		xhci_warn(xhci, "Timeout waiting for reset device command\n");
 		ret = -ETIME;
 		goto command_cleanup;
@@ -3937,7 +3937,7 @@ static int xhci_setup_device(struct usb_hcd *hcd, struct usb_device *udev,
 	 */
 	switch (command->status) {
 	case COMP_COMMAND_ABORTED:
-	case COMP_STOPPED:
+	case COMP_COMMAND_RING_STOPPED:
 		xhci_warn(xhci, "Timeout while waiting for setup device command\n");
 		ret = -ETIME;
 		break;
@@ -4256,6 +4256,9 @@ int xhci_set_usb2_hardware_lpm(struct usb_hcd *hcd,
 			mutex_lock(hcd->bandwidth_mutex);
 			xhci_change_max_exit_latency(xhci, udev, 0);
 			mutex_unlock(hcd->bandwidth_mutex);
+			readl_poll_timeout(port_array[port_num], pm_val,
+					   (pm_val & PORT_PLS_MASK) == XDEV_U0,
+					   100, 10000);
 			return 0;
 		}
 	}
