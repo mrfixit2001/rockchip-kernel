@@ -152,6 +152,7 @@ enum VPU_FREQ {
 	VPU_FREQ_400M,
 	VPU_FREQ_500M,
 	VPU_FREQ_600M,
+	VPU_FREQ_700M,
 	VPU_FREQ_DEFAULT,
 	VPU_FREQ_BUT,
 };
@@ -837,6 +838,20 @@ static int vpu_get_clk(struct vpu_service_info *pservice)
 		}
 	case VCODEC_DEVICE_ID_COMBO:
 	case VCODEC_DEVICE_ID_RKVDEC:
+		// MRFIXIT: added aclk and hclk - defined on rk3399 rkvdec - but leave them optional
+		pservice->aclk_vcodec = devm_clk_get(dev, "aclk_vcodec");
+		if (IS_ERR(pservice->aclk_vcodec)) {
+			dev_err(dev, "failed on clk_get aclk_vcodec\n");
+			pservice->aclk_vcodec = NULL;
+		} else {
+			pservice->aclk_vcodec_default_rate =
+				clk_get_rate(pservice->aclk_vcodec);
+		}
+		pservice->hclk_vcodec = devm_clk_get(dev, "hclk_vcodec");
+		if (IS_ERR(pservice->hclk_vcodec)) {
+			dev_err(dev, "failed on clk_get hclk_vcodec\n");
+			pservice->hclk_vcodec = NULL;
+		}
 		pservice->clk_cabac = devm_clk_get(dev, "clk_cabac");
 		if (IS_ERR(pservice->clk_cabac)) {
 			dev_err(dev, "failed on clk_get clk_cabac\n");
@@ -2554,12 +2569,16 @@ static void vcodec_get_reg_freq_rk3368(struct vpu_subdev_data *data,
 static void vcodec_get_reg_freq_rk3399(struct vpu_subdev_data *data,
 					struct vpu_reg *reg)
 {
+	bool is_4k_10bit = rockchip_get_system_status() & SYS_STATUS_VIDEO_4K_10B;
 	vcodec_get_reg_freq_default(data, reg);
-
 	if (reg->type == VPU_DEC || reg->type == VPU_DEC_PP) {
 		if (reg_check_fmt(reg) == VPU_DEC_FMT_H264) {
 			if (reg_probe_width(reg) >= 2560) {
-				reg->freq = VPU_FREQ_500M;
+				if (is_4k_10bit) {
+					// note that this still isn't quite enough for clean playback, but it's a start.
+					reg->freq = VPU_FREQ_600M;
+				} else
+					reg->freq = VPU_FREQ_500M;
 			}
 		} else if (reg_check_interlace(reg)) {
 			reg->freq = VPU_FREQ_400M;
@@ -2614,33 +2633,32 @@ static void vcodec_set_freq_default(struct vpu_service_info *pservice,
 
 	atomic_set(&pservice->freq_status, reg->freq);
 	switch (reg->freq) {
-	case VPU_FREQ_200M: {
+	case VPU_FREQ_200M:
 		clk_set_rate(pservice->aclk_vcodec, 200 * MHZ);
-	} break;
-	case VPU_FREQ_266M: {
-		clk_set_rate(pservice->aclk_vcodec, 266 * MHZ);
-	} break;
-	case VPU_FREQ_300M: {
-		clk_set_rate(pservice->aclk_vcodec, 300 * MHZ);
-	} break;
-	case VPU_FREQ_400M: {
-		clk_set_rate(pservice->aclk_vcodec, 400 * MHZ);
-	} break;
-	case VPU_FREQ_500M: {
-		clk_set_rate(pservice->aclk_vcodec, 500 * MHZ);
-	} break;
-	case VPU_FREQ_600M: {
-		clk_set_rate(pservice->aclk_vcodec, 600 * MHZ);
-	} break;
-	default: {
-		clk_set_rate(pservice->aclk_vcodec,
-			     pservice->aclk_vcodec_default_rate);
-		clk_set_rate(pservice->clk_core,
-			     pservice->clk_core_default_rate);
-		clk_set_rate(pservice->clk_cabac,
-			     pservice->clk_cabac_default_rate);
 		break;
-	}
+	case VPU_FREQ_266M:
+		clk_set_rate(pservice->aclk_vcodec, 266 * MHZ);
+		break;
+	case VPU_FREQ_300M:
+		clk_set_rate(pservice->aclk_vcodec, 300 * MHZ);
+		break;
+	case VPU_FREQ_400M:
+		clk_set_rate(pservice->aclk_vcodec, 400 * MHZ);
+		break;
+	case VPU_FREQ_500M:
+		clk_set_rate(pservice->aclk_vcodec, 500 * MHZ);
+		break;
+	case VPU_FREQ_600M:
+		clk_set_rate(pservice->aclk_vcodec, 600 * MHZ);
+		break;
+	case VPU_FREQ_700M:
+		clk_set_rate(pservice->aclk_vcodec, 700 * MHZ);
+		break;
+	default:
+		clk_set_rate(pservice->aclk_vcodec, pservice->aclk_vcodec_default_rate);
+		clk_set_rate(pservice->clk_core, pservice->clk_core_default_rate);
+		clk_set_rate(pservice->clk_cabac, pservice->clk_cabac_default_rate);
+		break;
 	}
 }
 
