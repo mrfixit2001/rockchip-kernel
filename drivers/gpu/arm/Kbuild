@@ -20,9 +20,9 @@
 #
 
 
-obj-$(CONFIG_MALI_MIDGARD_FOR_LINUX) += midgard_for_linux/
+obj-$(CONFIG_MALI_MIDGARD_R14) += midgard_r14/
 
-obj-$(CONFIG_MALI_MIDGARD_FOR_ANDROID) += midgard/
+obj-$(CONFIG_MALI_MIDGARD_R18) += midgard/
 
 obj-$(CONFIG_MALI400)      += mali400/
 

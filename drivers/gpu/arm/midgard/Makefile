@@ -12,7 +12,7 @@
 #
 #
 
-
+ifeq ($(MALI_MIDGARD), 1)
 
 KDIR ?= /lib/modules/$(shell uname -r)/build
 
@@ -40,3 +40,5 @@ all:
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(CURDIR) clean
+
+endif

@@ -15,8 +15,9 @@
 
 
 menuconfig MALI_MIDGARD
-	tristate "Mali Midgard series support"
+	tristate "Mali Midgard R14 series support"
 	select GPU_TRACEPOINTS if ANDROID
+	depends on MALI_MIDGARD_14
 	default n
 	help
 	  Enable this option to build support for a ARM Mali Midgard GPU.
@@ -222,4 +223,4 @@ config MALI_GPU_MMU_AARCH64
 
 	  If in doubt, say N.
 
-source "drivers/gpu/arm/midgard/platform/Kconfig"
+source "drivers/gpu/arm/midgard_r14/platform/Kconfig"

@@ -17,7 +17,7 @@
 
 # Add your platform specific Kconfig file here
 #
-# "drivers/gpu/arm/midgard/platform/xxx/Kconfig"
+# "drivers/gpu/arm/midgard_r14/platform/xxx/Kconfig"
 #
 # Where xxx is the platform name is the name set in MALI_PLATFORM_THIRDPARTY_NAME
 #
