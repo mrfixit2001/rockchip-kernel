@@ -2455,8 +2455,11 @@ void dwc2_hsotg_disconnect(struct dwc2_hsotg *hsotg)
 	if (!hsotg->connected)
 		return;
 
+	del_timer(&hsotg->rst_complete_timer);
+
 	hsotg->connected = 0;
 	hsotg->test_mode = 0;
+	hsotg->rst_completed = 0;
 
 	for (ep = 0; ep < hsotg->num_of_eps; ep++) {
 		if (hsotg->eps_in[ep])
@@ -2795,6 +2798,10 @@ irq_retry:
 
 		u32 usb_status = dwc2_readl(hsotg->regs + GOTGCTL);
 		u32 connected = hsotg->connected;
+
+		hsotg->rst_completed = 1;
+		/* Can't del_timer_sync in interrupt */
+		del_timer(&hsotg->rst_complete_timer);
 
 		dev_dbg(hsotg->dev, "%s: USBRst\n", __func__);
 		dev_dbg(hsotg->dev, "GNPTXSTS=%08x\n",
@@ -3795,6 +3802,45 @@ static int dwc2_hsotg_hw_cfg(struct dwc2_hsotg *hsotg)
 }
 
 /**
+ * dwc2_wait_reset_watchdog - Watchdog timer function for a reset on the USB
+ * @param: The device state
+ *
+ * Watchdog timer function for when the dwc2 controller fails to detect
+ * a reset on USB bus. In this case, we assume the dwc2 controller is broken,
+ * the host does not see that the device is connected, and the device does
+ * not receive reset signal on the USB. So we have to do soft disconnect
+ * and soft connect, and try to generate a device connect event to the USB
+ * host.
+ */
+static void dwc2_wait_reset_watchdog(unsigned long data)
+{
+	struct dwc2_hsotg *hsotg = (struct dwc2_hsotg *)data;
+	unsigned long flags;
+	u32 dctl;
+
+	spin_lock_irqsave(&hsotg->lock, flags);
+
+	if (!hsotg->rst_completed) {
+		dctl = dwc2_readl(hsotg->regs + DCTL);
+
+		/*
+		 * According to the dwc2 controller databook,
+		 * Table 5-55 lists the minimum duration under various
+		 * conditions for which the Soft Disconnect bit must be
+		 * set for the USB host to detect a device disconnect.
+		 * We set minimum duration to 3 microseconds.
+		 */
+		if (!(dctl & DCTL_SFTDISCON)) {
+			dwc2_hsotg_core_disconnect(hsotg);
+			udelay(3);
+			dwc2_hsotg_core_connect(hsotg);
+		}
+	}
+
+	spin_unlock_irqrestore(&hsotg->lock, flags);
+}
+
+/**
  * dwc2_hsotg_dump - dump state of the udc
  * @param: The device state
  */
@@ -3991,6 +4037,9 @@ int dwc2_gadget_init(struct dwc2_hsotg *hsotg, int irq)
 								epnum, 0);
 	}
 
+	setup_timer(&hsotg->rst_complete_timer, dwc2_wait_reset_watchdog,
+		    (unsigned long)hsotg);
+
 	dwc2_hsotg_dump(hsotg);
 
 	return 0;
@@ -4004,6 +4053,7 @@ int dwc2_hsotg_remove(struct dwc2_hsotg *hsotg)
 {
 	usb_del_gadget_udc(&hsotg->gadget);
 	dwc2_hsotg_ep_free_request(&hsotg->eps_out[0]->ep, hsotg->ctrl_req);
+	del_timer_sync(&hsotg->rst_complete_timer);
 
 	return 0;
 }
