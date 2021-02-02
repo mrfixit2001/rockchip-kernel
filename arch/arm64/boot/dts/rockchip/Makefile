@@ -58,6 +58,9 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-evb-android-avb.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-rock64.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-rock64-android.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-rock64-android-avb.dtb
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-firefly-core.dtsi
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-firefly-port.dtsi
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-roc-pc.dts
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3366-fpga.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3366-sheep.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3368-808-evb.dtb
@@ -142,6 +145,8 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399pro-evb-v14-linux.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399pro-evb-v14-multi-cam-avb.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399pro-npu-evb-v10.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399pro-npu-evb-v10-multi-cam.dtb
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-roc-pc-mezzanine.dts
+
 
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
