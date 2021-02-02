@@ -42,7 +42,6 @@
 
 /dts-v1/;
 #include "rk3328.dtsi"
-#include "rk3328-linux.dtsi"
 #include <dt-bindings/input/input.h>
 #include "rk3328-box-plus-dram-timing.dtsi"
 
@@ -52,6 +51,17 @@
 	chosen {
 		bootargs = "rockchip_jtag earlyprintk=uart8250-32bit,0xff130000 swiotlb=1 kpti=0 console=ttyFIQ0 ro root=PARTLABEL=rootfs rootfstype=ext4 rootwait overlayroot=device:dev=PARTLABEL=userdata,fstype=ext4,mkfs=1 systemd.gpt_auto=0 cgroup_enable=memory swapaccount=1";
 		stdout-path = "serial2:1500000n8";
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		drm_logo: drm-logo@00000000 {
+			compatible = "rockchip,drm-logo";
+			reg = <0x0 0x0 0x0 0x0>;
+		};
 	};
 
 	fiq-debugger {
@@ -219,6 +229,34 @@
 	pinctrl-0 = <&emmc_clk &emmc_cmd &emmc_bus8>;
 	vmmc-supply = <&vcc_io>;
 	vqmmc-supply = <&vcc_18emmc>;
+	status = "okay";
+};
+
+&display_subsystem {
+	logo-memory-region = <&drm_logo>;
+	status = "okay";
+	route {
+		route_hdmi: route-hdmi {
+			status = "disabled";
+			logo,uboot = "logo.bmp";
+			logo,kernel = "logo_kernel.bmp";
+			logo,mode = "center";
+			charge_logo,mode = "center";
+			connect = <&vop_out_hdmi>;
+		};
+
+		route_tve: route-tve {
+			status = "okay";
+			logo,uboot = "logo.bmp";
+			logo,kernel = "logo_kernel.bmp";
+			logo,mode = "fullscreen";
+			charge_logo,mode = "fullscreen";
+			connect = <&vop_out_tve>;
+		};
+	};
+};
+
+&rga {
 	status = "okay";
 };
 
