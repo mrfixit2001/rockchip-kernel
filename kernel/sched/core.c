@@ -287,9 +287,9 @@ __read_mostly int scheduler_running;
 
 /*
  * part of the period that we allow rt tasks to run in us.
- * default: 0.95s
+ * MRFIXIT: disabled sched_rt_runtime 20210201
  */
-int sysctl_sched_rt_runtime = 950000;
+int sysctl_sched_rt_runtime = -1;
 
 /* cpus with isolated domains */
 cpumask_var_t cpu_isolated_map;
