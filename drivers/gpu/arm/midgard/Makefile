@@ -12,7 +12,7 @@
 #
 #
 
-ifeq ($(MALI_MIDGARD), 1)
+ifeq ($(MALI_MIDGARD_R18), 1)
 
 KDIR ?= /lib/modules/$(shell uname -r)/build
 

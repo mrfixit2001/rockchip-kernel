@@ -30,6 +30,21 @@ menuconfig MALI_BIFROST
 	  To compile this driver as a module, choose M here:
 	  this will generate a single module, called mali_kbase.
 
+choice
+	prompt "Mali bifrost driver"
+	depends on MALI_BIFROST
+	default MALI_BIFROST_FOR_LINUX
+	help
+	  Select the version of the Mali Bifrost GPU driver to install
+
+config MALI_BIFROST_FOR_ANDROID
+	bool "Mali Bifrost for Android"
+
+config MALI_BIFROST_FOR_LINUX
+	bool "Mali Bifrost for Linux only"
+
+endchoice
+
 config MALI_BIFROST_GATOR_SUPPORT
 	bool "Streamline support via Gator"
 	depends on MALI_BIFROST

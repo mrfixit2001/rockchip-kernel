@@ -16,7 +16,7 @@
 
 config MALI_KUTF
  tristate "Mali Kernel Unit Test Framework"
- depends on MALI_MIDGARD
+ depends on MALI_MIDGARD_R18
  default n
  help
    Enables MALI testing framework. To compile it as a module,
