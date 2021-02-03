@@ -8,14 +8,14 @@ config BCMDHD
 config BCMDHD_FW_PATH
 	depends on BCMDHD
 	string "Firmware path"
-	default "/lib/firmware/fw_bcmdhd.bin"
+	default "/system/etc/firmware/fw_bcmdhd.bin"
 	---help---
 	  Path to the firmware file.
 
 config BCMDHD_NVRAM_PATH
 	depends on BCMDHD
 	string "NVRAM path"
-	default "/lib/firmware/nvram.txt"
+	default "/system/etc/firmware/nvram.txt"
 	---help---
 	  Path to the calibration file.
 
@@ -29,6 +29,7 @@ config BCMDHD_WEXT
 
 choice
 	prompt "Enable Chip Interface"
+	default BCMDHD_SDIO
 	depends on BCMDHD
 	---help---
 		Enable Chip Interface.

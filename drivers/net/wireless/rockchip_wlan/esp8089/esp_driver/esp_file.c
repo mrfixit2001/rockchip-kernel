@@ -140,6 +140,17 @@ int esp_request_firmware(const struct firmware **firmware_p, const char *name,
         return ret;
 }
 
+#ifdef ESP_ANDROID_LOGGER
+int logger_write( const unsigned char prio,
+                  const char __kernel * const tag,
+                  const char __kernel * const fmt,
+                  ...)
+{
+	// Function depreciated
+	return 0;
+}
+#endif
+
 void esp_release_firmware(const struct firmware *firmware)
 {
         if (firmware) {
@@ -149,81 +160,6 @@ void esp_release_firmware(const struct firmware *firmware)
                 kfree((struct firmware *)firmware);
         }
 }
-
-#ifdef ESP_ANDROID_LOGGER
-int logger_write( const unsigned char prio,
-                  const char __kernel * const tag,
-                  const char __kernel * const fmt,
-                  ...)
-{
-        int ret = 0;
-        va_list vargs;
-        struct file *filp = (struct file *)-ENOENT;
-        mm_segment_t oldfs;
-        struct iovec vec[3];
-        int tag_bytes = strlen(tag) + 1, msg_bytes;
-        char *msg;
-        va_start(vargs, fmt);
-        msg = kvasprintf(GFP_ATOMIC, fmt, vargs);
-        va_end(vargs);
-        if (!msg)
-                return -ENOMEM;
-        if (in_interrupt()) {
-                /* we have no choice since aio_write may be blocked */
-                printk(KERN_ALERT "%s", msg);
-                goto out_free_message;
-        }
-        msg_bytes = strlen(msg) + 1;
-        if (msg_bytes <= 1) /* empty message? */
-                goto out_free_message; /* don't bother, then */
-        if ((msg_bytes + tag_bytes + 1) > 2048) {
-                ret = -E2BIG;
-                goto out_free_message;
-        }
-
-        vec[0].iov_base  = (unsigned char *) &prio;
-        vec[0].iov_len    = 1;
-        vec[1].iov_base   = (void *) tag;
-        vec[1].iov_len    = strlen(tag) + 1;
-        vec[2].iov_base   = (void *) msg;
-        vec[2].iov_len    = strlen(msg) + 1;
-
-        oldfs = get_fs();
-        set_fs(KERNEL_DS);
-        do {
-                filp = filp_open("/dev/log/main", O_WRONLY, S_IRUSR);
-                if (IS_ERR(filp) || !filp->f_op) {
-
-                        esp_dbg(ESP_DBG_ERROR, "%s: filp open /dev/log/main error\n", __FUNCTION__);
-                        ret = -ENOENT;
-                        break;
-                }
-
-                if (filp->f_op->aio_write) {
-                        int nr_segs = sizeof(vec) / sizeof(vec[0]);
-                        int len = vec[0].iov_len + vec[1].iov_len + vec[2].iov_len;
-                        struct kiocb kiocb;
-                        init_sync_kiocb(&kiocb, filp);
-                        kiocb.ki_pos = 0;
-                        kiocb.ki_left = len;
-                        kiocb.ki_nbytes = len;
-                        ret = filp->f_op->aio_write(&kiocb, vec, nr_segs, kiocb.ki_pos);
-                }
-
-        } while (0);
-
-        if (!IS_ERR(filp)) {
-                filp_close(filp, NULL);
-        }
-        set_fs(oldfs);
-out_free_message:
-        if (msg) {
-                kfree(msg);
-        }
-        return ret;
-}
-#endif
-
 
 struct esp_init_table_elem esp_init_table[MAX_ATTR_NUM] = {
 	{"crystal_26M_en", 	48, -1}, 
@@ -517,9 +453,9 @@ static ssize_t nor_store(struct class *cls, const char *ubuf, size_t count)
 	unsigned long var;
 
 	if (ubuf[0] == '0' && (ubuf[1] == 'x' || ubuf[1] == 'X'))
-		ret = strict_strtoul(ubuf, 16, &var);
+		ret = kstrtoul(ubuf, 16, &var);
 	else 
-		ret = strict_strtoul(ubuf, 10, &var);
+		ret = kstrtoul(ubuf, 10, &var);
 
 	if (ret) {
 		esp_dbg(ESP_DBG_ERROR, "invalid input");
@@ -582,9 +518,9 @@ static ssize_t ate_store(struct class *cls, const char *ubuf, size_t count)
 	unsigned long var;
 
 	if (ubuf[0] == '0' && (ubuf[1] == 'x' || ubuf[1] == 'X'))
-		ret = strict_strtoul(ubuf, 16, &var);
+		ret = kstrtoul(ubuf, 16, &var);
 	else 
-		ret = strict_strtoul(ubuf, 10, &var);
+		ret = kstrtoul(ubuf, 10, &var);
 
 	if (ret) {
 		esp_dbg(ESP_DBG_ERROR, "invalid input");
@@ -622,9 +558,9 @@ static ssize_t fcc_store(struct class *cls, const char *ubuf, size_t count)
 	unsigned long var;
 
 	if (ubuf[0] == '0' && (ubuf[1] == 'x' || ubuf[1] == 'X'))
-		ret = strict_strtoul(ubuf, 16, &var);
+		ret = kstrtoul(ubuf, 16, &var);
 	else 
-		ret = strict_strtoul(ubuf, 10, &var);
+		ret = kstrtoul(ubuf, 10, &var);
 
 	if (ret) {
 		esp_dbg(ESP_DBG_ERROR, "invalid input");

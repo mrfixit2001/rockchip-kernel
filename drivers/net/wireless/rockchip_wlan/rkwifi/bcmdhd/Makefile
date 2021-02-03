@@ -4,9 +4,12 @@
 #    otherwise please remove it.
 
 MODULE_NAME = bcmdhd
-CONFIG_BCMDHD_SDIO := y
+
+# These are all controlled by the kconfig settings now
+#CONFIG_BCMDHD_SDIO := y
 #CONFIG_BCMDHD_PCIE := y
 #CONFIG_BCMDHD_USB := y
+
 CONFIG_BCMDHD_OOB := n
 CONFIG_BCMDHD_PROPTXSTATUS := y
 CONFIG_BCMDHD_AG := y

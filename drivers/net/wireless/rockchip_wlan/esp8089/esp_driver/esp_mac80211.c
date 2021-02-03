@@ -912,9 +912,6 @@ static void esp_op_configure_filter(struct ieee80211_hw *hw,
 
         epub->rx_filter = 0;
 
-        if (*total_flags & FIF_PROMISC_IN_BSS)
-                epub->rx_filter |= FIF_PROMISC_IN_BSS;
-
         if (*total_flags & FIF_ALLMULTI)
                 epub->rx_filter |= FIF_ALLMULTI;
 
@@ -2274,26 +2271,21 @@ esp_pub_init_mac80211(struct esp_pub *epub)
         };
 #endif
 
-        hw->channel_change_time = 420000; /* in us */
         hw->max_listen_interval = 10;
 
-        hw->flags = IEEE80211_HW_SIGNAL_DBM |
+	ieee80211_hw_set(hw, SIGNAL_DBM);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 33))
-                    IEEE80211_HW_HAS_RATE_CONTROL |
+        ieee80211_hw_set(hw, HAS_RATE_CONTROL);
 #endif /* >= 2.6.33 */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30))
-                    IEEE80211_HW_MFP_CAPABLE |
-                    IEEE80211_HW_SUPPORTS_PS |
+	ieee80211_hw_set(hw, MFP_CAPABLE);
+	ieee80211_hw_set(hw, SUPPORTS_PS);
 #endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
-                IEEE80211_HW_AMPDU_AGGREGATION |
+	ieee80211_hw_set(hw, AMPDU_AGGREGATION);
 #endif
-				IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING;
-   //IEEE80211_HW_PS_NULLFUNC_STACK |	
-        //IEEE80211_HW_CONNECTION_MONITOR |
-        //IEEE80211_HW_BEACON_FILTER |
-        //IEEE80211_HW_AMPDU_AGGREGATION |
-        //IEEE80211_HW_REPORTS_TX_ACK_STATUS;
+	ieee80211_hw_set(hw, HOST_BROADCAST_PS_BUFFERING);
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39))
         hw->max_rx_aggregation_subframes = 0x40;
         hw->max_tx_aggregation_subframes = 0x40;

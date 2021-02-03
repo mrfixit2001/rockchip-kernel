@@ -19,7 +19,6 @@ static int __init esp_mem_init(void)
 	int err = 0;
 	int retry;
 
-	logi("%s enter date %s %s\n", __func__, __DATE__, __TIME__);
 	logi("%s VERSION [%s]\n", __func__, PREALLOC_VERSION);
 
 #ifdef ESP_SLAB

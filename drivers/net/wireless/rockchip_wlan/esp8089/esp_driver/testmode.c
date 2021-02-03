@@ -986,8 +986,7 @@ int test_init_netlink(struct esp_sip *sip)
         sdio_buff = kzalloc(8, GFP_KERNEL);
 	    sdiotest_buf = kzalloc(16*1024, GFP_KERNEL);
 
-        rc = genl_register_family_with_ops(&test_genl_family,
-                                           esp_test_ops, ARRAY_SIZE(esp_test_ops));
+        rc = genl_register_family_with_ops(&test_genl_family, esp_test_ops);
         if (rc)
                 goto failure;
 
