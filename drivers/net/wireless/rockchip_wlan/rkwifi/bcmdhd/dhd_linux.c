@@ -9338,14 +9338,13 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen
 #ifdef SHOW_LOGTRACE
 	int ret;
 #endif /* SHOW_LOGTRACE */
-#if defined(BCMSDIO) || defined(BCMPCIE)
+
+#ifndef BCMDBUS
 	uint32 bus_type = -1;
 	uint32 bus_num = -1;
 	uint32 slot_num = -1;
-	wifi_adapter_info_t *adapter = NULL;
-#elif defined(BCMDBUS)
-	wifi_adapter_info_t *adapter = data;
 #endif
+	wifi_adapter_info_t *adapter = NULL;
 #ifdef GET_CUSTOM_MAC_ENABLE
 	char hw_ether[62];
 #endif /* GET_CUSTOM_MAC_ENABLE */
@@ -9359,8 +9358,11 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen
 	/* will implement get_ids for DBUS later */
 #if defined(BCMSDIO)
 	dhd_bus_get_ids(bus, &bus_type, &bus_num, &slot_num);
-#endif 
-#if defined(BCMSDIO) || defined(BCMPCIE)
+#endif
+
+#if defined(BCMDBUS)
+	adapter = data;
+#else
 	adapter = dhd_wifi_platform_get_adapter(bus_type, bus_num, slot_num);
 #endif
 
