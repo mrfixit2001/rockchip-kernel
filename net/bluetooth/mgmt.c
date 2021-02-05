@@ -1289,7 +1289,7 @@ static void enable_advertising(struct hci_request *req)
 	 * advertising is used. In that case it is fine to use a
 	 * non-resolvable private address.
 	 */
-	if (hci_update_random_address(req, !connectable, &own_addr_type) < 0)
+	if (hci_update_random_address(req, !connectable, adv_use_rpa(hdev, flags), &own_addr_type) < 0)
 		return;
 
 	memset(&cp, 0, sizeof(cp));
@@ -3307,6 +3307,8 @@ static int send_pin_code_neg_reply(struct sock *sk, struct hci_dev *hdev,
 	if (!cmd)
 		return -ENOMEM;
 
+	cmd->cmd_complete = addr_cmd_complete;
+
 	err = hci_send_cmd(hdev, HCI_OP_PIN_CODE_NEG_REPLY,
 			   sizeof(cp->addr.bdaddr), &cp->addr.bdaddr);
 	if (err < 0)
@@ -3900,7 +3902,7 @@ static int set_local_name(struct sock *sk, struct hci_dev *hdev, void *data,
 	/* The name is stored in the scan response data and so
 	 * no need to udpate the advertising data here.
 	 */
-	if (lmp_le_capable(hdev))
+	if (lmp_le_capable(hdev) && hci_dev_test_flag(hdev, HCI_ADVERTISING))
 		update_scan_rsp_data(&req);
 
 	err = hci_req_run(&req, set_name_complete);
@@ -4229,7 +4231,7 @@ static bool trigger_le_scan(struct hci_request *req, u16 interval, u8 *status)
 	 * address (when privacy feature has been enabled) or non-resolvable
 	 * private address.
 	 */
-	err = hci_update_random_address(req, true, &own_addr_type);
+	err = hci_update_random_address(req, true, scan_use_rpa(hdev), &own_addr_type);
 	if (err < 0) {
 		*status = MGMT_STATUS_FAILED;
 		return false;
@@ -5494,7 +5496,7 @@ static int set_privacy(struct sock *sk, struct hci_dev *hdev, void *cp_data,
 		return mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_PRIVACY,
 				       MGMT_STATUS_NOT_SUPPORTED);
 
-	if (cp->privacy != 0x00 && cp->privacy != 0x01)
+	if (cp->privacy != 0x00 && cp->privacy != 0x01 && cp->privacy != 0x02)
 		return mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_PRIVACY,
 				       MGMT_STATUS_INVALID_PARAMS);
 
@@ -5513,10 +5515,15 @@ static int set_privacy(struct sock *sk, struct hci_dev *hdev, void *cp_data,
 		changed = !hci_dev_test_and_set_flag(hdev, HCI_PRIVACY);
 		memcpy(hdev->irk, cp->irk, sizeof(hdev->irk));
 		hci_dev_set_flag(hdev, HCI_RPA_EXPIRED);
+		if (cp->privacy == 0x02)
+			hci_dev_set_flag(hdev, HCI_LIMITED_PRIVACY);
+		else
+			hci_dev_clear_flag(hdev, HCI_LIMITED_PRIVACY);
 	} else {
 		changed = hci_dev_test_and_clear_flag(hdev, HCI_PRIVACY);
 		memset(hdev->irk, 0, sizeof(hdev->irk));
 		hci_dev_clear_flag(hdev, HCI_RPA_EXPIRED);
+		hci_dev_clear_flag(hdev, HCI_LIMITED_PRIVACY);
 	}
 
 	err = send_settings_rsp(sk, MGMT_OP_SET_PRIVACY, hdev);
@@ -7351,6 +7358,7 @@ static int remove_advertising(struct sock *sk, struct hci_dev *hdev,
 	if (skb_queue_empty(&req.cmd_q) ||
 	    !hdev_is_powered(hdev) ||
 	    hci_dev_test_flag(hdev, HCI_ADVERTISING)) {
+		hci_req_purge(&req);
 		rp.instance = cp->instance;
 		err = mgmt_cmd_complete(sk, hdev->id,
 					MGMT_OP_REMOVE_ADVERTISING,
@@ -7565,15 +7573,6 @@ static void powered_complete(struct hci_dev *hdev, u8 status, u16 opcode)
 
 	BT_DBG("status 0x%02x", status);
 
-	if (!status) {
-		/* Register the available SMP channels (BR/EDR and LE) only
-		 * when successfully powering on the controller. This late
-		 * registration is required so that LE SMP can clearly
-		 * decide if the public address or static address is used.
-		 */
-		smp_register(hdev);
-	}
-
 	hci_dev_lock(hdev);
 
 	mgmt_pending_foreach(MGMT_OP_SET_POWERED, hdev, settings_rsp, &match);
@@ -7683,6 +7682,13 @@ int mgmt_powered(struct hci_dev *hdev, u8 powered)
 		return 0;
 
 	if (powered) {
+		/* Register the available SMP channels (BR/EDR and LE) only
+		 * when successfully powering on the controller. This late
+		 * registration is required so that LE SMP can clearly
+		 * decide if the public address or static address is used.
+		 */
+		smp_register(hdev);
+
 		if (powered_update_hci(hdev) == 0)
 			return 0;
 

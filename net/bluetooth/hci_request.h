@@ -31,6 +31,7 @@ struct hci_request {
 };
 
 void hci_req_init(struct hci_request *req, struct hci_dev *hdev);
+void hci_req_purge(struct hci_request *req);
 int hci_req_run(struct hci_request *req, hci_req_complete_t complete);
 int hci_req_run_skb(struct hci_request *req, hci_req_complete_skb_t complete);
 void hci_req_add(struct hci_request *req, u16 opcode, u32 plen,
@@ -50,8 +51,11 @@ void hci_req_add_le_passive_scan(struct hci_request *req);
 void hci_update_page_scan(struct hci_dev *hdev);
 void __hci_update_page_scan(struct hci_request *req);
 
+bool adv_use_rpa(struct hci_dev *hdev, uint32_t flags);
+bool scan_use_rpa(struct hci_dev *hdev);
+
 int hci_update_random_address(struct hci_request *req, bool require_privacy,
-			      u8 *own_addr_type);
+			      bool use_rpa, u8 *own_addr_type);
 
 void hci_update_background_scan(struct hci_dev *hdev);
 void __hci_update_background_scan(struct hci_request *req);

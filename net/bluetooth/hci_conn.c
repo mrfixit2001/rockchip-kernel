@@ -707,6 +707,13 @@ done:
 	hci_dev_unlock(hdev);
 }
 
+static bool conn_use_rpa(struct hci_conn *conn)
+{
+	struct hci_dev *hdev = conn->hdev;
+
+	return hci_dev_test_flag(hdev, HCI_PRIVACY);
+}
+
 static void hci_req_add_le_create_conn(struct hci_request *req,
 				       struct hci_conn *conn,
 				       bdaddr_t *direct_rpa)
@@ -731,7 +738,8 @@ static void hci_req_add_le_create_conn(struct hci_request *req,
 		/* Update random address, but set require_privacy to false so
 		 * that we never connect with an non-resolvable address.
 		 */
-		if (hci_update_random_address(req, false, &own_addr_type))
+		if (hci_update_random_address(req, false, conn_use_rpa(conn),
+				      &own_addr_type))
 			return;
 	}
 
@@ -775,7 +783,7 @@ static void hci_req_directed_advertising(struct hci_request *req,
 	/* Set require_privacy to false so that the remote device has a
 	 * chance of identifying us.
 	 */
-	if (hci_update_random_address(req, false, &own_addr_type) < 0)
+	if (hci_update_random_address(req, false, conn_use_rpa(conn), &own_addr_type) < 0)
 		return;
 
 	memset(&cp, 0, sizeof(cp));
@@ -893,7 +901,7 @@ struct hci_conn *hci_connect_le(struct hci_dev *hdev, bdaddr_t *dst,
 		 */
 		if (hci_dev_test_flag(hdev, HCI_LE_SCAN) &&
 		    hdev->le_scan_type == LE_SCAN_ACTIVE) {
-			skb_queue_purge(&req.cmd_q);
+			hci_req_purge(&req);
 			hci_conn_del(conn);
 			return ERR_PTR(-EBUSY);
 		}
