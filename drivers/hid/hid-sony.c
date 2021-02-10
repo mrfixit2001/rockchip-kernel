@@ -84,6 +84,17 @@
 #define MAX_LEDS 4
 #define NSG_MRXU_MAX_X 1667
 #define NSG_MRXU_MAX_Y 1868
+#define GHL_GUITAR_POKE_INTERVAL 10 /* In seconds */
+#define GHL_GUITAR_TILT_USAGE 44
+
+/* Magic value and data taken from GHLtarUtility:
+ * https://github.com/ghlre/GHLtarUtility/blob/master/PS3Guitar.cs
+ * Note: The Wii U and PS3 dongles happen to share the same!
+ */
+static const u16 ghl_ps3wiiu_magic_value = 0x201;
+static const char ghl_ps3wiiu_magic_data[] = {
+	0x02, 0x08, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00
+};
 
 /*
  * The Sixaxis reports both digital and analog values for each button on the
@@ -1383,20 +1394,11 @@ static int sony_mapping(struct hid_device *hdev, struct hid_input *hi,
 	if (sc->quirks & PS3REMOTE)
 		return ps3remote_mapping(hdev, hi, field, usage, bit, max);
 
-#define GHL_GUITAR_POKE_INTERVAL 10 /* In seconds */
-#define GHL_GUITAR_TILT_USAGE 44
-
-/* Magic value and data taken from GHLtarUtility:
- * https://github.com/ghlre/GHLtarUtility/blob/master/PS3Guitar.cs
- * Note: The Wii U and PS3 dongles happen to share the same!
- */
-static const u16 ghl_ps3wiiu_magic_value = 0x201;
-static const char ghl_ps3wiiu_magic_data[] = {
-	0x02, 0x08, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00
-};
-
 	if (sc->quirks & DUALSHOCK4_CONTROLLER)
 		return ds4_mapping(hdev, hi, field, usage, bit, max);
+
+	if (sc->quirks & GHL_GUITAR_PS3WIIU)
+		return guitar_mapping(hdev, hi, field, usage, bit, max);
 
 	/* Let hid-core decide for the others */
 	return 0;
@@ -1568,9 +1570,6 @@ static void sony_unregister_sensors(struct sony_sc *sc)
 	input_unregister_device(sc->sensor_dev);
 	sc->sensor_dev = NULL;
 }
-
-	if (sc->quirks & GHL_GUITAR_PS3WIIU)
-		return guitar_mapping(hdev, hi, field, usage, bit, max);
 
 /*
  * Sending HID_REQ_GET_REPORT changes the operation mode of the ps3 controller
