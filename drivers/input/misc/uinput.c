@@ -98,14 +98,15 @@ static int uinput_request_reserve_slot(struct uinput_device *udev,
 					uinput_request_alloc_id(udev, request));
 }
 
-static void uinput_request_done(struct uinput_device *udev,
-				struct uinput_request *request)
+static void uinput_request_release_slot(struct uinput_device *udev,
+					unsigned int id)
 {
 	/* Mark slot as available */
-	udev->requests[request->id] = NULL;
-	wake_up(&udev->requests_waitq);
+	spin_lock(&udev->requests_lock);
+	udev->requests[id] = NULL;
+	spin_unlock(&udev->requests_lock);
 
-	complete(&request->done);
+	wake_up(&udev->requests_waitq);
 }
 
 static int uinput_request_send(struct uinput_device *udev,
@@ -138,20 +139,26 @@ static int uinput_request_send(struct uinput_device *udev,
 static int uinput_request_submit(struct uinput_device *udev,
 				 struct uinput_request *request)
 {
-	int error;
+	int retval;
 
-	error = uinput_request_reserve_slot(udev, request);
-	if (error)
-		return error;
+	retval = uinput_request_reserve_slot(udev, request);
+	if (retval)
+		return retval;
 
-	error = uinput_request_send(udev, request);
-	if (error) {
-		uinput_request_done(udev, request);
-		return error;
+	retval = uinput_request_send(udev, request);
+	if (retval)
+		goto out;
+
+	if (!wait_for_completion_timeout(&request->done, 30 * HZ)) {
+		retval = -ETIMEDOUT;
+		goto out;
 	}
 
-	wait_for_completion(&request->done);
-	return request->retval;
+	retval = request->retval;
+
+ out:
+	uinput_request_release_slot(udev, request->id);
+	return retval;
 }
 
 /*
@@ -169,7 +176,7 @@ static void uinput_flush_requests(struct uinput_device *udev)
 		request = udev->requests[i];
 		if (request) {
 			request->retval = -ENODEV;
-			uinput_request_done(udev, request);
+			complete(&request->done);
 		}
 	}
 
@@ -290,6 +297,13 @@ static int uinput_create_device(struct uinput_device *udev)
 		} else if (test_bit(ABS_MT_POSITION_X, dev->absbit)) {
 			input_set_events_per_packet(dev, 60);
 		}
+	}
+
+	if (test_bit(EV_FF, dev->evbit) && !udev->ff_effects_max) {
+		printk(KERN_DEBUG "%s: ff_effects_max should be non-zero when FF_BIT is set\n",
+			UINPUT_NAME);
+		error = -EINVAL;
+		goto fail1;
 	}
 
 	if (udev->ff_effects_max) {
@@ -551,6 +565,7 @@ static ssize_t uinput_inject_events(struct uinput_device *udev,
 
 		input_event(udev->dev, ev.type, ev.code, ev.value);
 		bytes += input_event_size();
+		cond_resched();
 	}
 
 	return bytes;
@@ -653,13 +668,14 @@ static ssize_t uinput_read(struct file *file, char __user *buffer,
 static unsigned int uinput_poll(struct file *file, poll_table *wait)
 {
 	struct uinput_device *udev = file->private_data;
+	unsigned __bitwise mask = POLLOUT | POLLWRNORM; /* uinput is always writable */
 
 	poll_wait(file, &udev->waitq, wait);
 
 	if (udev->head != udev->tail)
-		return POLLIN | POLLRDNORM;
+		mask |= POLLIN | POLLRDNORM;
 
-	return 0;
+	return mask;
 }
 
 static int uinput_release(struct inode *inode, struct file *file)
@@ -950,7 +966,7 @@ static long uinput_ioctl_handler(struct file *file, unsigned int cmd,
 			}
 
 			req->retval = ff_up.retval;
-			uinput_request_done(udev, req);
+			complete(&req->done);
 			goto out;
 
 		case UI_END_FF_ERASE:
@@ -966,7 +982,7 @@ static long uinput_ioctl_handler(struct file *file, unsigned int cmd,
 			}
 
 			req->retval = ff_erase.retval;
-			uinput_request_done(udev, req);
+			complete(&req->done);
 			goto out;
 	}
 
