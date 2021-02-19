@@ -3011,7 +3011,7 @@ static int sony_suspend(struct hid_device *hdev, pm_message_t message)
 		struct sony_sc *sc = hid_get_drvdata(hdev);
 
 #ifdef CONFIG_SONY_FF
-		sc->left = sc->right = 0;
+		sc->left = sc->right = sc->length = 0;
 #endif
 
 		memcpy(sc->resume_led_state, sc->led_state,
