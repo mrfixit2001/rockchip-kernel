@@ -60,8 +60,10 @@
 #define FUTUREMAX_DANCE_MAT       BIT(13)
 #define NSG_MR5U_REMOTE_BT        BIT(14)
 #define NSG_MR7U_REMOTE_BT        BIT(15)
-#define SHANWAN_GAMEPAD           BIT(16)
-#define GHL_GUITAR_PS3WIIU        BIT(17)
+#define SHANWAN_GAMEPAD_USB       BIT(16)
+#define SHANWAN_GAMEPAD_BT        BIT(17)
+#define GHL_GUITAR_PS3WIIU        BIT(18)
+#define GASIA_GAMEPAD             BIT(19)
 
 #define SIXAXIS_CONTROLLER (SIXAXIS_CONTROLLER_USB | SIXAXIS_CONTROLLER_BT)
 #define MOTION_CONTROLLER (MOTION_CONTROLLER_USB | MOTION_CONTROLLER_BT)
@@ -670,6 +672,7 @@ struct sony_sc {
 #ifdef CONFIG_SONY_FF
 	__u8 left;
 	__u8 right;
+	__u8 length;
 #endif
 
 	__u8 mac_address[6];
@@ -1610,7 +1613,7 @@ static int sixaxis_set_operational_usb(struct hid_device *hdev)
 	 * But the USB interrupt would cause SHANWAN controllers to
 	 * start rumbling non-stop, so skip step 3 for these controllers.
 	 */
-	if (sc->quirks & SHANWAN_GAMEPAD)
+	if (sc->quirks & SHANWAN_GAMEPAD_USB)
 		goto out;
 
 	ret = hid_hw_output_report(hdev, buf, 1);
@@ -2164,7 +2167,7 @@ static void sixaxis_send_output_report(struct sony_sc *sc)
 	static const union sixaxis_output_report_01 default_report = {
 		.buf = {
 			0x01,
-			0x01, 0xff, 0x00, 0xff, 0x00,
+			0x01, 0x00, 0x00, 0x00, 0x00,
 			0x00, 0x00, 0x00, 0x00, 0x00,
 			0xff, 0x27, 0x10, 0x00, 0x32,
 			0xff, 0x27, 0x10, 0x00, 0x32,
@@ -2176,6 +2179,7 @@ static void sixaxis_send_output_report(struct sony_sc *sc)
 	struct sixaxis_output_report *report =
 		(struct sixaxis_output_report *)sc->output_report_dmabuf;
 	int n;
+	__u8 timeout;
 
 	/* Initialize the report with default values */
 	memcpy(report, &default_report, sizeof(struct sixaxis_output_report));
@@ -2183,6 +2187,14 @@ static void sixaxis_send_output_report(struct sony_sc *sc)
 #ifdef CONFIG_SONY_FF
 	report->rumble.right_motor_on = sc->right ? 1 : 0;
 	report->rumble.left_motor_force = sc->left;
+
+	// Timeout is part of ff-memless but add it into the report bits anyways
+	timeout = sc->length;
+	if (timeout > 0xff || timeout == 0) timeout = 0xff;
+	else if (timeout < 4) timeout = 4;
+
+	report->rumble.left_duration = timeout;
+	report->rumble.right_duration = timeout;
 #endif
 
 	report->leds_bitmap |= sc->led_state[0] << 1;
@@ -2210,14 +2222,18 @@ static void sixaxis_send_output_report(struct sony_sc *sc)
 		}
 	}
 
-	/* SHANWAN controllers require output reports via intr channel */
-	if (sc->quirks & SHANWAN_GAMEPAD)
-		hid_hw_output_report(sc->hdev, (u8 *)report,
-				sizeof(struct sixaxis_output_report));
-	else
-		hid_hw_raw_request(sc->hdev, report->report_id, (u8 *)report,
-				sizeof(struct sixaxis_output_report),
-				HID_OUTPUT_REPORT, HID_REQ_SET_REPORT);
+	/* 
+	 * Some SHANWAN and Gasia controllers require output reports via intr channel 
+	 * So try hid_hw_output_report first and if it fails then use hid_hw_raw_request
+	 */
+	if (sc->quirks & (SHANWAN_GAMEPAD_USB | GASIA_GAMEPAD))
+		if(hid_hw_output_report(sc->hdev, (u8 *)report,
+				sizeof(struct sixaxis_output_report)) >= 0)
+			return;
+
+	hid_hw_raw_request(sc->hdev, report->report_id, (u8 *)report,
+			sizeof(struct sixaxis_output_report),
+			HID_OUTPUT_REPORT, HID_REQ_SET_REPORT);
 }
 
 static void dualshock4_send_output_report(struct sony_sc *sc)
@@ -2342,6 +2358,7 @@ static int sony_play_effect(struct input_dev *dev, void *data,
 
 	sc->left = effect->u.rumble.strong_magnitude / 256;
 	sc->right = effect->u.rumble.weak_magnitude / 256;
+	sc->length = effect->replay.length / 256;
 
 	sony_schedule_work(sc, SONY_WORKER_STATE);
 	return 0;
@@ -2851,16 +2868,30 @@ err_stop:
 
 static int sony_probe(struct hid_device *hdev, const struct hid_device_id *id)
 {
-	int ret;
+	int ret, i;
 	unsigned long quirks = id->driver_data;
 	struct sony_sc *sc;
 	unsigned int connect_mask = HID_CONNECT_DEFAULT;
+	char name[128];
+
+	// Get the device name in all uppercase
+	strncpy(name, hdev->name, 128);
+	for (i = 0; name[i] != '\0'; i++)
+		if(name[i] >= 'a' && name[i] <= 'z')
+			name[i] = name[i] -32;
+
+	if (strstr(name, "SHANWAN")) {
+		if(quirks & SIXAXIS_CONTROLLER_BT)
+			quirks |= SHANWAN_GAMEPAD_BT;
+		else if(quirks & SIXAXIS_CONTROLLER_USB)
+			quirks |= SHANWAN_GAMEPAD_USB;
+	}
 
 	if (!strcmp(hdev->name, "FutureMax Dance Mat"))
 		quirks |= FUTUREMAX_DANCE_MAT;
 
-	if (!strcmp(hdev->name, "SHANWAN PS3 GamePad"))
-		quirks |= SHANWAN_GAMEPAD;
+	if (!strcmp(hdev->name, "PLAYSTATION(R)3 Controller"))
+		quirks |= GASIA_GAMEPAD;
 
 	sc = devm_kzalloc(&hdev->dev, sizeof(*sc), GFP_KERNEL);
 	if (sc == NULL) {
@@ -2913,6 +2944,15 @@ static int sony_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		hid_hw_stop(hdev);
 		return -ENODEV;
 	}
+
+#ifdef CONFIG_SONY_FF
+	/* Rumble on some shanwan sixaxis bluetooth gamepads will get "stuck" waiting
+	 * on HIDP_WAITING_FOR_SEND_ACK, so don't wait for the response at all. 
+	 * This must be set AFTER the HID has been started and claimed.
+	 */
+	if (sc->quirks & SHANWAN_GAMEPAD_BT)
+		hdev->report_timeout = 0;
+#endif
 
 	if (sc->quirks & GHL_GUITAR_PS3WIIU) {
 		timer_setup(&sc->ghl_poke_timer, ghl_magic_poke, 0);

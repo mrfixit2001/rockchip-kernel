@@ -349,7 +349,7 @@ static int hidp_set_raw_report(struct hid_device *hid, unsigned char reportnum,
 		res = wait_event_interruptible_timeout(session->report_queue,
 			!test_bit(HIDP_WAITING_FOR_SEND_ACK, &session->flags)
 				|| atomic_read(&session->terminate),
-			10*HZ);
+			hid->report_timeout*HZ);
 		if (res == 0) {
 			/* timeout */
 			ret = -EIO;
@@ -773,6 +773,8 @@ static int hidp_setup_hid(struct hidp_session *session,
 	hid->product = req->product;
 	hid->version = req->version;
 	hid->country = req->country;
+
+	hid->report_timeout = 10;
 
 	strncpy(hid->name, req->name, sizeof(hid->name));
 
