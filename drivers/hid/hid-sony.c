@@ -2887,11 +2887,12 @@ static int sony_probe(struct hid_device *hdev, const struct hid_device_id *id)
 			quirks |= SHANWAN_GAMEPAD_USB;
 	}
 
+	if ((strstr(name, "GASIA") || !strcmp(hdev->name, "PLAYSTATION(R)3 Controller")) && 
+	   (quirks & SIXAXIS_CONTROLLER))
+		quirks |= GASIA_GAMEPAD;
+
 	if (!strcmp(hdev->name, "FutureMax Dance Mat"))
 		quirks |= FUTUREMAX_DANCE_MAT;
-
-	if (!strcmp(hdev->name, "PLAYSTATION(R)3 Controller"))
-		quirks |= GASIA_GAMEPAD;
 
 	sc = devm_kzalloc(&hdev->dev, sizeof(*sc), GFP_KERNEL);
 	if (sc == NULL) {
