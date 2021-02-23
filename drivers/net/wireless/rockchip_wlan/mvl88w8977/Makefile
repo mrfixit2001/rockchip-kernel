@@ -18,8 +18,7 @@
 # ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
 # this warranty disclaimer.
 
-COMPATDIR=/lib/modules/$(KERNELVERSION_X86)/build/compat-wireless-3.2-rc1-1/include
-CC=		$(CROSS_COMPILE)gcc -I$(COMPATDIR)
+CC=		$(CROSS_COMPILE)gcc
 LD=		$(CROSS_COMPILE)ld
 BACKUP=		/root/backup
 YMD=		`date +%Y%m%d%H%M`
