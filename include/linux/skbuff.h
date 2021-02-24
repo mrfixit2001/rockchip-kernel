@@ -2676,6 +2676,25 @@ static inline int __must_check skb_put_padto(struct sk_buff *skb, unsigned int l
 	return 0;
 }
 
+static inline void *skb_put_zero(struct sk_buff *skb, unsigned int len)
+{
+	void *tmp = skb_put(skb, len);
+
+	memset(tmp, 0, len);
+
+	return tmp;
+}
+
+static inline void *skb_put_data(struct sk_buff *skb, const void *data,
+				 unsigned int len)
+{
+	void *tmp = skb_put(skb, len);
+
+	memcpy(tmp, data, len);
+
+	return tmp;
+}
+
 static inline int skb_add_data(struct sk_buff *skb,
 			       struct iov_iter *from, int copy)
 {
