@@ -1069,6 +1069,8 @@ enum mac80211_rx_flags {
 	RX_FLAG_MIC_STRIPPED		= BIT_ULL(32),
 	RX_FLAG_ALLOW_SAME_PN		= BIT_ULL(33),
 	RX_FLAG_ICV_STRIPPED		= BIT_ULL(34),
+	RX_FLAG_RADIOTAP_HE		= BIT(35),
+	RX_FLAG_RADIOTAP_HE_MU		= BIT(36),
 };
 
 #define RX_FLAG_STBC_SHIFT		26
@@ -3899,6 +3901,37 @@ static inline int ieee80211_sta_ps_transition_ni(struct ieee80211_sta *sta,
 
 	return ret;
 }
+
+/**
+ * ieee80211_sta_pspoll - PS-Poll frame received
+ * @sta: currently connected station
+ *
+ * When operating in AP mode with the %IEEE80211_HW_AP_LINK_PS flag set,
+ * use this function to inform mac80211 that a PS-Poll frame from a
+ * connected station was received.
+ * This must be used in conjunction with ieee80211_sta_ps_transition()
+ * and possibly ieee80211_sta_uapsd_trigger(); calls to all three must
+ * be serialized.
+ */
+void ieee80211_sta_pspoll(struct ieee80211_sta *sta);
+
+/**
+ * ieee80211_sta_uapsd_trigger - (potential) U-APSD trigger frame received
+ * @sta: currently connected station
+ * @tid: TID of the received (potential) trigger frame
+ *
+ * When operating in AP mode with the %IEEE80211_HW_AP_LINK_PS flag set,
+ * use this function to inform mac80211 that a (potential) trigger frame
+ * from a connected station was received.
+ * This must be used in conjunction with ieee80211_sta_ps_transition()
+ * and possibly ieee80211_sta_pspoll(); calls to all three must be
+ * serialized.
+ * %IEEE80211_NUM_TIDS can be passed as the tid if the tid is unknown.
+ * In this case, mac80211 will not check that this tid maps to an AC
+ * that is trigger enabled and assume that the caller did the proper
+ * checks.
+ */
+void ieee80211_sta_uapsd_trigger(struct ieee80211_sta *sta, u8 tid);
 
 /*
  * The TX headroom reserved by mac80211 for its own tx_status functions.

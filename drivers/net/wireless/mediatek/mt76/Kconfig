@@ -1,0 +1,96 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config MT76_CORE
+	tristate
+
+config MT76_LEDS
+	bool
+	depends on MT76_CORE
+	depends on LEDS_CLASS=y || MT76_CORE=LEDS_CLASS
+	default y
+
+config MT76_USB
+	tristate
+	depends on MT76_CORE
+
+config MT76_SDIO
+	tristate
+	depends on MT76_CORE
+
+config MT76x02_LIB
+	tristate
+	select MT76_CORE
+
+config MT76x02_USB
+	tristate
+	select MT76_USB
+
+config MT76x0_COMMON
+	tristate
+	select MT76x02_LIB
+
+config MT76x0U
+	tristate "MediaTek MT76x0U (USB) support"
+	select MT76x0_COMMON
+	select MT76x02_USB
+	depends on MAC80211
+	depends on USB
+	help
+	  This adds support for MT7610U-based wireless USB 2.0 dongles,
+	  which comply with IEEE 802.11ac standards and support 1x1
+	  433Mbps PHY rate.
+
+	  To compile this driver as a module, choose M here.
+
+config MT76x0E
+	tristate "MediaTek MT76x0E (PCIe) support"
+	select MT76x0_COMMON
+	depends on MAC80211
+	depends on PCI
+	help
+	  This adds support for MT7610/MT7630-based wireless PCIe devices,
+	  which comply with IEEE 802.11ac standards and support 1x1
+	  433Mbps PHY rate.
+
+	  To compile this driver as a module, choose M here.
+
+config MT76x2_COMMON
+	tristate
+	select MT76x02_LIB
+
+config MT76x2E
+	tristate "MediaTek MT76x2E (PCIe) support"
+	select MT76x2_COMMON
+	depends on MAC80211
+	depends on PCI
+	help
+	  This adds support for MT7612/MT7602/MT7662-based wireless PCIe
+	  devices, which comply with IEEE 802.11ac standards and support
+	  2SS to 866Mbit/s PHY rate.
+
+	  To compile this driver as a module, choose M here.
+
+config MT76x2U
+	tristate "MediaTek MT76x2U (USB) support"
+	select MT76x2_COMMON
+	select MT76x02_USB
+	depends on MAC80211
+	depends on USB
+	help
+	  This adds support for MT7612U-based wireless USB 3.0 dongles,
+	  which comply with IEEE 802.11ac standards and support 2SS to
+	  866Mbit/s PHY rate.
+
+	  To compile this driver as a module, choose M here.
+
+config MT7603E
+	tristate "MediaTek MT7603E (PCIe) and MT76x8 WLAN support"
+	select MT76_CORE
+	depends on MAC80211
+	depends on PCI
+	help
+	  This adds support for MT7603E wireless PCIe devices and the WLAN core
+	  on MT7628/MT7688 SoC devices. This family supports IEEE 802.11n 2x2
+	  to 300Mbps PHY rate
+
+	  To compile this driver as a module, choose M here.
+

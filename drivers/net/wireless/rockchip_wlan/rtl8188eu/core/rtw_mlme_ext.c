@@ -15100,7 +15100,7 @@ void rtw_join_done_chk_ch(_adapter *adapter, int join_res)
 
 		if (rtw_mi_get_ch_setting_union(adapter, &u_ch, &u_bw, &u_offset) <= 0) {
 			dump_adapters_status(RTW_DBGDUMP , dvobj);
-			rtw_warn_on(1);
+			//rtw_warn_on(1);
 		}
 
 		for (i = 0; i < dvobj->iface_nums; i++) {
