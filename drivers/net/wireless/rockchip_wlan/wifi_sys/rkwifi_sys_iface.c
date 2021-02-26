@@ -148,11 +148,6 @@ static ssize_t wifi_chip_read(struct class *cls, struct class_attribute *attr, c
 		printk("Current WiFi chip is RTL8723AS.\n");
 	}	
 	
-	if(type == WIFI_RTL8723BS_VQ0) {
-		count = sprintf(_buf, "%s", "RTL8723BS_VQ0");
-		printk("Current WiFi chip is RTL8723BS_VQ0.\n");
-	}		
-	
 	if(type == WIFI_RTL8723CS) {
 		count = sprintf(_buf, "%s", "RTL8723CS");
 		printk("Current WiFi chip is RTL8723CS.\n");

@@ -10,7 +10,6 @@ obj-$(CONFIG_RTL8192CU) += rtl8192cu/
 obj-$(CONFIG_RTL8192DU) += rtl8192du/
 obj-$(CONFIG_RTL8723AU) += rtl8723au/
 obj-$(CONFIG_RTL8723BS) += rtl8723bs/
-obj-$(CONFIG_RTL8723BS_VQ0) += rtl8723bs-vq0/
 obj-$(CONFIG_RTL8723BU) += rtl8723bu/
 obj-$(CONFIG_RTL8723CS)	+= rtl8723cs/
 obj-$(CONFIG_RTL8723DS) += rtl8723ds/
