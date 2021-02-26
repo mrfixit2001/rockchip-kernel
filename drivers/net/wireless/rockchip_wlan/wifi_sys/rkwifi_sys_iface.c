@@ -15,37 +15,52 @@ extern int get_wifi_chip_type(void);
 
 static ssize_t wifi_chip_read(struct class *cls, struct class_attribute *attr, char *_buf)
 {
-    int count = 0;
-    int type = get_wifi_chip_type();
+	int count = 0;
+	int type = get_wifi_chip_type();
+
+	if(type == WIFI_ESP8089) {
+		count = sprintf(_buf, "%s", "ESP8089");
+		printk("Current WiFi chip is ESP8089.\n");
+	}
 
 	if(type == WIFI_RK901) {
-	    count = sprintf(_buf, "%s", "APRK901");
-	    printk("Current WiFi chip is APRK901.\n");
+		count = sprintf(_buf, "%s", "APRK901");
+		printk("Current WiFi chip is APRK901.\n");
 	}
 
 	if(type == WIFI_RK903) {
-	    count = sprintf(_buf, "%s", "APRK903");
-	    printk("Current WiFi chip is APRK903.\n");
+		count = sprintf(_buf, "%s", "APRK903");
+		printk("Current WiFi chip is APRK903.\n");
 	}
-		
+
+	if(type == WIFI_AP6256) {
+		count = sprintf(_buf, "%s", "AP6256");
+		printk("Current WiFi chip is AP6256.\n");
+	}
+
+	if(type == WIFI_AP6359SA) {
+		count = sprintf(_buf, "%s", "AP6359SA");
+		printk("Current WiFi chip is AP6359SA.\n");
+	}
+
 	if(type == WIFI_AP6181) {
-	    count = sprintf(_buf, "%s", "AP6181");
-	    printk("Current WiFi chip is AP6181.\n");
+		count = sprintf(_buf, "%s", "AP6181");
+		printk("Current WiFi chip is AP6181.\n");
 	}
 
 	if(type == WIFI_AP6210) {
-	    count = sprintf(_buf, "%s", "AP6210");
-	    printk("Current WiFi chip is AP6210.\n");
+		count = sprintf(_buf, "%s", "AP6210");
+		printk("Current WiFi chip is AP6210.\n");
 	}
 
         if(type == WIFI_AP6212) {
-            count = sprintf(_buf, "%s", "AP6212");
-            printk("Current WiFi chip is AP6212.\n");
+		count = sprintf(_buf, "%s", "AP6212");
+		printk("Current WiFi chip is AP6212.\n");
         }
 	
 	if(type == WIFI_AP6234) {
-	    count = sprintf(_buf, "%s", "AP6234");
-	    printk("Current WiFi chip is AP6234.\n");
+		count = sprintf(_buf, "%s", "AP6234");
+		printk("Current WiFi chip is AP6234.\n");
 	}
 
 	if (type == WIFI_AP6255) {
@@ -54,95 +69,125 @@ static ssize_t wifi_chip_read(struct class *cls, struct class_attribute *attr, c
 	}
 
 	if(type == WIFI_AP6330) {
-	    count = sprintf(_buf, "%s", "AP6330");
-	    printk("Current WiFi chip is AP6330.\n");
+		count = sprintf(_buf, "%s", "AP6330");
+		printk("Current WiFi chip is AP6330.\n");
 	}
 	
 	if(type == WIFI_AP6335) {
-	    count = sprintf(_buf, "%s", "AP6335");
-	    printk("Current WiFi chip is AP6335.\n");
+		count = sprintf(_buf, "%s", "AP6335");
+		printk("Current WiFi chip is AP6335.\n");
 	}
 
         if(type == WIFI_AP6354) {
-            count = sprintf(_buf, "%s", "AP6354");
-            printk("Current WiFi chip is AP6354.\n");
+		count = sprintf(_buf, "%s", "AP6354");
+		printk("Current WiFi chip is AP6354.\n");
         }
 
 	if(type == WIFI_AP6441) {
-	    count = sprintf(_buf, "%s", "AP6441");
-	    printk("Current WiFi chip is AP6441.\n");
+		count = sprintf(_buf, "%s", "AP6441");
+		printk("Current WiFi chip is AP6441.\n");
 	}
 
 	if(type == WIFI_AP6476) {
-	    count = sprintf(_buf, "%s", "AP6476");
-	    printk("Current WiFi chip is AP6476.\n");
+		count = sprintf(_buf, "%s", "AP6476");
+		printk("Current WiFi chip is AP6476.\n");
 	}
 
 	if(type == WIFI_AP6493) {
-	    count = sprintf(_buf, "%s", "AP6493");
-	    printk("Current WiFi chip is AP6493.\n");
+		count = sprintf(_buf, "%s", "AP6493");
+		printk("Current WiFi chip is AP6493.\n");
+	}
+
+	if(type == WIFI_RTL8822BS) {
+		count = sprintf(_buf, "%s", "RTL8822BS");
+		printk("Current WiFi chip is RTL8822BS.\n");
+	}
+
+	if(type == WIFI_RTL8822BE) {
+		count = sprintf(_buf, "%s", "RTL8822BE");
+		printk("Current WiFi chip is RTL8822BE.\n");
+	}
+
+	if(type == WIFI_RTL8821CU) {
+		count = sprintf(_buf, "%s", "RTL8821CU");
+		printk("Current WiFi chip is RTL8821CU.\n");
+	}
+
+	if(type == WIFI_RTL8812AU) {
+		count = sprintf(_buf, "%s", "RTL8812AU");
+		printk("Current WiFi chip is RTL8812AU.\n");
+	}
+
+	if(type == WIFI_RTL8192DU) {
+		count = sprintf(_buf, "%s", "RTL8192DU");
+		printk("Current WiFi chip is RTL8192DU.\n");
+	}
+
+	if(type == WIFI_RTL8191CU) {
+		count = sprintf(_buf, "%s", "RTL8191CU");
+		printk("Current WiFi chip is RTL8191CU.\n");
+	}
+
+	if(type == WIFI_RTL8188FU) {
+		count = sprintf(_buf, "%s", "RTL8188FU");
+		printk("Current WiFi chip is RTL8188FU.\n");
 	}
 
 	if(type == WIFI_RTL8188EU) {
-	    count = sprintf(_buf, "%s", "RTL8188EU");
-	    printk("Current WiFi chip is RTL8188EU.\n");
+		count = sprintf(_buf, "%s", "RTL8188EU");
+		printk("Current WiFi chip is RTL8188EU.\n");
 	}
 	
 	if(type == WIFI_RTL8723BS) {
-	    count = sprintf(_buf, "%s", "RTL8723BS");
-	    printk("Current WiFi chip is RTL8723BS.\n");
+		count = sprintf(_buf, "%s", "RTL8723BS");
+		printk("Current WiFi chip is RTL8723BS.\n");
 	}
 
 	if(type == WIFI_RTL8723AS) {
-	    count = sprintf(_buf, "%s", "RTL8723AS");
-	    printk("Current WiFi chip is RTL8723AS.\n");
+		count = sprintf(_buf, "%s", "RTL8723AS");
+		printk("Current WiFi chip is RTL8723AS.\n");
 	}	
 	
 	if(type == WIFI_RTL8723BS_VQ0) {
-	    count = sprintf(_buf, "%s", "RTL8723BS_VQ0");
-	    printk("Current WiFi chip is RTL8723BS_VQ0.\n");
+		count = sprintf(_buf, "%s", "RTL8723BS_VQ0");
+		printk("Current WiFi chip is RTL8723BS_VQ0.\n");
 	}		
 	
 	if(type == WIFI_RTL8723CS) {
-	    count = sprintf(_buf, "%s", "RTL8723CS");
-	    printk("Current WiFi chip is RTL8723CS.\n");
+		count = sprintf(_buf, "%s", "RTL8723CS");
+		printk("Current WiFi chip is RTL8723CS.\n");
 	}
 
 	if(type == WIFI_RTL8723DS) {
-	    count = sprintf(_buf, "%s", "RTL8723DS");
-	    printk("Current WiFi chip is RTL8723DS.\n");
+		count = sprintf(_buf, "%s", "RTL8723DS");
+		printk("Current WiFi chip is RTL8723DS.\n");
 	}
 
 	if(type == WIFI_RTL8723BU) {
-	    count = sprintf(_buf, "%s", "RTL8723BU");
-	    printk("Current WiFi chip is RTL8723BU.\n");
+		count = sprintf(_buf, "%s", "RTL8723BU");
+		printk("Current WiFi chip is RTL8723BU.\n");
 	}
 
 	if(type == WIFI_RTL8723AU) {
-	    count = sprintf(_buf, "%s", "RTL8723AU");
-	    printk("Current WiFi chip is RTL8723AU.\n");
+		count = sprintf(_buf, "%s", "RTL8723AU");
+		printk("Current WiFi chip is RTL8723AU.\n");
 	}							
 
 	if(type == WIFI_RTL8189ES) {
-	    count = sprintf(_buf, "%s", "RTL8189ES");
-	    printk("Current WiFi chip is RTL8189ES.\n");
+		count = sprintf(_buf, "%s", "RTL8189ES");
+		printk("Current WiFi chip is RTL8189ES.\n");
 	}
 
         if(type == WIFI_RTL8189FS) {
-            count = sprintf(_buf, "%s", "RTL8189FS");
-            printk("Current WiFi chip is RTL8189FS.\n");
+		count = sprintf(_buf, "%s", "RTL8189FS");
+		printk("Current WiFi chip is RTL8189FS.\n");
         }
-
-	if(type == WIFI_ESP8089) {
-	    count = sprintf(_buf, "%s", "ESP8089");
-	    printk("Current WiFi chip is ESP8089.\n");
-	}
 
         if(type == WIFI_SSV6051) {
-            count = sprintf(_buf, "%s", "SSV6051");
-            printk("Current WiFi chip is SSV6051.\n");
+		count = sprintf(_buf, "%s", "SSV6051");
+		printk("Current WiFi chip is SSV6051.\n");
         }
-    return count;
+	return count;
 }
 
 static ssize_t wifi_power_write(struct class *cls, struct class_attribute *attr, const char *_buf, size_t _count)

@@ -1,0 +1,2 @@
+kernel/drivers/net/wireless/realtek/rtw88/rtw88.ko
+kernel/drivers/net/wireless/realtek/rtw88/rtwpci.ko

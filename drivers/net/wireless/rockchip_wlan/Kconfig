@@ -28,14 +28,15 @@ config WIFI_GENERATE_RANDOM_MAC_ADDR
 	help
 	  Wifi generate random mac address and save to vendor storage for cob chip
 
-source "drivers/net/wireless/rockchip_wlan/rkwifi/Kconfig"
-source "drivers/net/wireless/rockchip_wlan/cywdhd/Kconfig"
-source "drivers/net/wireless/rockchip_wlan/esp8089/Kconfig"
-
 menuconfig RTL_WIRELESS_SOLUTION
     bool "Realtek Wireless Device Driver Support"
     default y
 
+
+source "drivers/net/wireless/rockchip_wlan/rkwifi/Kconfig"
+source "drivers/net/wireless/rockchip_wlan/cywdhd/Kconfig"
+source "drivers/net/wireless/rockchip_wlan/esp8089/Kconfig"
+source "drivers/net/wireless/rockchip_wlan/mvl88w8977/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/rtl8188eu/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/rtl8188fu/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/rtl8189es/Kconfig"
@@ -52,7 +53,6 @@ source "drivers/net/wireless/rockchip_wlan/rtl8812au/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/rtl8821cu/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/rtl8822be/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/rtl8822bs/Kconfig"
-source "drivers/net/wireless/rockchip_wlan/mvl88w8977/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/ssv6xxx/Kconfig"
 
 endif # WL_ROCKCHIP
