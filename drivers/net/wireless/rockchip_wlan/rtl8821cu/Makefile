@@ -1589,7 +1589,7 @@ EXTRA_CFLAGS += -DCONFIG_IOCTL_CFG80211 -DRTW_USE_CFG80211_STA_EVENT
 ARCH := arm
 CROSS_COMPILE := /home/android_sdk/nvidia/tegra-16r3-partner-android-4.1_20120723/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-
 KSRC := /home/android_sdk/nvidia/tegra-16r3-partner-android-4.1_20120723/out/target/product/cardhu/obj/KERNEL
-MODULE_NAME := wlan
+MODULE_NAME := rtl8821cu
 endif
 
 ifeq ($(CONFIG_PLATFORM_TEGRA4_DALMORE), y)
@@ -1601,7 +1601,7 @@ EXTRA_CFLAGS += -DCONFIG_IOCTL_CFG80211 -DRTW_USE_CFG80211_STA_EVENT
 ARCH := arm
 CROSS_COMPILE := /home/android_sdk/nvidia/tegra-17r9-partner-android-4.2-dalmore_20130131/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
 KSRC := /home/android_sdk/nvidia/tegra-17r9-partner-android-4.2-dalmore_20130131/out/target/product/dalmore/obj/KERNEL
-MODULE_NAME := wlan
+MODULE_NAME := rtl8821cu
 endif
 
 ifeq ($(CONFIG_PLATFORM_ARM_TCC8900), y)
@@ -1609,7 +1609,7 @@ EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN
 ARCH := arm
 CROSS_COMPILE := /home/android_sdk/Telechips/SDK_2304_20110613/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-
 KSRC := /home/android_sdk/Telechips/SDK_2304_20110613/kernel
-MODULE_NAME := wlan
+MODULE_NAME := rtl8821cu
 endif
 
 ifeq ($(CONFIG_PLATFORM_ARM_TCC8920), y)
@@ -1617,7 +1617,7 @@ EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN
 ARCH := arm
 CROSS_COMPILE := /home/android_sdk/Telechips/v12.06_r1-tcc-android-4.0.4/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-
 KSRC := /home/android_sdk/Telechips/v12.06_r1-tcc-android-4.0.4/kernel
-MODULE_NAME := wlan
+MODULE_NAME := rtl8821cu
 endif
 
 ifeq ($(CONFIG_PLATFORM_ARM_TCC8920_JB42), y)
@@ -1628,7 +1628,7 @@ EXTRA_CFLAGS += -DCONFIG_IOCTL_CFG80211 -DRTW_USE_CFG80211_STA_EVENT
 ARCH := arm
 CROSS_COMPILE := /home/android_sdk/Telechips/v13.03_r1-tcc-android-4.2.2_ds_patched/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
 KSRC := /home/android_sdk/Telechips/v13.03_r1-tcc-android-4.2.2_ds_patched/kernel
-MODULE_NAME := wlan
+MODULE_NAME := rtl8821cu
 endif
 
 ifeq ($(CONFIG_PLATFORM_ARM_RK2818), y)
@@ -1636,7 +1636,7 @@ EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN -DCONFIG_PLATFORM_ANDROID -DCONFIG_PLATFO
 ARCH := arm
 CROSS_COMPILE := /usr/src/release_fae_version/toolchain/arm-eabi-4.4.0/bin/arm-eabi-
 KSRC := /usr/src/release_fae_version/kernel25_A7_281x
-MODULE_NAME := wlan
+MODULE_NAME := rtl8821cu
 endif
 
 ifeq ($(CONFIG_PLATFORM_ARM_RK3188), y)
@@ -1651,7 +1651,7 @@ EXTRA_CFLAGS += -DRTW_ENABLE_WIFI_CONTROL_FUNC
 ARCH := arm
 CROSS_COMPILE := /home/android_sdk/Rockchip/Rk3188/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
 KSRC := /home/android_sdk/Rockchip/Rk3188/kernel
-MODULE_NAME := wlan
+MODULE_NAME := rtl8821cu
 endif
 
 ifeq ($(CONFIG_PLATFORM_ARM_RK3066), y)
@@ -1676,7 +1676,7 @@ EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN #-DCONFIG_MINIMAL_MEMORY_USAGE
 ARCH := arm
 CROSS_COMPILE := /media/DATA-1/urbetter/arm-2009q3/bin/arm-none-linux-gnueabi-
 KSRC := /media/DATA-1/urbetter/ics-urbetter/kernel
-MODULE_NAME := wlan
+MODULE_NAME := rtl8821cu
 endif
 
 ifeq ($(CONFIG_PLATFORM_ARM_TI_PANDA), y)
@@ -1686,7 +1686,7 @@ ARCH := arm
 #KSRC := /media/DATA-1/aosp/android-omap-panda-3.0_20120104
 CROSS_COMPILE := /media/DATA-1/android-4.0/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-
 KSRC := /media/DATA-1/android-4.0/panda_kernel/omap
-MODULE_NAME := wlan
+MODULE_NAME := rtl8821cu
 endif
 
 ifeq ($(CONFIG_PLATFORM_MIPS_JZ4760), y)
@@ -2088,7 +2088,7 @@ EXTRA_CFLAGS += -DCONFIG_IOCTL_CFG80211 -DRTW_USE_CFG80211_STA_EVENT
 ARCH := arm
 CROSS_COMPILE := /home/android_sdk/Telechips/v13.05_r1-tcc-android-4.2.2_tcc893x-evm_build/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
 KSRC := /home/android_sdk/Telechips/v13.05_r1-tcc-android-4.2.2_tcc893x-evm_build/kernel
-MODULE_NAME := wlan
+MODULE_NAME := rtl8821cu
 endif
 
 ifeq ($(CONFIG_PLATFORM_RTL8197D), y)

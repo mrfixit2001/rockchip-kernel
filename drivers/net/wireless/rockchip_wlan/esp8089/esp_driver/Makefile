@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 # copyright (c) 2011 - 2012 espressif system
-DRIVER_NAME := wlan
+DRIVER_NAME := es8089
 include drivers/net/wireless/rockchip_wlan/esp8089/esp_driver/esp_config.mk
 
 EXTRA_CFLAGS += -DDEBUG -DSIP_DEBUG -DFAST_TX_STATUS -DKERNEL_IV_WAR -DRX_SENDUP_SYNC -DHAS_FW -DTEST_MODE -DESP_ANDROID_LOGGER  -DESP_CLASS -DESP_PREALLOC -DHAS_INIT_DATA
