@@ -589,7 +589,10 @@ static irqreturn_t rk_iommu_irq(int irq, void *dev_id)
 	u32 int_status;
 	dma_addr_t iova;
 	irqreturn_t ret = IRQ_NONE;
-	int i;
+	int i, err = pm_runtime_get_if_in_use(iommu->dev);
+
+	if(!err || WARN_ON_ONCE(err < 0))
+		return ret;
 
 	rk_iommu_power_on(iommu);
 
@@ -679,9 +682,14 @@ static void rk_iommu_zap_iova(struct rk_iommu_domain *rk_domain,
 	/* shootdown these iova from all iommus using this domain */
 	mutex_lock(&rk_domain->iommus_lock);
 	list_for_each(pos, &rk_domain->iommus) {
-		struct rk_iommu *iommu;
-		iommu = list_entry(pos, struct rk_iommu, node);
-		rk_iommu_zap_lines(iommu, iova, size);
+		struct rk_iommu *iommu = list_entry(pos, struct rk_iommu, node);
+		int ret = pm_runtime_get_if_in_use(iommu->dev);
+
+		/* Only zap TLBs of IOMMUs that are powered on. */
+		if (WARN_ON_ONCE(ret < 0))
+			continue;
+		if (ret)
+			rk_iommu_zap_lines(iommu, iova, size);
 	}
 	mutex_unlock(&rk_domain->iommus_lock);
 }
@@ -969,7 +977,7 @@ static int rk_iommu_attach_device(struct iommu_domain *domain,
 {
 	struct rk_iommu *iommu;
 	struct rk_iommu_domain *rk_domain = to_rk_domain(domain);
-	int ret, i;
+	int ret=0, i;
 
 	/*
 	 * Allow 'virtual devices' (e.g., drm) to attach to domain.
@@ -994,7 +1002,7 @@ static int rk_iommu_attach_device(struct iommu_domain *domain,
 
 	ret = rk_iommu_force_reset(iommu);
 	if (ret)
-		return ret;
+		goto out_disable_stall;
 
 	iommu->domain = domain;
 
@@ -1005,7 +1013,7 @@ static int rk_iommu_attach_device(struct iommu_domain *domain,
 		ret = devm_request_irq(iommu->dev, iommu->irq[i], rk_iommu_irq,
 			       IRQF_SHARED, dev_name(dev), iommu);
 		if (ret)
-			return ret;
+			goto out_disable_stall;
 	}
 
 skip_request_irq:
@@ -1018,7 +1026,7 @@ skip_request_irq:
 
 	ret = rk_iommu_enable_paging(iommu);
 	if (ret)
-		return ret;
+		goto out_disable_stall;
 
 	mutex_lock(&rk_domain->iommus_lock);
 	list_add_tail(&iommu->node, &rk_domain->iommus);
@@ -1026,9 +1034,10 @@ skip_request_irq:
 
 	dev_dbg(dev, "Attached to iommu domain\n");
 
+out_disable_stall:
 	rk_iommu_disable_stall(iommu);
 
-	return 0;
+	return ret;
 }
 
 static void rk_iommu_detach_device(struct iommu_domain *domain,
@@ -1340,22 +1349,6 @@ static int rk_iommu_probe(struct platform_device *pdev)
 	if (iommu->num_mmu == 0)
 		return PTR_ERR(iommu->bases[0]);
 
-	while (platform_get_irq(pdev, iommu->num_irq) >= 0)
-		iommu->num_irq++;
-
-	iommu->irq = devm_kzalloc(dev, sizeof(*iommu->irq) * iommu->num_irq,
-				  GFP_KERNEL);
-	if (!iommu->irq)
-		return -ENOMEM;
-
-	for (i = 0; i < iommu->num_irq; i++) {
-		iommu->irq[i] = platform_get_irq(pdev, i);
-		if (iommu->irq[i] < 0) {
-			dev_err(dev, "Failed to get IRQ, %d\n", iommu->irq[i]);
-			return -ENXIO;
-		}
-	}
-
 	iommu->reset_disabled = device_property_read_bool(dev,
 				"rk_iommu,disable_reset_quirk");
 
@@ -1393,6 +1386,22 @@ static int rk_iommu_probe(struct platform_device *pdev)
 		clk_prepare(iommu->sclk);
 
 	pm_runtime_enable(iommu->dev);
+
+	while (platform_get_irq(pdev, iommu->num_irq) >= 0)
+		iommu->num_irq++;
+
+	iommu->irq = devm_kzalloc(dev, sizeof(*iommu->irq) * iommu->num_irq,
+				  GFP_KERNEL);
+	if (!iommu->irq)
+		return -ENOMEM;
+
+	for (i = 0; i < iommu->num_irq; i++) {
+		iommu->irq[i] = platform_get_irq(pdev, i);
+		if (iommu->irq[i] < 0) {
+			dev_err(dev, "Failed to get IRQ, %d\n", iommu->irq[i]);
+			return -ENXIO;
+		}
+	}
 
 	pm_runtime_get_sync(iommu->dev);
 	list_add(&iommu->dev_node, &iommu_dev_list);
