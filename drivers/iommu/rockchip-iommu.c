@@ -97,6 +97,8 @@ struct rk_iommu {
 	struct device *dev;
 	void __iomem **bases;
 	int num_mmu;
+	int *irq;
+	int num_irq;
 	bool reset_disabled; /* isp iommu reset operation would failed */
 	bool skip_read;	     /* rk3126/rk3128 can't read vop iommu registers */
 	struct list_head node; /* entry in rk_iommu_domain.iommus */
@@ -996,6 +998,17 @@ static int rk_iommu_attach_device(struct iommu_domain *domain,
 
 	iommu->domain = domain;
 
+	if (iommu->skip_read)
+		goto skip_request_irq;
+
+	for (i = 0; i < iommu->num_irq; i++) {
+		ret = devm_request_irq(iommu->dev, iommu->irq[i], rk_iommu_irq,
+			       IRQF_SHARED, dev_name(dev), iommu);
+		if (ret)
+			return ret;
+	}
+
+skip_request_irq:
 	for (i = 0; i < iommu->num_mmu; i++) {
 		rk_iommu_write(iommu->bases[i], RK_MMU_DTE_ADDR,
 			       rk_domain->dt_dma);
@@ -1048,6 +1061,13 @@ static void rk_iommu_detach_device(struct iommu_domain *domain,
 	}
 	rk_iommu_disable_stall(iommu);
 
+	if (iommu->skip_read)
+		goto read_wa;
+
+	for (i = 0; i < iommu->num_irq; i++)
+		devm_free_irq(iommu->dev, iommu->irq[i], iommu);
+
+read_wa:
 	iommu->domain = NULL;
 
 	rk_iommu_power_off(iommu);
@@ -1293,7 +1313,7 @@ static int rk_iommu_probe(struct platform_device *pdev)
 	struct rk_iommu *iommu;
 	struct resource *res;
 	int num_res = pdev->num_resources;
-	int i, irq, err = 0;
+	int i;
 
 	iommu = devm_kzalloc(dev, sizeof(*iommu), GFP_KERNEL);
 	if (!iommu)
@@ -1319,6 +1339,22 @@ static int rk_iommu_probe(struct platform_device *pdev)
 	}
 	if (iommu->num_mmu == 0)
 		return PTR_ERR(iommu->bases[0]);
+
+	while (platform_get_irq(pdev, iommu->num_irq) >= 0)
+		iommu->num_irq++;
+
+	iommu->irq = devm_kzalloc(dev, sizeof(*iommu->irq) * iommu->num_irq,
+				  GFP_KERNEL);
+	if (!iommu->irq)
+		return -ENOMEM;
+
+	for (i = 0; i < iommu->num_irq; i++) {
+		iommu->irq[i] = platform_get_irq(pdev, i);
+		if (iommu->irq[i] < 0) {
+			dev_err(dev, "Failed to get IRQ, %d\n", iommu->irq[i]);
+			return -ENXIO;
+		}
+	}
 
 	iommu->reset_disabled = device_property_read_bool(dev,
 				"rk_iommu,disable_reset_quirk");
@@ -1358,36 +1394,10 @@ static int rk_iommu_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(iommu->dev);
 
-	i = 0;
-	while ((irq = platform_get_irq(pdev, i++)) != -ENXIO) {
-		if (irq < 0) {
-			err = irq;
-			goto err_unprepare_clocks;
-		}
-
-		err = devm_request_irq(iommu->dev, irq, rk_iommu_irq,
-				       IRQF_SHARED, dev_name(dev), iommu);
-		if (err) {
-			pm_runtime_disable(dev);
-			goto err_unprepare_clocks;
-		}
-	}
-
 	pm_runtime_get_sync(iommu->dev);
 	list_add(&iommu->dev_node, &iommu_dev_list);
 
 	return 0;
-
-err_unprepare_clocks:
-	if (iommu->aclk && iommu->hclk) {
-		clk_unprepare(iommu->aclk);
-		clk_unprepare(iommu->hclk);
-	}
-
-	if (iommu->sclk)
-		clk_unprepare(iommu->sclk);
-
-	return err;
 }
 
 static int rk_iommu_remove(struct platform_device *pdev)

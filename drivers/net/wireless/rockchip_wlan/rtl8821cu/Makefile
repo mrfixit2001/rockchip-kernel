@@ -2161,10 +2161,6 @@ endif
 
 endif
 
-ifeq ($(ARCH), arm)
-EXTRA_CFLAGS += -mfloat-abi=hard
-endif
-
 ifeq ($(CONFIG_MULTIDRV), y)
 
 ifeq ($(CONFIG_SDIO_HCI), y)
