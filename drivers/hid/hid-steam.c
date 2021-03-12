@@ -53,6 +53,7 @@ static DEFINE_MUTEX(steam_devices_lock);
 static LIST_HEAD(steam_devices);
 
 #define STEAM_QUIRK_WIRELESS		BIT(0)
+#define STEAM_QUIRK_BLUETOOTH		BIT(1)
 
 /* Touch pads are 40 mm in diameter and 65535 units */
 #define STEAM_PAD_RESOLUTION 1638
@@ -403,7 +404,7 @@ static int steam_input_register(struct steam_device *steam)
 	input->open = steam_input_open;
 	input->close = steam_input_close;
 
-	input->name = (steam->quirks & STEAM_QUIRK_WIRELESS) ?
+	input->name = (steam->quirks & (STEAM_QUIRK_WIRELESS | STEAM_QUIRK_BLUETOOTH)) ?
 		"Wireless Steam Controller" :
 		"Steam Controller";
 	input->phys = hdev->phys;
@@ -768,11 +769,15 @@ static int steam_probe(struct hid_device *hdev,
 		goto hid_hw_open_fail;
 	}
 
-	if (steam->quirks & STEAM_QUIRK_WIRELESS) {
+	if (steam->quirks & STEAM_QUIRK_BLUETOOTH) {
+		hid_info(hdev, "Steam bluetooth controller connected");
+	} else (steam->quirks & STEAM_QUIRK_WIRELESS) {
 		hid_info(hdev, "Steam wireless receiver connected");
-		/* If using a wireless adaptor ask for connection status */
-		steam->connected = false;
-		steam_request_conn_status(steam);
+		if (steam->quirks & STEAM_QUIRK_WIRELESS) {
+			/* If using a wireless adaptor ask for connection status */
+			steam->connected = false;
+			steam_request_conn_status(steam);
+		}
 	} else {
 		/* A wired connection is always present */
 		steam->connected = true;
@@ -815,6 +820,9 @@ static void steam_remove(struct hid_device *hdev)
 	cancel_work_sync(&steam->work_connect);
 	if (steam->quirks & STEAM_QUIRK_WIRELESS) {
 		hid_info(hdev, "Steam wireless receiver disconnected");
+	}
+	if (steam->quirks & STEAM_QUIRK_BLUETOOTH) {
+		hid_info(hdev, "Steam bluetooth controller disconnected");
 	}
 	hid_hw_close(hdev);
 	hid_hw_stop(hdev);
@@ -1125,6 +1133,11 @@ static const struct hid_device_id steam_controllers[] = {
 	{ /* Wired Steam Controller */
 	  HID_USB_DEVICE(USB_VENDOR_ID_VALVE,
 		USB_DEVICE_ID_STEAM_CONTROLLER)
+	},
+	{ /* Bluetooth Steam Controller */ 
+	  HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_VALVE, 
+		USB_DEVICE_ID_STEAM_CONTROLLER_BLUETOOTH),
+	  .driver_data = STEAM_QUIRK_BLUETOOTH
 	},
 	{ /* Wireless Steam Controller */
 	  HID_USB_DEVICE(USB_VENDOR_ID_VALVE,
