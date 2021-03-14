@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * X-Box gamepad driver
  *
@@ -10,21 +11,6 @@
  *               2006 Adam Buchbinder <adam.buchbinder@gmail.com>
  *               2007 Jan Kratochvil <honza@jikos.cz>
  *               2010 Christoph Fritz <chf.fritz@googlemail.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
  *
  * This driver is based on:
  *  - information from     http://euc.jp/periphs/xbox-controller.ja.html
@@ -84,12 +70,7 @@
 #include <linux/usb/input.h>
 #include <linux/usb/quirks.h>
 
-#define DRIVER_AUTHOR "Marko Friedemann <mfr@bmx-chemnitz.de>"
-#define DRIVER_DESC "X-Box pad driver"
-
 #define XPAD_PKT_LEN 64
-
-#define CONFIG_JOYSTICK_XPAD_LEDS 1
 
 /*
  * xbox d-pads should map to buttons, as is required for DDR pads
@@ -324,6 +305,7 @@ static const struct xpad_device {
 	{ 0x1bad, 0xfd00, "Razer Onza TE", 0, XTYPE_XBOX360 },
 	{ 0x1bad, 0xfd01, "Razer Onza", 0, XTYPE_XBOX360 },
 	{ 0x20d6, 0x2001, "BDA Xbox Series X Wired Controller", 0, XTYPE_XBOXONE },
+	{ 0x20d6, 0x2009, "PowerA Enhanced Wired Controller for Xbox Series X|S", 0, XTYPE_XBOXONE },
 	{ 0x20d6, 0x281f, "PowerA Wired Controller For Xbox 360", 0, XTYPE_XBOX360 },
 	{ 0x2e24, 0x0652, "Hyperkin Duke X-Box One pad", 0, XTYPE_XBOXONE },
 	{ 0x24c6, 0x5000, "Razer Atrox Arcade Stick", MAP_TRIGGERS_TO_BUTTONS, XTYPE_XBOX360 },
@@ -1373,7 +1355,7 @@ struct xpad_led {
 	struct usb_xpad *xpad;
 };
 
-/**
+/*
  * set the LEDs on Xbox360 / Wireless Controllers
  * @param command
  *  0: off
@@ -1803,12 +1785,11 @@ static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id
 
 		if (dpad_to_buttons)
 			xpad->mapping |= MAP_DPAD_TO_BUTTONS;
+		if (triggers_to_buttons)
+			xpad->mapping |= MAP_TRIGGERS_TO_BUTTONS;
 		if (sticks_to_null)
 			xpad->mapping |= MAP_STICKS_TO_NULL;
 	}
-
-	if (triggers_to_buttons)
-		xpad->mapping |= MAP_TRIGGERS_TO_BUTTONS;
 
 	if (xpad->xtype == XTYPE_XBOXONE &&
 	    intf->cur_altsetting->desc.bInterfaceNumber != 0) {
@@ -1987,6 +1968,6 @@ static struct usb_driver xpad_driver = {
 
 module_usb_driver(xpad_driver);
 
-MODULE_AUTHOR(DRIVER_AUTHOR);
-MODULE_DESCRIPTION(DRIVER_DESC);
+MODULE_AUTHOR("Marko Friedemann <mfr@bmx-chemnitz.de>");
+MODULE_DESCRIPTION("X-Box pad driver");
 MODULE_LICENSE("GPL");
