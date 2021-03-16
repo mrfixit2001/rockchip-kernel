@@ -95,6 +95,7 @@ static LIST_HEAD(steam_devices);
 #define STEAM_REG_GYRO_MODE		0x30
 
 /* Raw event identifiers */
+#define STEAM_EV_INPUT_DATA_BT		0x00
 #define STEAM_EV_INPUT_DATA		0x01
 #define STEAM_EV_CONNECT		0x03
 #define STEAM_EV_BATTERY		0x04
@@ -125,17 +126,40 @@ struct steam_device {
 	struct power_supply __rcu *battery;
 	u8 battery_charge;
 	u16 voltage;
+
+	struct timer_list bt_heartbeat_monitor;
+	unsigned long bt_last_heartbeat;
 };
 
-static int steam_recv_report(struct steam_device *steam,
-		u8 *data, int size)
+static int steam_recv_report(struct steam_device *steam, u8 *data, int size)
 {
 	struct hid_report *r;
 	u8 *buf;
 	int ret;
+	unsigned j;
+	u32 len;
 
-	r = steam->hdev->report_enum[HID_FEATURE_REPORT].report_id_hash[0];
-	if (hid_report_len(r) < 64)
+	if(steam->quirks & STEAM_QUIRK_BLUETOOTH) {
+		// Search for the feature report
+		struct hid_report_enum *report_enum = steam->hdev->report_enum + HID_FEATURE_REPORT;
+		for (j = 0; j < HID_MAX_IDS; j++) {
+			struct hid_report *report = report_enum->report_id_hash[j];
+			if (report) {
+				r = report;
+				break;
+			}
+		}
+	} else {
+		r = steam->hdev->report_enum[HID_FEATURE_REPORT].report_id_hash[0];
+	}
+	if (r == NULL) {
+		hid_info(steam->hdev, "%s: error unable to locate HID_FEATURE_REPORT\n", __func__);
+		return -EINVAL;
+	}
+
+	// bluetooth len = 20
+	len = hid_report_len(r);
+	if (len < 64 && !(steam->quirks & STEAM_QUIRK_BLUETOOTH))
 		return -EINVAL;
 
 	buf = hid_alloc_report_buf(r, GFP_KERNEL);
@@ -148,8 +172,8 @@ static int steam_recv_report(struct steam_device *steam,
 	 * or else we get a EOVERFLOW. We are safe from a buffer overflow
 	 * because hid_alloc_report_buf() allocates +7 bytes.
 	 */
-	ret = hid_hw_raw_request(steam->hdev, 0x00,
-			buf, hid_report_len(r) + 1,
+	ret = hid_hw_raw_request(steam->hdev, r->id,
+			buf, len + 1,
 			HID_FEATURE_REPORT, HID_REQ_GET_REPORT);
 	if (ret > 0)
 		memcpy(data, buf + 1, min(size, ret - 1));
@@ -157,23 +181,43 @@ static int steam_recv_report(struct steam_device *steam,
 	return ret;
 }
 
-static int steam_send_report(struct steam_device *steam,
-		u8 *cmd, int size)
+static int steam_send_report(struct steam_device *steam, u8 *cmd, int size)
 {
 	struct hid_report *r;
-	u8 *buf;
+	__u8 *buf;
 	unsigned int retries = 50;
 	int ret;
+	unsigned j;
+	u32 len;
 
-	r = steam->hdev->report_enum[HID_FEATURE_REPORT].report_id_hash[0];
-	if (hid_report_len(r) < 64)
+	if(steam->quirks & STEAM_QUIRK_BLUETOOTH) {
+		// Search for the feature report - might be able to use this for non-bluetooth too
+		struct hid_report_enum *report_enum = steam->hdev->report_enum + HID_FEATURE_REPORT;
+		for (j = 0; j < HID_MAX_IDS; j++) {
+			struct hid_report *report = report_enum->report_id_hash[j];
+			if (report) {
+				r = report;
+				break;
+			}
+		}
+	} else {
+		r = steam->hdev->report_enum[HID_FEATURE_REPORT].report_id_hash[0];
+	}
+	if (r == NULL) {
+		hid_info(steam->hdev, "%s: error unable to locate HID_FEATURE_REPORT\n", __func__);
+		return -EINVAL;
+	}
+
+	// bluetooth len = 20
+	len = hid_report_len(r);
+	//hid_info(steam->hdev, "%s: len is %u and size is %u\n", __func__, len, size);
+	if (len < 64 && !(steam->quirks & STEAM_QUIRK_BLUETOOTH))
 		return -EINVAL;
 
 	buf = hid_alloc_report_buf(r, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
-	/* The report ID is always 0 */
 	memcpy(buf + 1, cmd, size);
 
 	/*
@@ -183,7 +227,7 @@ static int steam_send_report(struct steam_device *steam,
 	 * seems to fix that.
 	 */
 	do {
-		ret = hid_hw_raw_request(steam->hdev, 0,
+		ret = hid_hw_raw_request(steam->hdev, r->id,
 				buf, size + 1,
 				HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
 		if (ret != -EPIPE)
@@ -192,9 +236,11 @@ static int steam_send_report(struct steam_device *steam,
 	} while (--retries);
 
 	kfree(buf);
-	if (ret < 0)
+	if (ret < 0) {
 		hid_err(steam->hdev, "%s: error %d (%*ph)\n", __func__,
 				ret, size, cmd);
+	}
+
 	return ret;
 }
 
@@ -264,6 +310,7 @@ static inline int steam_request_conn_status(struct steam_device *steam)
 static void steam_set_lizard_mode(struct steam_device *steam, bool enable)
 {
 	if (enable) {
+		hid_info(steam->hdev, "Lizard Mode Enabled\n");
 		/* enable esc, enter, cursors */
 		steam_send_report_byte(steam, STEAM_CMD_DEFAULT_MAPPINGS);
 		/* enable mouse */
@@ -272,6 +319,7 @@ static void steam_set_lizard_mode(struct steam_device *steam, bool enable)
 			STEAM_REG_RPAD_MARGIN, 0x01, /* enable margin */
 			0);
 	} else {
+		hid_info(steam->hdev, "Lizard Mode Disabled\n");
 		/* disable esc, enter, cursor */
 		steam_send_report_byte(steam, STEAM_CMD_CLEAR_MAPPINGS);
 		steam_write_registers(steam,
@@ -514,9 +562,24 @@ static int steam_register(struct steam_device *steam)
 		 * important, so make up a serial number and go on.
 		 */
 		mutex_lock(&steam->mutex);
-		if (steam_get_serial(steam) < 0)
-			strlcpy(steam->serial_no, "XXXXXXXXXX",
+		if (steam_get_serial(steam) < 0) {
+			if ((steam->quirks & STEAM_QUIRK_BLUETOOTH) && (sizeof(steam->hdev->uniq) > 11)) {
+				/* HIDP stores the device MAC address as a string in the uniq field. */
+				steam->serial_no[0] = steam->hdev->uniq[0];
+				steam->serial_no[1] = steam->hdev->uniq[1];
+				steam->serial_no[2] = steam->hdev->uniq[3];
+				steam->serial_no[3] = steam->hdev->uniq[4];
+				steam->serial_no[4] = steam->hdev->uniq[6];
+				steam->serial_no[5] = steam->hdev->uniq[7];
+				steam->serial_no[6] = steam->hdev->uniq[9];
+				steam->serial_no[7] = steam->hdev->uniq[10];
+				steam->serial_no[8] = steam->hdev->uniq[12];
+				steam->serial_no[9] = steam->hdev->uniq[13];
+			} else {
+				strlcpy(steam->serial_no, "XXXXXXXXXX",
 					sizeof(steam->serial_no));
+			}
+		}
 		mutex_unlock(&steam->mutex);
 
 		hid_info(steam->hdev, "Steam Controller '%s' connected",
@@ -624,11 +687,12 @@ static int steam_client_ll_open(struct hid_device *hdev)
 {
 	struct steam_device *steam = hdev->driver_data;
 
-	mutex_lock(&steam->mutex);
-	steam->client_opened = true;
-	mutex_unlock(&steam->mutex);
-
-	steam_input_unregister(steam);
+	if(steam->client_hdev) {
+		mutex_lock(&steam->mutex);
+		steam->client_opened = true;
+		mutex_unlock(&steam->mutex);
+		steam_input_unregister(steam);
+	}
 
 	return 0;
 }
@@ -640,18 +704,19 @@ static void steam_client_ll_close(struct hid_device *hdev)
 	unsigned long flags;
 	bool connected;
 
-	spin_lock_irqsave(&steam->lock, flags);
-	connected = steam->connected;
-	spin_unlock_irqrestore(&steam->lock, flags);
+	if(steam->client_hdev) {
+		spin_lock_irqsave(&steam->lock, flags);
+		connected = steam->connected;
+		spin_unlock_irqrestore(&steam->lock, flags);
 
-	mutex_lock(&steam->mutex);
-	steam->client_opened = false;
-	if (connected)
-		steam_set_lizard_mode(steam, lizard_mode);
-	mutex_unlock(&steam->mutex);
-
-	if (connected)
-		steam_input_register(steam);
+		mutex_lock(&steam->mutex);
+		steam->client_opened = false;
+		if (connected)
+			steam_set_lizard_mode(steam, lizard_mode);
+		mutex_unlock(&steam->mutex);
+		if (connected)
+			steam_input_register(steam);
+	}
 }
 
 static int steam_client_ll_raw_request(struct hid_device *hdev,
@@ -703,6 +768,122 @@ static struct hid_device *steam_create_client_hid(struct hid_device *hdev)
 	return client_hdev;
 }
 
+static void steam_remove(struct hid_device *hdev)
+{
+	struct steam_device *steam = hid_get_drvdata(hdev);
+
+	//if (steam->quirks & STEAM_QUIRK_BLUETOOTH)
+	//	del_timer_sync(&steam->bt_heartbeat_monitor);
+
+	if (!steam || hdev->group == HID_GROUP_STEAM) {
+		hid_hw_stop(hdev);
+		return;
+	}
+	if(steam->client_hdev) {
+		hid_destroy_device(steam->client_hdev);
+		steam->client_opened = false;
+		cancel_work_sync(&steam->work_connect);
+	}
+	if (steam->quirks & STEAM_QUIRK_WIRELESS) {
+		hid_info(hdev, "Steam wireless receiver disconnected");
+	}
+	if (steam->quirks & STEAM_QUIRK_BLUETOOTH) {
+		hid_info(hdev, "Steam bluetooth controller disconnected");
+		hid_hw_stop(hdev);
+		if(steam->connected) {
+			steam_unregister(steam);
+		}
+	} else {
+		hid_hw_close(hdev);
+		hid_hw_stop(hdev);
+		steam_unregister(steam);
+	}
+	//kfree(steam);
+}
+
+static void steam_bt_hbmon(struct timer_list *t)
+{
+	struct steam_device *steam = from_timer(steam, t, bt_heartbeat_monitor);
+
+	if(!steam)
+		return;
+
+	if(steam->bt_last_heartbeat < (jiffies - 10*HZ)) {
+		//hid_hw_stop(steam->hdev);
+		steam_unregister(steam);
+	} else {
+		mod_timer(&steam->bt_heartbeat_monitor, jiffies + 10*HZ);
+	}
+}
+
+static void steam_do_connect_event(struct steam_device *steam, bool connected)
+{
+	unsigned long flags;
+	bool changed;
+
+	spin_lock_irqsave(&steam->lock, flags);
+	changed = steam->connected != connected;
+	steam->connected = connected;
+	spin_unlock_irqrestore(&steam->lock, flags);
+
+	if (changed && schedule_work(&steam->work_connect) == 0)
+		dbg_hid("%s: connected=%d event already queued\n",
+				__func__, connected);
+}
+
+static int steam_bt_probe(struct steam_device *steam)
+{
+	struct hid_device *hdev = steam->hdev;
+	int ret;
+
+	// Bluetooth - don't use lizard mode
+	lizard_mode = false;
+
+	INIT_LIST_HEAD(&steam->list);
+
+	// No need to complicate things, avoid a client_hdev for BT connection and bind directly to hdev
+	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT & ~HID_CONNECT_HIDRAW);
+	if (ret)
+		goto hid_hw_start_fail;
+
+	// We should only need to open the device if we need battery info, for now let's not worry about the battery
+	/*ret = hid_hw_open(hdev);
+	if (ret) {
+		hid_err(hdev,
+			"%s:hid_hw_open\n",
+			__func__);
+		goto hid_hw_open_fail;
+	}*/
+
+	hid_info(hdev, "Steam bluetooth controller connected");
+	steam->connected = true;
+	ret = steam_register(steam);
+	if (ret) {
+		hid_err(hdev,
+			"%s:steam_register failed with error %d\n",
+			__func__, ret);
+		goto input_register_fail;
+	}
+
+	// THIS DOES NOT WORK :( Bluetooth must use different registers, gamepad stuck in mouse and keyboard
+	// disable esc, enter, cursor, mouse, and margin (so all gamepad features work)
+	steam_set_lizard_mode(steam, false);
+
+	// Setup heartbeat timer to auto-disconnect after 10 seconds of inactivity
+	// This isn't working yet because I need to find a way to remove the device outside of the timer, causing panics
+	//timer_setup(&steam->bt_heartbeat_monitor, steam_bt_hbmon, 0);
+	//mod_timer(&steam->bt_heartbeat_monitor, jiffies + 10*HZ);
+
+	return 0;
+
+input_register_fail:
+	steam->connected = false;
+hid_hw_start_fail:
+	hid_err(hdev, "%s: failed with error %d\n",
+			__func__, ret);
+	return ret;
+}
+
 static int steam_probe(struct hid_device *hdev,
 				const struct hid_device_id *id)
 {
@@ -722,6 +903,7 @@ static int steam_probe(struct hid_device *hdev,
 	 */
 	if (hdev->group == HID_GROUP_STEAM)
 		return hid_hw_start(hdev, HID_CONNECT_HIDRAW);
+
 	/*
 	 * The non-valve interfaces (mouse and keyboard emulation) are
 	 * connected without changes.
@@ -739,6 +921,10 @@ static int steam_probe(struct hid_device *hdev,
 	spin_lock_init(&steam->lock);
 	mutex_init(&steam->mutex);
 	steam->quirks = id->driver_data;
+
+	if (steam->quirks & STEAM_QUIRK_BLUETOOTH)
+		return steam_bt_probe(steam);
+
 	INIT_WORK(&steam->work_connect, steam_work_connect_cb);
 	INIT_LIST_HEAD(&steam->list);
 
@@ -769,15 +955,11 @@ static int steam_probe(struct hid_device *hdev,
 		goto hid_hw_open_fail;
 	}
 
-	if (steam->quirks & STEAM_QUIRK_BLUETOOTH) {
-		hid_info(hdev, "Steam bluetooth controller connected");
-	} else (steam->quirks & STEAM_QUIRK_WIRELESS) {
+	if (steam->quirks & STEAM_QUIRK_WIRELESS) {
 		hid_info(hdev, "Steam wireless receiver connected");
-		if (steam->quirks & STEAM_QUIRK_WIRELESS) {
-			/* If using a wireless adaptor ask for connection status */
-			steam->connected = false;
-			steam_request_conn_status(steam);
-		}
+		/* If using a wireless adaptor ask for connection status */
+		steam->connected = false;
+		steam_request_conn_status(steam);
 	} else {
 		/* A wired connection is always present */
 		steam->connected = true;
@@ -804,44 +986,6 @@ steam_alloc_fail:
 	hid_err(hdev, "%s: failed with error %d\n",
 			__func__, ret);
 	return ret;
-}
-
-static void steam_remove(struct hid_device *hdev)
-{
-	struct steam_device *steam = hid_get_drvdata(hdev);
-
-	if (!steam || hdev->group == HID_GROUP_STEAM) {
-		hid_hw_stop(hdev);
-		return;
-	}
-
-	hid_destroy_device(steam->client_hdev);
-	steam->client_opened = false;
-	cancel_work_sync(&steam->work_connect);
-	if (steam->quirks & STEAM_QUIRK_WIRELESS) {
-		hid_info(hdev, "Steam wireless receiver disconnected");
-	}
-	if (steam->quirks & STEAM_QUIRK_BLUETOOTH) {
-		hid_info(hdev, "Steam bluetooth controller disconnected");
-	}
-	hid_hw_close(hdev);
-	hid_hw_stop(hdev);
-	steam_unregister(steam);
-}
-
-static void steam_do_connect_event(struct steam_device *steam, bool connected)
-{
-	unsigned long flags;
-	bool changed;
-
-	spin_lock_irqsave(&steam->lock, flags);
-	changed = steam->connected != connected;
-	steam->connected = connected;
-	spin_unlock_irqrestore(&steam->lock, flags);
-
-	if (changed && schedule_work(&steam->work_connect) == 0)
-		dbg_hid("%s: connected=%d event already queued\n",
-				__func__, connected);
 }
 
 /*
@@ -1022,6 +1166,126 @@ static void steam_do_battery_event(struct steam_device *steam,
 	rcu_read_unlock();
 }
 
+static void steam_do_bt_input_event(struct steam_device *steam,
+		struct input_dev *input, u8 *data)
+{
+	int i, btns[] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
+
+	// TR2 and TL2 are currently emulating as mouse buttons
+	input_event(input, EV_KEY, BTN_TR2, (data[0]==1 && data[1]==1));
+	input_event(input, EV_KEY, BTN_TL2, (data[0]==1 && data[1]==2));
+
+	//data[3-8]: - supports 6 button codes at once
+	for (i = 3; i < 9; i++) {
+		switch (data[i]) {
+/*
+		// same codes at dpad :(
+		case 0x52: // hat-up
+			btns[0]=1;
+			break;
+		case 0x51: // hat-down
+			btns[1]=1;
+			break;
+		case 0x50: // hat-left
+			btns[2]=1;
+			break;
+		case 0x4f: // hat-right
+			btns[3]=1;
+			break;
+*/
+
+		case 0x2c: // l1
+			btns[4]=1;
+			break;
+		case 0x42: // r1
+			btns[5]=1;
+			break;
+		case 0x29: // start
+			btns[6]=1;
+			break;
+		case 0x2b: // select
+			btns[7]=1;
+			break;
+		case 0x28: // a
+			btns[8]=1;
+			break;
+/*		// Same code as start btn :(	
+		case 0x29: // b
+			btns[9]=1;
+			break;
+*/
+		case 0x40: // left paddle
+			btns[10]=1;
+			break;
+/*		// Same code as r1 :(
+		case 0x42: // right paddle
+			btns[11]=1;
+			break;
+*/
+		case 0x3d: // left thumb
+			btns[12]=1;
+			break;
+
+		// same codes at hat :(
+		case 0x52: // axis-up
+			btns[13]=1;
+			break;
+		case 0x51: // axis-down
+			btns[14]=1;
+			break;
+		case 0x50: // axis-left
+			btns[15]=1;
+			break;
+		case 0x4f: // axis-right
+			btns[16]=1;
+			break;
+
+		// Until I can disable keyboard mode, X and Y are still bound to esc and enter in keyboard :(
+		//input_event(input, EV_KEY, BTN_Y, !!(b8 & BIT(4)));
+		//input_event(input, EV_KEY, BTN_X, !!(b8 & BIT(6)));
+
+		}
+	}
+
+	input_report_abs(input, ABS_HAT0Y, ((btns[1]==1) ? -1 : (btns[0]==1) ? 1 : 0));
+	input_report_abs(input, ABS_HAT0X, ((btns[2]==1) ? -1 : (btns[3]==1) ? 1 : 0));
+
+	input_event(input, EV_KEY, BTN_TL, btns[4]);
+	input_event(input, EV_KEY, BTN_TR, btns[5]);
+
+	input_event(input, EV_KEY, BTN_START, btns[6]);
+	input_event(input, EV_KEY, BTN_SELECT, btns[7]);
+
+	input_event(input, EV_KEY, BTN_A, btns[8]);
+	input_event(input, EV_KEY, BTN_B, btns[9]);
+
+	input_event(input, EV_KEY, BTN_GEAR_DOWN, btns[10]);
+	input_event(input, EV_KEY, BTN_GEAR_UP, btns[11]);
+
+	input_event(input, EV_KEY, BTN_THUMBL, btns[12]);
+
+	input_event(input, EV_KEY, BTN_DPAD_UP, btns[13]);
+	input_event(input, EV_KEY, BTN_DPAD_DOWN, btns[14]);
+	input_event(input, EV_KEY, BTN_DPAD_LEFT, btns[15]);
+	input_event(input, EV_KEY, BTN_DPAD_RIGHT, btns[16]);
+
+/*
+	// Undefined - not sure how to map these
+	input_report_abs(input, ABS_HAT2Y, data[11]);
+	input_report_abs(input, ABS_HAT2X, data[12]);
+	input_report_abs(input, ABS_X, x);
+	input_report_abs(input, ABS_Y, y);
+	input_report_abs(input, ABS_RX, steam_le16(data + 20));
+	input_report_abs(input, ABS_RY, -steam_le16(data + 22));
+	input_event(input, EV_KEY, BTN_MODE, !!(b9 & BIT(5)));
+	input_event(input, EV_KEY, BTN_THUMBR, !!(b10 & BIT(2)));
+	input_event(input, EV_KEY, BTN_THUMB, lpad_touched || lpad_and_joy);
+	input_event(input, EV_KEY, BTN_THUMB2, !!(b10 & BIT(4)));
+*/
+	input_sync(input);
+
+}
+
 static int steam_raw_event(struct hid_device *hdev,
 			struct hid_report *report, u8 *data,
 			int size)
@@ -1029,6 +1293,19 @@ static int steam_raw_event(struct hid_device *hdev,
 	struct steam_device *steam = hid_get_drvdata(hdev);
 	struct input_dev *input;
 	struct power_supply *battery;
+	int i;
+	u8 id[20];
+
+	// Print the details of the raw event so it can be inspected for development
+	if(((steam->quirks & STEAM_QUIRK_BLUETOOTH) && !(data[0] == 3 && data[2] == 5)) || 
+	  (!(steam->quirks & STEAM_QUIRK_BLUETOOTH) && !(data[0] == 1 && data[2] == 4))) 
+	{ // ignore heartbeats
+		printk("MRFIXIT: raw_event debug detail: size=%d, data-category=%d \n", size, data[2]);
+		memcpy(id, data, 20);
+		for (i = 0; i <= sizeof(data); i++) {
+		    printk("MRFIXIT: raw_event debug detail: %d = %02x \n", i, id[i]);
+		}
+	}
 
 	if (!steam)
 		return 0;
@@ -1036,6 +1313,16 @@ static int steam_raw_event(struct hid_device *hdev,
 	if (steam->client_opened)
 		hid_input_report(steam->client_hdev, HID_FEATURE_REPORT,
 				data, size, 0);
+	else if (steam->quirks & STEAM_QUIRK_BLUETOOTH) {
+		if(data[0] == 3 && data[2] == 5) {
+			steam->bt_last_heartbeat = jiffies;
+			return 0;
+		} else {
+			hid_input_report(hdev, HID_FEATURE_REPORT,
+					data, size, 0);
+		}
+	}
+
 	/*
 	 * All messages are size=64, all values little-endian.
 	 * The format is:
@@ -1052,17 +1339,24 @@ static int steam_raw_event(struct hid_device *hdev,
 	 *  0x04: battery status (11 bytes)
 	 */
 
-	if (size != 64 || data[0] != 1 || data[1] != 0)
+	if ((size != 64 || data[0] != 1 || data[1] != 0) && !(steam->quirks & STEAM_QUIRK_BLUETOOTH))
 		return 0;
 
 	switch (data[2]) {
+	case STEAM_EV_INPUT_DATA_BT:
+		if (!(steam->quirks & STEAM_QUIRK_BLUETOOTH))
+			break;
 	case STEAM_EV_INPUT_DATA:
 		if (steam->client_opened)
 			return 0;
 		rcu_read_lock();
 		input = rcu_dereference(steam->input);
-		if (likely(input))
-			steam_do_input_event(steam, input, data);
+		if (likely(input)) {
+			if(steam->quirks & STEAM_QUIRK_BLUETOOTH)
+				steam_do_bt_input_event(steam, input, data);
+			else
+				steam_do_input_event(steam, input, data);
+		}
 		rcu_read_unlock();
 		break;
 	case STEAM_EV_CONNECT:
@@ -1096,6 +1390,7 @@ static int steam_raw_event(struct hid_device *hdev,
 		}
 		break;
 	}
+
 	return 0;
 }
 
