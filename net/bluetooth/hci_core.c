@@ -467,6 +467,7 @@ static void hci_init1_req(struct hci_request *req, unsigned long opt)
 
 static void bredr_setup(struct hci_request *req)
 {
+	struct hci_dev *hdev = req->hdev;
 	__le16 param;
 	__u8 flt_type;
 
@@ -489,8 +490,10 @@ static void bredr_setup(struct hci_request *req)
 	hci_req_add(req, HCI_OP_READ_CURRENT_IAC_LAP, 0, NULL);
 
 	/* Clear Event Filters */
-	flt_type = HCI_FLT_CLEAR_ALL;
-	hci_req_add(req, HCI_OP_SET_EVENT_FLT, 1, &flt_type);
+	if(!test_bit(HCI_QUIRK_BROKEN_ERR_DATA_REPORTING, &hdev->quirks)) {
+		flt_type = HCI_FLT_CLEAR_ALL;
+		hci_req_add(req, HCI_OP_SET_EVENT_FLT, 1, &flt_type);
+	}
 
 	/* Connection accept timeout ~20 secs */
 	param = cpu_to_le16(0x7d00);
@@ -781,6 +784,10 @@ static void hci_init3_req(struct hci_request *req, unsigned long opt)
 	if (hdev->commands[8] & 0x01)
 		hci_req_add(req, HCI_OP_READ_PAGE_SCAN_ACTIVITY, 0, NULL);
 
+	if (hdev->commands[18] & 0x04 &&
+	    !test_bit(HCI_QUIRK_BROKEN_ERR_DATA_REPORTING, &hdev->quirks))
+ 		hci_req_add(req, HCI_OP_READ_DEF_ERR_DATA_REPORTING, 0, NULL);
+
 	/* Some older Broadcom based Bluetooth 1.2 controllers do not
 	 * support the Read Page Scan Type command. Check support for
 	 * this command in the bit mask of supported commands.
@@ -923,6 +930,47 @@ static void hci_init4_req(struct hci_request *req, unsigned long opt)
 
 		hci_req_add(req, HCI_OP_WRITE_SC_SUPPORT,
 			    sizeof(support), &support);
+	}
+
+	/* Set erroneous data reporting if supported to the wideband speech
+	 * setting value
+	 */
+	if (hdev->commands[18] & 0x08 &&
+	    !test_bit(HCI_QUIRK_BROKEN_ERR_DATA_REPORTING, &hdev->quirks)) {
+		bool enabled = hci_dev_test_flag(hdev,
+						 HCI_WIDEBAND_SPEECH_ENABLED);
+
+		if (enabled !=
+		    (hdev->err_data_reporting == ERR_DATA_REPORTING_ENABLED)) {
+			struct hci_cp_write_def_err_data_reporting cp;
+
+			cp.err_data_reporting = enabled ?
+						ERR_DATA_REPORTING_ENABLED :
+						ERR_DATA_REPORTING_DISABLED;
+
+			hci_req_add(req, HCI_OP_WRITE_DEF_ERR_DATA_REPORTING,
+				    sizeof(cp), &cp);
+		}
+	}
+
+	/* Set Suggested Default Data Length to maximum if supported */
+	if (hdev->le_features[0] & HCI_LE_DATA_LEN_EXT) {
+		struct hci_cp_le_write_def_data_len cp;
+
+		cp.tx_len = cpu_to_le16(hdev->le_max_tx_len);
+		cp.tx_time = cpu_to_le16(hdev->le_max_tx_time);
+		hci_req_add(req, HCI_OP_LE_WRITE_DEF_DATA_LEN, sizeof(cp), &cp);
+	}
+
+	/* Set Default PHY parameters if command is supported */
+	if (hdev->commands[35] & 0x20) {
+		struct hci_cp_le_set_default_phy cp;
+
+		cp.all_phys = 0x00;
+		cp.tx_phys = hdev->le_tx_def_phys;
+		cp.rx_phys = hdev->le_rx_def_phys;
+
+		hci_req_add(req, HCI_OP_LE_SET_DEFAULT_PHY, sizeof(cp), &cp);
 	}
 }
 
@@ -3281,6 +3329,8 @@ struct hci_dev *hci_alloc_dev(void)
 	hdev->le_max_tx_time = 0x0148;
 	hdev->le_max_rx_len = 0x001b;
 	hdev->le_max_rx_time = 0x0148;
+	hdev->le_tx_def_phys = HCI_LE_SET_PHY_1M;
+	hdev->le_rx_def_phys = HCI_LE_SET_PHY_1M;
 
 	hdev->rpa_timeout = HCI_DEFAULT_RPA_TIMEOUT;
 	hdev->discov_interleaved_timeout = DISCOV_INTERLEAVED_TIMEOUT;

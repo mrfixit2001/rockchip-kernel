@@ -180,6 +180,26 @@ enum {
 	 * during the hdev->setup vendor callback.
 	 */
 	HCI_QUIRK_NON_PERSISTENT_DIAG,
+
+	/* When this quirk is set, wide band speech is supported by
+	 * the driver since no reliable mechanism exist to report
+	 * this from the hardware, a driver flag is use to convey
+	 * this support
+	 *
+	 * This quirk must be set before hci_register_dev is called.
+	 */
+	HCI_QUIRK_WIDEBAND_SPEECH_SUPPORTED,
+
+	/* When this quirk is set, then erroneous data reporting
+	 * is ignored. This is mainly due to the fact that the HCI
+	 * Read Default Erroneous Data Reporting command is advertised,
+	 * but not supported; these controllers often reply with unknown
+	 * command and tend to lock up randomly. Needing a hard reset.
+	 *
+	 * This quirk can be set before hci_register_dev is called or
+	 * during the hdev->setup vendor callback.
+	 */
+	HCI_QUIRK_BROKEN_ERR_DATA_REPORTING,
 };
 
 /* HCI device flags */
@@ -249,6 +269,7 @@ enum {
 	HCI_FAST_CONNECTABLE,
 	HCI_BREDR_ENABLED,
 	HCI_LE_SCAN_INTERRUPTED,
+	HCI_WIDEBAND_SPEECH_ENABLED,
 
 	HCI_DUT_MODE,
 	HCI_VENDOR_DIAG,
@@ -1023,6 +1044,19 @@ struct hci_rp_read_inq_rsp_tx_power {
 	__s8     tx_power;
 } __packed;
 
+#define HCI_OP_READ_DEF_ERR_DATA_REPORTING	0x0c5a
+	#define ERR_DATA_REPORTING_DISABLED	0x00
+	#define ERR_DATA_REPORTING_ENABLED	0x01
+struct hci_rp_read_def_err_data_reporting {
+	__u8     status;
+	__u8     err_data_reporting;
+} __packed;
+
+#define HCI_OP_WRITE_DEF_ERR_DATA_REPORTING	0x0c5b
+struct hci_cp_write_def_err_data_reporting {
+	__u8     err_data_reporting;
+} __packed;
+
 #define HCI_OP_SET_EVENT_MASK_PAGE_2	0x0c63
 
 #define HCI_OP_READ_LOCATION_DATA	0x0c64
@@ -1489,6 +1523,17 @@ struct hci_rp_le_read_max_data_len {
 	__le16	rx_len;
 	__le16	rx_time;
 } __packed;
+
+#define HCI_OP_LE_SET_DEFAULT_PHY	0x2031
+struct hci_cp_le_set_default_phy {
+	__u8    all_phys;
+	__u8    tx_phys;
+	__u8    rx_phys;
+} __packed;
+
+#define HCI_LE_SET_PHY_1M		0x01
+#define HCI_LE_SET_PHY_2M		0x02
+#define HCI_LE_SET_PHY_CODED		0x04
 
 /* ---- HCI Events ---- */
 #define HCI_EV_INQUIRY_COMPLETE		0x01

@@ -232,6 +232,7 @@ struct hci_dev {
 	__u8		stored_num_keys;
 	__u8		io_capability;
 	__s8		inq_tx_power;
+	__u8		err_data_reporting;
 	__u16		page_scan_interval;
 	__u16		page_scan_window;
 	__u8		page_scan_type;
@@ -311,6 +312,9 @@ struct hci_dev {
 	unsigned long	acl_last_tx;
 	unsigned long	sco_last_tx;
 	unsigned long	le_last_tx;
+
+	__u8		le_tx_def_phys;
+	__u8		le_rx_def_phys;
 
 	struct workqueue_struct	*workqueue;
 	struct workqueue_struct	*req_workqueue;
@@ -1141,6 +1145,15 @@ void hci_conn_del_sysfs(struct hci_conn *conn);
 				!hci_dev_test_flag(dev, HCI_AUTO_OFF))
 #define bredr_sc_enabled(dev)  (lmp_sc_capable(dev) && \
 				hci_dev_test_flag(dev, HCI_SC_ENABLED))
+
+#define scan_1m(dev) (((dev)->le_tx_def_phys & HCI_LE_SET_PHY_1M) || \
+		      ((dev)->le_rx_def_phys & HCI_LE_SET_PHY_1M))
+
+#define scan_2m(dev) (((dev)->le_tx_def_phys & HCI_LE_SET_PHY_2M) || \
+		      ((dev)->le_rx_def_phys & HCI_LE_SET_PHY_2M))
+
+#define scan_coded(dev) (((dev)->le_tx_def_phys & HCI_LE_SET_PHY_CODED) || \
+			 ((dev)->le_rx_def_phys & HCI_LE_SET_PHY_CODED))
 
 /* ----- HCI protocols ----- */
 #define HCI_PROTO_DEFER             0x01
