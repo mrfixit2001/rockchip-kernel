@@ -80,6 +80,7 @@ enum {
 
 struct smp_dev {
 	/* Secure Connections OOB data */
+	bool			local_oob;
 	u8			local_pk[64];
 	u8			local_sk[32];
 	u8			local_rand[16];
@@ -597,6 +598,8 @@ int smp_generate_oob(struct hci_dev *hdev, u8 hash[16], u8 rand[16])
 
 	memcpy(rand, smp->local_rand, 16);
 
+	smp->local_oob = true;
+
 	return 0;
 }
 
@@ -739,6 +742,10 @@ static u8 check_enc_key_size(struct l2cap_conn *conn, __u8 max_key_size)
 	struct l2cap_chan *chan = conn->smp;
 	struct hci_dev *hdev = conn->hcon->hdev;
 	struct smp_chan *smp = chan->data;
+
+	if (conn->hcon->pending_sec_level == BT_SECURITY_FIPS &&
+	    max_key_size != SMP_MAX_ENC_KEY_SIZE)
+		return SMP_ENC_KEY_SIZE;
 
 	if (max_key_size > SMP_DEV(hdev)->max_key_size ||
 	    max_key_size < SMP_MIN_ENC_KEY_SIZE)
@@ -1749,7 +1756,7 @@ static u8 smp_cmd_pairing_req(struct l2cap_conn *conn, struct sk_buff *skb)
 	 * successfully received our local OOB data - therefore set the
 	 * flag to indicate that local OOB is in use.
 	 */
-	if (req->oob_flag == SMP_OOB_PRESENT)
+	if (req->oob_flag == SMP_OOB_PRESENT && SMP_DEV(hdev)->local_oob)
 		set_bit(SMP_FLAG_LOCAL_OOB, &smp->flags);
 
 	/* SMP over BR/EDR requires special treatment */
@@ -1925,7 +1932,7 @@ static u8 smp_cmd_pairing_rsp(struct l2cap_conn *conn, struct sk_buff *skb)
 	 * successfully received our local OOB data - therefore set the
 	 * flag to indicate that local OOB is in use.
 	 */
-	if (rsp->oob_flag == SMP_OOB_PRESENT)
+	if (rsp->oob_flag == SMP_OOB_PRESENT && SMP_DEV(hdev)->local_oob)
 		set_bit(SMP_FLAG_LOCAL_OOB, &smp->flags);
 
 	smp->prsp[0] = SMP_CMD_PAIRING_RSP;
@@ -2147,6 +2154,25 @@ static u8 smp_cmd_pairing_random(struct l2cap_conn *conn, struct sk_buff *skb)
 		smp_send_cmd(conn, SMP_CMD_PAIRING_RANDOM, sizeof(smp->prnd),
 			     smp->prnd);
 		SMP_ALLOW_CMD(smp, SMP_CMD_DHKEY_CHECK);
+
+		/* Only Just-Works pairing requires extra checks */
+		if (smp->method != JUST_WORKS)
+			goto mackey_and_ltk;
+
+		/* If there already exists long term key in local host, leave
+		 * the decision to user space since the remote device could
+		 * be legitimate or malicious.
+		 */
+		if (hci_find_ltk(hcon->hdev, &hcon->dst, hcon->dst_type,
+				 hcon->role)) {
+			err = mgmt_user_confirm_request(hcon->hdev, &hcon->dst,
+							hcon->type,
+							hcon->dst_type,
+							passkey, 1);
+			if (err)
+				return SMP_UNSPECIFIED;
+			set_bit(SMP_FLAG_WAIT_USER, &smp->flags);
+		}
 	}
 
 mackey_and_ltk:
@@ -3195,6 +3221,7 @@ static struct l2cap_chan *smp_add_cid(struct hci_dev *hdev, u16 cid)
 		return ERR_CAST(tfm_cmac);
 	}
 
+	smp->local_oob = false;
 	smp->tfm_aes = tfm_aes;
 	smp->tfm_cmac = tfm_cmac;
 	smp->min_key_size = SMP_MIN_ENC_KEY_SIZE;
@@ -3448,7 +3475,10 @@ int smp_register(struct hci_dev *hdev)
 	if (!lmp_sc_capable(hdev)) {
 		debugfs_create_file("force_bredr_smp", 0644, hdev->debugfs,
 				    hdev, &force_bredr_smp_fops);
-		return 0;
+
+		/* Flag can be already set here (due to power toggle) */
+		if (!hci_dev_test_flag(hdev, HCI_FORCE_BREDR_SMP))
+			return 0;
 	}
 
 	if (WARN_ON(hdev->smp_bredr_data)) {
