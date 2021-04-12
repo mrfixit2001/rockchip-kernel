@@ -199,17 +199,12 @@ static ssize_t wifi_power_write(struct class *cls, struct class_attribute *attr,
 return _count;
 }
 
-#ifdef CONFIG_WIFI_NONE
-int rockchip_wifi_init_module(void) {return 0;}
-void rockchip_wifi_exit_module(void) {return;}
-#else
 extern int rockchip_wifi_init_module(void);
 extern void rockchip_wifi_exit_module(void);
 extern int rockchip_wifi_init_module_rkwifi(void);
 extern void rockchip_wifi_exit_module_rkwifi(void);
 extern int rockchip_wifi_init_module_rtkwifi(void);
 extern void rockchip_wifi_exit_module_rtkwifi(void);
-#endif
 static struct semaphore driver_sem;
 #ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
 static int wifi_driver_insmod = 1;
@@ -225,7 +220,6 @@ static int wifi_init_exit_module(int enable)
 #ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
 	int type = 0;
 	type = get_wifi_chip_type();
-#ifdef CONFIG_AP6XXX
 	if (type < WIFI_AP6XXX_SERIES) {
 		if (enable > 0)
 			ret = rockchip_wifi_init_module_rkwifi();
@@ -233,8 +227,6 @@ static int wifi_init_exit_module(int enable)
 			rockchip_wifi_exit_module_rkwifi();
 		return ret;
 	}
-#endif
-#ifdef CONFIG_RTL_WIRELESS_SOLUTION
 	if (type < WIFI_RTL_SERIES) {
 		if (enable > 0)
 			ret = rockchip_wifi_init_module_rtkwifi();
@@ -242,7 +234,6 @@ static int wifi_init_exit_module(int enable)
 			rockchip_wifi_exit_module_rtkwifi();
 		return ret;
 	}
-#endif
 #endif
 #endif
 	return ret;

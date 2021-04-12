@@ -1054,7 +1054,7 @@ int rtw_sdio_set_power(int on)
 }
 #endif //CONFIG_PLATFORM_INTEL_BYT
 
-#include "rtw_version.h"
+//#include "rtw_version.h"
 #include <linux/rfkill-wlan.h>
 extern int get_wifi_chip_type(void);
 extern int rockchip_wifi_power(int on);
@@ -1070,7 +1070,7 @@ int rockchip_wifi_init_module_rtkwifi(void)
     printk("=======================================================\n");
     printk("==== Launching Wi-Fi driver! (Powered by Rockchip) ====\n");
     printk("=======================================================\n");
-    printk("Realtek 8189ES SDIO WiFi driver (Powered by Rockchip,Ver %s) init.\n", DRIVERVERSION);
+    printk("Realtek 8189ES SDIO WiFi driver init.\n");
 
     rockchip_wifi_power(1);
     rockchip_wifi_set_carddetect(1);    
@@ -1088,13 +1088,18 @@ void rockchip_wifi_exit_module_rtkwifi(void)
     printk("=======================================================\n");
     printk("==== Dislaunching Wi-Fi driver! (Powered by Rockchip) ====\n");
     printk("=======================================================\n");
-    printk("Realtek 8189ES SDIO WiFi driver (Powered by Rockchip,Ver %s) init.\n", DRIVERVERSION);
+    printk("Realtek 8189ES SDIO WiFi driver init.\n");
 
     rtw_drv_halt();
 
     rockchip_wifi_set_carddetect(0);
     rockchip_wifi_power(0);
 }
+
+#ifndef CONFIG_WL_ROCKCHIP
+module_init(rtw_drv_entry);
+module_exit(rtw_drv_halt);
+#else
 
 #ifdef CONFIG_WIFI_BUILD_MODULE
 module_init(rockchip_wifi_init_module_rtkwifi);
@@ -1108,6 +1113,6 @@ EXPORT_SYMBOL(rockchip_wifi_init_module_rtkwifi);
 EXPORT_SYMBOL(rockchip_wifi_exit_module_rtkwifi);
 #endif
 #endif
-//module_init(rtw_drv_entry);
-//module_exit(rtw_drv_halt);
+
+#endif
 

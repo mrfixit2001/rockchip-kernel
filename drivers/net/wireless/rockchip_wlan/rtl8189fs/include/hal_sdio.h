@@ -1,8 +1,7 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2017 Realtek Corporation.
- *
+ * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ *                                        
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -12,7 +11,12 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- *****************************************************************************/
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
+ *
+ *
+ ******************************************************************************/
 #ifndef __HAL_SDIO_H_
 #define __HAL_SDIO_H_
 
@@ -23,10 +27,6 @@ u8 rtw_hal_sdio_query_tx_freepage(_adapter *padapter, u8 PageIdx, u8 RequiredPag
 void rtw_hal_sdio_update_tx_freepage(_adapter *padapter, u8 PageIdx, u8 RequiredPageNum);
 void rtw_hal_set_sdio_tx_max_length(PADAPTER padapter, u8 numHQ, u8 numNQ, u8 numLQ, u8 numPubQ);
 u32 rtw_hal_get_sdio_tx_max_length(PADAPTER padapter, u8 queue_idx);
-bool sdio_power_on_check(PADAPTER padapter);
 
-#ifdef CONFIG_FW_C2H_REG
-void sd_c2h_hisr_hdl(_adapter *adapter);
-#endif
+#endif //__RTW_LED_H_
 
-#endif /* __HAL_SDIO_H_ */

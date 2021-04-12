@@ -1656,18 +1656,19 @@ static void /*__exit*/ rtw_drv_halt(void)
 	rtw_mstat_dump(RTW_DBGDUMP);
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 1, 0))
+#ifdef CONFIG_INTEL_PROXIM
+_adapter  *rtw_usb_get_sw_pointer(void)
+{
+	return rtw_sw_export;
+}
+EXPORT_SYMBOL(rtw_usb_get_sw_pointer);
+#endif	//CONFIG_INTEL_PROXIM
+
+
 #include <linux/rfkill-wlan.h>
 extern int get_wifi_chip_type(void);
-#else
-extern int rk29sdk_wifi_power(int on);
-#endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 1, 0))
 int rockchip_wifi_init_module_rtkwifi(void)
-#else
-int rockchip_wifi_init_module(void)
-#endif
 {
 #ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
     int type = get_wifi_chip_type();
@@ -1677,22 +1678,14 @@ int rockchip_wifi_init_module(void)
     printk("=======================================================\n");
     printk("==== Launching Wi-Fi driver! (Powered by Rockchip) ====\n");
     printk("=======================================================\n");
-    printk("Realtek 8188FU USB WiFi driver (Powered by Rockchip) init.\n");
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 1, 0))
+    printk("Realtek 8188FU USB WiFi driver init.\n");
     rockchip_wifi_power(1);
     //rockchip_wifi_set_carddetect(1);
-#else
-    rk29sdk_wifi_power(1);
-#endif
 
     return rtw_drv_entry();
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 1, 0))
 void rockchip_wifi_exit_module_rtkwifi(void)
-#else
-void rockchip_wifi_exit_module(void)
-#endif
 {
 #ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
     int type = get_wifi_chip_type();
@@ -1702,20 +1695,22 @@ void rockchip_wifi_exit_module(void)
     printk("=======================================================\n");
     printk("==== Dislaunching Wi-Fi driver! (Powered by Rockchip) ====\n");
     printk("=======================================================\n");
-    printk("Realtek 8188FU USB WiFi driver (Powered by Rockchip) init.\n");
+    printk("Realtek 8188FU USB WiFi driver init.\n");
     rtw_drv_halt();
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 1, 0))
     //rockchip_wifi_set_carddetect(0);
     rockchip_wifi_power(0);
-#else
-    rk29sdk_wifi_power(0);
-#endif
 }
+
+#ifndef CONFIG_WL_ROCKCHIP
+module_init(rtw_drv_entry);
+module_exit(rtw_drv_halt);
+#else
+
 #ifdef CONFIG_WIFI_BUILD_MODULE
 module_init(rockchip_wifi_init_module_rtkwifi);
 module_exit(rockchip_wifi_exit_module_rtkwifi);
 #else
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 1, 0))
+
 #ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
 late_initcall(rockchip_wifi_init_module_rtkwifi);
 module_exit(rockchip_wifi_exit_module_rtkwifi);
@@ -1723,24 +1718,7 @@ module_exit(rockchip_wifi_exit_module_rtkwifi);
 module_init(rockchip_wifi_init_module_rtkwifi);
 module_exit(rockchip_wifi_exit_module_rtkwifi);
 #endif
-#else
-#ifdef CONFIG_ANDROID_4_2
-module_init(rockchip_wifi_init_module);
-module_exit(rockchip_wifi_exit_module);
-#else
-EXPORT_SYMBOL(rockchip_wifi_init_module);
-EXPORT_SYMBOL(rockchip_wifi_exit_module);
-#endif
-#endif
-#endif
-//module_init(rtw_drv_entry);
-//module_exit(rtw_drv_halt);
 
-#ifdef CONFIG_INTEL_PROXIM
-_adapter  *rtw_usb_get_sw_pointer(void)
-{
-	return rtw_sw_export;
-}
-EXPORT_SYMBOL(rtw_usb_get_sw_pointer);
-#endif	//CONFIG_INTEL_PROXIM
+#endif
 
+#endif

@@ -18,6 +18,7 @@ config WIFI_BUILD_MODULE
 
 config WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
 	bool "Wifi load driver when kernel bootup"
+	depends on !WIFI_BUILD_MODULE
 	default n
 	---help---
 	  Wifi driver will be load (use late_initcall) when kernel bootup
@@ -28,12 +29,9 @@ config WIFI_GENERATE_RANDOM_MAC_ADDR
 	help
 	  Wifi generate random mac address and save to vendor storage for cob chip
 
-menuconfig RTL_WIRELESS_SOLUTION
-    bool "Realtek Wireless Device Driver Support"
-    default y
+endif # WL_ROCKCHIP
 
-
-source "drivers/net/wireless/rockchip_wlan/rkwifi/Kconfig"
+source "drivers/net/wireless/rockchip_wlan/bcmdhd/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/cywdhd/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/esp8089/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/mvl88w8977/Kconfig"
@@ -53,5 +51,3 @@ source "drivers/net/wireless/rockchip_wlan/rtl8821cu/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/rtl8822be/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/rtl8822bs/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/ssv6xxx/Kconfig"
-
-endif # WL_ROCKCHIP

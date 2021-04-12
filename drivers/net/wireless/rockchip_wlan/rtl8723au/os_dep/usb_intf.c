@@ -1479,7 +1479,7 @@ static void __exit rtw_drv_halt(void)
 	DBG_8723A("-rtw_drv_halt\n");
 }
 
-#include "wifi_version.h"
+//#include "wifi_version.h"
 #include <linux/rfkill-wlan.h>
 extern int get_wifi_chip_type(void);
 
@@ -1493,7 +1493,7 @@ int rockchip_wifi_init_module_rtkwifi(void)
     printk("=======================================================\n");
     printk("==== Launching Wi-Fi driver! (Powered by Rockchip) ====\n");
     printk("=======================================================\n");
-    printk("Realtek 8723AU USB WiFi driver (Powered by Rockchip,Ver %s) init.\n", RTL8192_DRV_VERSION);
+    printk("Realtek 8723AU USB WiFi driver init.\n");
     rockchip_wifi_power(1);
 
     return rtw_drv_entry();
@@ -1509,17 +1509,28 @@ void rockchip_wifi_exit_module_rtkwifi(void)
     printk("=======================================================\n");
     printk("==== Dislaunching Wi-Fi driver! (Powered by Rockchip) ====\n");
     printk("=======================================================\n");
-    printk("Realtek 8723AU USB WiFi driver (Powered by Rockchip,Ver %s) init.\n", RTL8192_DRV_VERSION);
+    printk("Realtek 8723AU USB WiFi driver init.\n");
     rtw_drv_halt();
     rockchip_wifi_power(0);
 }
 
+
+#ifndef CONFIG_WL_ROCKCHIP
+module_init(rtw_drv_entry);
+module_exit(rtw_drv_halt);
+#else
+
+#ifdef CONFIG_WIFI_BUILD_MODULE
+module_init(rockchip_wifi_init_module_rtkwifi);
+module_exit(rockchip_wifi_exit_module_rtkwifi);
+#else
 #ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
 late_initcall(rockchip_wifi_init_module_rtkwifi);
 module_exit(rockchip_wifi_exit_module_rtkwifi);
 #else
-EXPORT_SYMBOL(rockchip_wifi_init_module_rtkwifi);
-EXPORT_SYMBOL(rockchip_wifi_exit_module_rtkwifi);
+module_init(rockchip_wifi_init_module_rtkwifi);
+module_exit(rockchip_wifi_exit_module_rtkwifi);
 #endif
-//module_init(rtw_drv_entry);
-//module_exit(rtw_drv_halt);
+#endif
+
+#endif
