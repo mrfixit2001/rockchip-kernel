@@ -1239,7 +1239,6 @@ void rockchip_wifi_exit_module_rtkwifi(void)
     rockchip_wifi_power(0);
 }
 
-
 #ifndef CONFIG_WL_ROCKCHIP
 module_init(rtw_drv_entry);
 module_exit(rtw_drv_halt);
@@ -1252,7 +1251,8 @@ module_exit(rockchip_wifi_exit_module_rtkwifi);
 #ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
 late_initcall(rockchip_wifi_init_module_rtkwifi);
 module_exit(rockchip_wifi_exit_module_rtkwifi);
-#else
+#endif
+#if IS_BUILTIN(CONFIG_RTL8723DS)
 EXPORT_SYMBOL(rockchip_wifi_init_module_rtkwifi);
 EXPORT_SYMBOL(rockchip_wifi_exit_module_rtkwifi);
 #endif

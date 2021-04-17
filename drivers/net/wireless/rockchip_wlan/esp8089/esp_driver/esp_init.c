@@ -92,10 +92,8 @@ static void /*__exit */ esp_exit(void)
 	esp_common_exit();
 }
 
-
 int rockchip_wifi_init_module_esp8089(void)
 {
-
 	return esp_init();
 }
 
@@ -104,8 +102,24 @@ void rockchip_wifi_exit_module_esp8089(void)
 	esp_exit(); 
 }
 
+
+#ifndef CONFIG_WL_ROCKCHIP
+module_init(esp_init);
+module_exit(esp_exit);
+#else
+
+#ifdef CONFIG_WIFI_BUILD_MODULE
+module_init(rockchip_wifi_init_module_esp8089);
+module_exit(rockchip_wifi_exit_module_esp8089);
+#else
+#ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
+late_initcall(rockchip_wifi_init_module_esp8089);
+module_exit(rockchip_wifi_exit_module_esp8089);
+#endif
+#if IS_BUILTIN(CONFIG_ESP8089)
 EXPORT_SYMBOL(rockchip_wifi_init_module_esp8089);
 EXPORT_SYMBOL(rockchip_wifi_exit_module_esp8089);
+#endif
 
-//module_init(esp_init);
-//module_exit(esp_exit);
+#endif
+#endif

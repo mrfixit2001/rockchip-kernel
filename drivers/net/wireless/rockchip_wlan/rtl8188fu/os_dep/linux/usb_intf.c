@@ -1680,7 +1680,6 @@ int rockchip_wifi_init_module_rtkwifi(void)
     printk("=======================================================\n");
     printk("Realtek 8188FU USB WiFi driver init.\n");
     rockchip_wifi_power(1);
-    //rockchip_wifi_set_carddetect(1);
 
     return rtw_drv_entry();
 }
@@ -1697,7 +1696,6 @@ void rockchip_wifi_exit_module_rtkwifi(void)
     printk("=======================================================\n");
     printk("Realtek 8188FU USB WiFi driver init.\n");
     rtw_drv_halt();
-    //rockchip_wifi_set_carddetect(0);
     rockchip_wifi_power(0);
 }
 
@@ -1710,15 +1708,14 @@ module_exit(rtw_drv_halt);
 module_init(rockchip_wifi_init_module_rtkwifi);
 module_exit(rockchip_wifi_exit_module_rtkwifi);
 #else
-
 #ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
 late_initcall(rockchip_wifi_init_module_rtkwifi);
 module_exit(rockchip_wifi_exit_module_rtkwifi);
-#else
-module_init(rockchip_wifi_init_module_rtkwifi);
-module_exit(rockchip_wifi_exit_module_rtkwifi);
 #endif
-
+#if IS_BUILTIN(CONFIG_RTL8188FU)
+EXPORT_SYMBOL(rockchip_wifi_init_module_rtkwifi);
+EXPORT_SYMBOL(rockchip_wifi_exit_module_rtkwifi);
+#endif
 #endif
 
 #endif

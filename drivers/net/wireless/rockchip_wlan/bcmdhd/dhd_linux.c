@@ -13316,6 +13316,9 @@ dhd_reboot_callback(struct notifier_block *this, unsigned long code, void *unuse
 	return NOTIFY_DONE;
 }
 
+
+#ifdef CONFIG_WL_ROCKCHIP
+
 #ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
 static int wifi_init_thread(void *data)
 {
@@ -13343,6 +13346,8 @@ void rockchip_wifi_exit_module_rkwifi(void)
 {
 	dhd_module_exit();
 }
+
+
 #ifdef CONFIG_WIFI_BUILD_MODULE
 module_init(rockchip_wifi_init_module_rkwifi);
 module_exit(rockchip_wifi_exit_module_rkwifi);
@@ -13350,14 +13355,18 @@ module_exit(rockchip_wifi_exit_module_rkwifi);
 #ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
 late_initcall(rockchip_wifi_init_module_rkwifi);
 module_exit(rockchip_wifi_exit_module_rkwifi);
-#else
-module_init(rockchip_wifi_init_module_rkwifi);
-module_exit(rockchip_wifi_exit_module_rkwifi);
+#endif
+#if IS_BUILTIN(CONFIG_BCMDHD)
+EXPORT_SYMBOL(rockchip_wifi_init_module_rkwifi);
+EXPORT_SYMBOL(rockchip_wifi_exit_module_rkwifi);
 #endif
 #endif
-#if 0
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
+
+#else /* CONFIG_WL_ROCKCHIP */
+
+
 #if defined(CONFIG_DEFERRED_INITCALLS) && !defined(EXYNOS_PCIE_MODULE_PATCH)
+
 #if defined(CONFIG_MACH_UNIVERSAL7420) || defined(CONFIG_SOC_EXYNOS8890) || \
 	defined(CONFIG_ARCH_MSM8996) || defined(CONFIG_SOC_EXYNOS8895) || \
 	defined(CONFIG_ARCH_MSM8998)
@@ -13367,18 +13376,17 @@ deferred_module_init(dhd_module_init);
 #endif /* CONFIG_MACH_UNIVERSAL7420 || CONFIG_SOC_EXYNOS8890 ||
 	* CONFIG_ARCH_MSM8996 || CONFIG_SOC_EXYNOS8895 || CONFIG_ARCH_MSM8998
 	*/
-#elif defined(USE_LATE_INITCALL_SYNC)
+
+#elif defined(USE_LATE_INITCALL_SYNC) /*defined(CONFIG_DEFERRED_INITCALLS) && !defined(EXYNOS_PCIE_MODULE_PATCH)*/
 late_initcall_sync(dhd_module_init);
-#else
+#else /*defined(CONFIG_DEFERRED_INITCALLS) && !defined(EXYNOS_PCIE_MODULE_PATCH)*/
 late_initcall(dhd_module_init);
-#endif /* USE_LATE_INITCALL_SYNC */
-#else
-module_init(dhd_module_init);
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0) */
+#endif /*defined(CONFIG_DEFERRED_INITCALLS) && !defined(EXYNOS_PCIE_MODULE_PATCH)*/
 
 module_exit(dhd_module_exit);
 
-#endif
+#endif /* CONFIG_WL_ROCKCHIP */
+
 /*
  * OS specific functions required to implement DHD driver in OS independent way
  */

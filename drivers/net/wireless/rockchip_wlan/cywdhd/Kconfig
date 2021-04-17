@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 config CYW_BCMDHD
 	tristate "Cypress wireless sdio cards support"
-	depends on (!AP6XXX)
+	depends on !BCMDHD
 	select WIRELESS_EXT
 	select WEXT_PRIV
 	#select CFG80211

@@ -205,6 +205,9 @@ extern int rockchip_wifi_init_module_rkwifi(void);
 extern void rockchip_wifi_exit_module_rkwifi(void);
 extern int rockchip_wifi_init_module_rtkwifi(void);
 extern void rockchip_wifi_exit_module_rtkwifi(void);
+extern int rockchip_wifi_init_module_esp8089(void);
+extern void rockchip_wifi_exit_module_esp8089(void);
+
 static struct semaphore driver_sem;
 #ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
 static int wifi_driver_insmod = 1;
@@ -215,11 +218,11 @@ static int wifi_driver_insmod = 0;
 static int wifi_init_exit_module(int enable)
 {
 	int ret = 0;
-#ifdef CONFIG_WIFI_BUILD_MODULE
-#else
-#ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
+// Only call these functions when the wlan drivers are builtin, because as modules the functions cannot be 'exported' and called from here
+#if !defined(CONFIG_WIFI_BUILD_MODULE) && defined(CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP)
 	int type = 0;
 	type = get_wifi_chip_type();
+#if IS_BUILTIN(CONFIG_BCMDHD) || IS_BUILTIN(CONFIG_CYW_BCMDHD)
 	if (type < WIFI_AP6XXX_SERIES) {
 		if (enable > 0)
 			ret = rockchip_wifi_init_module_rkwifi();
@@ -227,12 +230,41 @@ static int wifi_init_exit_module(int enable)
 			rockchip_wifi_exit_module_rkwifi();
 		return ret;
 	}
-	if (type < WIFI_RTL_SERIES) {
+#endif
+#if IS_BUILTIN(CONFIG_ESP8089)
+	if (type == WIFI_ESP8089) {
+		if (enable > 0)
+			ret = rockchip_wifi_init_module_esp8089();
+		else
+			rockchip_wifi_exit_module_esp8089();
+		return ret;
+
+	}
+#endif
+#if IS_BUILTIN(CONFIG_RTL8188EU) || IS_BUILTIN(CONFIG_RTL8188FU) || \
+	IS_BUILTIN(CONFIG_RTL8189ES) || IS_BUILTIN(CONFIG_RTL8189FS) || \
+	IS_BUILTIN(CONFIG_RTL8192DU) || IS_BUILTIN(CONFIG_RTL8723AU) || \
+	IS_BUILTIN(CONFIG_RTL8723BS) || IS_BUILTIN(CONFIG_RTL8723BU) || \
+	IS_BUILTIN(CONFIG_RTL8723CS) || IS_BUILTIN(CONFIG_RTL8723DS) || \
+	IS_BUILTIN(CONFIG_RTL8812AU) || IS_BUILTIN(CONFIG_RTL8821CU) || \
+	IS_BUILTIN(CONFIG_RTL8822BE) || IS_BUILTIN(CONFIG_RTL8822BS)
+	if (type > WIFI_ESP8089 && type < WIFI_RTL_SERIES) {
 		if (enable > 0)
 			ret = rockchip_wifi_init_module_rtkwifi();
 		else
 			rockchip_wifi_exit_module_rtkwifi();
 		return ret;
+	}
+#endif
+#if IS_BUILTIN(CONFIG_SSV6051)
+	if (type == WIFI_SSV6051) {
+		// Not yet supported
+		//if (enable > 0)
+		//	ret = rockchip_wifi_init_module_rtkwifi();
+		//else
+		//	rockchip_wifi_exit_module_rtkwifi();
+		//return ret;
+		return 0;
 	}
 #endif
 #endif
