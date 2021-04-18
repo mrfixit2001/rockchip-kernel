@@ -111,8 +111,7 @@ module_exit(esp_exit);
 #ifdef CONFIG_WIFI_BUILD_MODULE
 module_init(rockchip_wifi_init_module_esp8089);
 module_exit(rockchip_wifi_exit_module_esp8089);
-#else
-#ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
+#elif defined(CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP)
 late_initcall(rockchip_wifi_init_module_esp8089);
 module_exit(rockchip_wifi_exit_module_esp8089);
 #endif
@@ -121,5 +120,4 @@ EXPORT_SYMBOL(rockchip_wifi_init_module_esp8089);
 EXPORT_SYMBOL(rockchip_wifi_exit_module_esp8089);
 #endif
 
-#endif
 #endif
