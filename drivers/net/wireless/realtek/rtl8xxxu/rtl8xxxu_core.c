@@ -4484,7 +4484,7 @@ rtl8xxxu_wireless_mode(struct ieee80211_hw *hw, struct ieee80211_sta *sta)
 {
 	u16 network_type = WIRELESS_MODE_UNKNOWN;
 
-	if (hw->conf.chandef.chan->band == NL80211_BAND_5GHZ) {
+	if (hw->conf.chandef.chan->band == IEEE80211_BAND_5GHZ) {
 		if (sta->vht_cap.vht_supported)
 			network_type = WIRELESS_MODE_AC;
 		else if (sta->ht_cap.ht_supported)

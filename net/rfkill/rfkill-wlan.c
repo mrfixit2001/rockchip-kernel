@@ -139,34 +139,16 @@ int get_wifi_chip_type(void)
         type = WIFI_RTL8822BS;
     } else if (strcmp(wifi_chip_type_string, "rtl8822be") == 0) {
         type = WIFI_RTL8822BE;
-    } else if (strcmp(wifi_chip_type_string, "rtl8821cu") == 0) {
-        type = WIFI_RTL8821CU;
-    } else if (strcmp(wifi_chip_type_string, "rtl8191cu") == 0) {
-        type = WIFI_RTL8191CU;
-    } else if (strcmp(wifi_chip_type_string, "rtl8188fu") == 0) {
-        type = WIFI_RTL8188FU;
-    } else if (strcmp(wifi_chip_type_string, "rtl8188eu") == 0) {
-        type = WIFI_RTL8188EU;
-    } else if (strcmp(wifi_chip_type_string, "rtl8192du") == 0) {
-        type = WIFI_RTL8192DU;
-    } else if (strcmp(wifi_chip_type_string, "rtl8723as") == 0) {
-        type = WIFI_RTL8723AS;        
     } else if (strcmp(wifi_chip_type_string, "rtl8723bs") == 0) {
         type = WIFI_RTL8723BS;
     } else if (strcmp(wifi_chip_type_string, "rtl8723cs") == 0) {
 	type = WIFI_RTL8723CS;
     } else if (strcmp(wifi_chip_type_string, "rtl8723ds") == 0) {
 	type = WIFI_RTL8723DS;
-    } else if (strcmp(wifi_chip_type_string, "rtl8723au") == 0) {
-        type = WIFI_RTL8723AU;        
-    } else if (strcmp(wifi_chip_type_string, "rtl8723bu") == 0) {
-        type = WIFI_RTL8723BU;
     } else if (strcmp(wifi_chip_type_string, "rtl8189es") == 0) {
         type = WIFI_RTL8189ES;
     } else if (strcmp(wifi_chip_type_string, "rtl8189fs") == 0) {
         type = WIFI_RTL8189FS;
-    } else if (strcmp(wifi_chip_type_string, "rtl8812au") == 0) {
-        type = WIFI_RTL8812AU;                        
     } else if (strcmp(wifi_chip_type_string, "esp8089") == 0) {
         type = WIFI_ESP8089;
     } else if (strcmp(wifi_chip_type_string, "mvl88w8977") == 0) {
@@ -932,12 +914,12 @@ MODULE_DEVICE_TABLE(of, wlan_platdata_of_match);
 static struct platform_driver rfkill_wlan_driver = {
 	.probe = rfkill_wlan_probe,
 	.remove = rfkill_wlan_remove,
-    .suspend = rfkill_wlan_suspend,
-    .resume = rfkill_wlan_resume,
+	.suspend = rfkill_wlan_suspend,
+	.resume = rfkill_wlan_resume,
 	.driver = {
 		.name = "wlan-platdata",
 		.owner = THIS_MODULE,
-        .of_match_table = of_match_ptr(wlan_platdata_of_match),
+		.of_match_table = of_match_ptr(wlan_platdata_of_match),
 	},
 };
 

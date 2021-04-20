@@ -1052,7 +1052,7 @@ int rtlwifi_rate_mapping(struct ieee80211_hw *hw, bool isht, bool isvht,
 		return rate_idx;
 	}
 	if (false == isht) {
-		if (NL80211_BAND_2GHZ == hw->conf.chandef.chan->band) {
+		if (IEEE80211_BAND_2GHZ == hw->conf.chandef.chan->band) {
 			switch (desc_rate) {
 			case DESC_RATE1M:
 				rate_idx = 0;

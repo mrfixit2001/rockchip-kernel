@@ -787,7 +787,7 @@ static struct sdio_driver esp_sdio_dummy_driver = {
 
 int esp_sdio_init(void) 
 {
-#define ESP_WAIT_UP_TIME_MS 11000
+#define ESP_WAIT_UP_TIME_MS 6000
         int err;
         int retry = 3;
         bool powerup = false;

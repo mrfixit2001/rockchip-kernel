@@ -1662,55 +1662,6 @@ _adapter  *rtw_usb_get_sw_pointer(void)
 EXPORT_SYMBOL(rtw_usb_get_sw_pointer);
 #endif /* CONFIG_INTEL_PROXIM */
 
-#include <linux/rfkill-wlan.h>
-extern int get_wifi_chip_type(void);
-
-int rockchip_wifi_init_module_rtkwifi(void)
-{
-#ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
-    int type = get_wifi_chip_type();
-    if (type < WIFI_AP6XXX_SERIES || type == WIFI_ESP8089) return 0;
-#endif
-    printk("\n");
-    printk("=======================================================\n");
-    printk("==== Launching Wi-Fi driver! (Powered by Rockchip) ====\n");
-    printk("=======================================================\n");
-    printk("Realtek 8821CU USB WiFi driver init.\n");
-    rockchip_wifi_power(1);
-
-    return rtw_drv_entry();
-}
-
-void rockchip_wifi_exit_module_rtkwifi(void)
-{
-#ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
-    int type = get_wifi_chip_type();
-    if (type < WIFI_AP6XXX_SERIES || type == WIFI_ESP8089) return;
-#endif
-    printk("\n");
-    printk("=======================================================\n");
-    printk("==== Dislaunching Wi-Fi driver! (Powered by Rockchip) ====\n");
-    printk("=======================================================\n");
-    printk("Realtek 8821CU USB WiFi driver init.\n");
-    rtw_drv_halt();
-    rockchip_wifi_power(0);
-}
-
-#ifndef CONFIG_WL_ROCKCHIP
 module_init(rtw_drv_entry);
 module_exit(rtw_drv_halt);
-#else
 
-#ifdef CONFIG_WIFI_BUILD_MODULE
-module_init(rockchip_wifi_init_module_rtkwifi);
-module_exit(rockchip_wifi_exit_module_rtkwifi);
-#elif defined(CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP)
-late_initcall(rockchip_wifi_init_module_rtkwifi);
-module_exit(rockchip_wifi_exit_module_rtkwifi);
-#endif
-#if IS_BUILTIN(CONFIG_RTL8821CU)
-EXPORT_SYMBOL(rockchip_wifi_init_module_rtkwifi);
-EXPORT_SYMBOL(rockchip_wifi_exit_module_rtkwifi);
-#endif
-
-#endif

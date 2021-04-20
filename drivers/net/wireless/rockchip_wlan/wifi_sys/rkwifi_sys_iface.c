@@ -98,56 +98,21 @@ static ssize_t wifi_chip_read(struct class *cls, struct class_attribute *attr, c
 		printk("Current WiFi chip is AP6493.\n");
 	}
 
-	if(type == WIFI_RTL8822BS) {
-		count = sprintf(_buf, "%s", "RTL8822BS");
-		printk("Current WiFi chip is RTL8822BS.\n");
+	if(type == WIFI_RTL8189ES) {
+		count = sprintf(_buf, "%s", "RTL8189ES");
+		printk("Current WiFi chip is RTL8189ES.\n");
 	}
 
-	if(type == WIFI_RTL8822BE) {
-		count = sprintf(_buf, "%s", "RTL8822BE");
-		printk("Current WiFi chip is RTL8822BE.\n");
-	}
+        if(type == WIFI_RTL8189FS) {
+		count = sprintf(_buf, "%s", "RTL8189FS");
+		printk("Current WiFi chip is RTL8189FS.\n");
+        }
 
-	if(type == WIFI_RTL8821CU) {
-		count = sprintf(_buf, "%s", "RTL8821CU");
-		printk("Current WiFi chip is RTL8821CU.\n");
-	}
-
-	if(type == WIFI_RTL8812AU) {
-		count = sprintf(_buf, "%s", "RTL8812AU");
-		printk("Current WiFi chip is RTL8812AU.\n");
-	}
-
-	if(type == WIFI_RTL8192DU) {
-		count = sprintf(_buf, "%s", "RTL8192DU");
-		printk("Current WiFi chip is RTL8192DU.\n");
-	}
-
-	if(type == WIFI_RTL8191CU) {
-		count = sprintf(_buf, "%s", "RTL8191CU");
-		printk("Current WiFi chip is RTL8191CU.\n");
-	}
-
-	if(type == WIFI_RTL8188FU) {
-		count = sprintf(_buf, "%s", "RTL8188FU");
-		printk("Current WiFi chip is RTL8188FU.\n");
-	}
-
-	if(type == WIFI_RTL8188EU) {
-		count = sprintf(_buf, "%s", "RTL8188EU");
-		printk("Current WiFi chip is RTL8188EU.\n");
-	}
-	
 	if(type == WIFI_RTL8723BS) {
 		count = sprintf(_buf, "%s", "RTL8723BS");
 		printk("Current WiFi chip is RTL8723BS.\n");
 	}
 
-	if(type == WIFI_RTL8723AS) {
-		count = sprintf(_buf, "%s", "RTL8723AS");
-		printk("Current WiFi chip is RTL8723AS.\n");
-	}	
-	
 	if(type == WIFI_RTL8723CS) {
 		count = sprintf(_buf, "%s", "RTL8723CS");
 		printk("Current WiFi chip is RTL8723CS.\n");
@@ -158,25 +123,15 @@ static ssize_t wifi_chip_read(struct class *cls, struct class_attribute *attr, c
 		printk("Current WiFi chip is RTL8723DS.\n");
 	}
 
-	if(type == WIFI_RTL8723BU) {
-		count = sprintf(_buf, "%s", "RTL8723BU");
-		printk("Current WiFi chip is RTL8723BU.\n");
+	if(type == WIFI_RTL8822BS) {
+		count = sprintf(_buf, "%s", "RTL8822BS");
+		printk("Current WiFi chip is RTL8822BS.\n");
 	}
 
-	if(type == WIFI_RTL8723AU) {
-		count = sprintf(_buf, "%s", "RTL8723AU");
-		printk("Current WiFi chip is RTL8723AU.\n");
-	}							
-
-	if(type == WIFI_RTL8189ES) {
-		count = sprintf(_buf, "%s", "RTL8189ES");
-		printk("Current WiFi chip is RTL8189ES.\n");
+	if(type == WIFI_RTL8822BE) {
+		count = sprintf(_buf, "%s", "RTL8822BE");
+		printk("Current WiFi chip is RTL8822BE.\n");
 	}
-
-        if(type == WIFI_RTL8189FS) {
-		count = sprintf(_buf, "%s", "RTL8189FS");
-		printk("Current WiFi chip is RTL8189FS.\n");
-        }
 
         if(type == WIFI_SSV6051) {
 		count = sprintf(_buf, "%s", "SSV6051");
@@ -241,13 +196,9 @@ static int wifi_init_exit_module(int enable)
 
 	}
 #endif
-#if IS_BUILTIN(CONFIG_RTL8188EU) || IS_BUILTIN(CONFIG_RTL8188FU) || \
-	IS_BUILTIN(CONFIG_RTL8189ES) || IS_BUILTIN(CONFIG_RTL8189FS) || \
-	IS_BUILTIN(CONFIG_RTL8192DU) || IS_BUILTIN(CONFIG_RTL8723AU) || \
-	IS_BUILTIN(CONFIG_RTL8723BS) || IS_BUILTIN(CONFIG_RTL8723BU) || \
-	IS_BUILTIN(CONFIG_RTL8723CS) || IS_BUILTIN(CONFIG_RTL8723DS) || \
-	IS_BUILTIN(CONFIG_RTL8812AU) || IS_BUILTIN(CONFIG_RTL8821CU) || \
-	IS_BUILTIN(CONFIG_RTL8822BE) || IS_BUILTIN(CONFIG_RTL8822BS)
+#if 	IS_BUILTIN(CONFIG_RTL8189ES) || IS_BUILTIN(CONFIG_RTL8189FS) || IS_BUILTIN(CONFIG_RTL8723BS) || \
+	IS_BUILTIN(CONFIG_RTL8723CS) || IS_BUILTIN(CONFIG_RTL8723DS) || IS_BUILTIN(CONFIG_RTL8822BS) || \
+	IS_BUILTIN(CONFIG_RTL8822BE)
 	if (type > WIFI_ESP8089 && type < WIFI_RTL_SERIES) {
 		if (enable > 0)
 			ret = rockchip_wifi_init_module_rtkwifi();
@@ -351,4 +302,4 @@ module_exit(rkwifi_sysif_exit);
 MODULE_AUTHOR("Yongle Lai & gwl");
 MODULE_DESCRIPTION("WiFi SYS @ Rockchip");
 MODULE_LICENSE("GPL");
-
+MODULE_SOFTDEP("pre: wlan-platdata");

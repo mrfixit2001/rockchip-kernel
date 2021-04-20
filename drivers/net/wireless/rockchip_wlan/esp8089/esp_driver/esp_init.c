@@ -14,6 +14,7 @@
 #include "esp_debug.h"
 #include "esp_version.h"
 #include "esp_file.h"
+#include <linux/kthread.h>
 
 int esp_common_init(void)
 {
@@ -54,7 +55,7 @@ void esp_common_exit(void)
 #endif
 }
 
-static int /*__init*/ esp_init(void)
+static int /*__init*/ _esp_init(void)
 {
         u64 ver;
 	int edf_ret = 0;
@@ -82,6 +83,32 @@ static int /*__init*/ esp_init(void)
 	return esp_common_init();
 }
 
+
+static int wifi_init_thread(void *data)
+{
+	_esp_init();
+
+	return 0;
+}
+
+#include <linux/rfkill-wlan.h>
+extern int get_wifi_chip_type(void);
+int esp_init(void)
+{
+	// MRFIXIT: don't init the driver if it's not defined in the device tree as the sdio chip
+	int type = get_wifi_chip_type();
+	struct task_struct *kthread = NULL;
+	if(type != WIFI_ESP8089)
+		return 0;
+
+	// MRFIXIT: This driver init locks the kernel up when trying to initialize, let's fix that with a thread
+	kthread = kthread_run(wifi_init_thread, NULL, "wifi_init_thread");
+	if (IS_ERR(kthread))
+		pr_err("create wifi_init_thread failed.\n");
+
+	return 0;
+}
+
 static void /*__exit */ esp_exit(void)
 {
 	esp_debugfs_exit();
@@ -102,19 +129,14 @@ void rockchip_wifi_exit_module_esp8089(void)
 	esp_exit(); 
 }
 
-
+// Always lateinit this driver to avoid boot delays
 #ifndef CONFIG_WL_ROCKCHIP
-module_init(esp_init);
+late_initcall(esp_init);
 module_exit(esp_exit);
 #else
 
-#ifdef CONFIG_WIFI_BUILD_MODULE
-module_init(rockchip_wifi_init_module_esp8089);
-module_exit(rockchip_wifi_exit_module_esp8089);
-#elif defined(CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP)
 late_initcall(rockchip_wifi_init_module_esp8089);
 module_exit(rockchip_wifi_exit_module_esp8089);
-#endif
 #if IS_BUILTIN(CONFIG_ESP8089)
 EXPORT_SYMBOL(rockchip_wifi_init_module_esp8089);
 EXPORT_SYMBOL(rockchip_wifi_exit_module_esp8089);

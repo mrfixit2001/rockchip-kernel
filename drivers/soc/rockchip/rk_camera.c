@@ -1250,3 +1250,4 @@ static int rk_register_camera_devices(void)
 }
 
 module_init(rk_register_camera_devices);
+MODULE_LICENSE("GPL");
