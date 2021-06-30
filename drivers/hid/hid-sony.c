@@ -1585,47 +1585,34 @@ static int sixaxis_set_operational_usb(struct hid_device *hdev)
 	const int buf_size =
 		max(SIXAXIS_REPORT_0xF2_SIZE, SIXAXIS_REPORT_0xF5_SIZE);
 	__u8 *buf;
-	int ret;
 
 	buf = kmalloc(buf_size, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
-	ret = hid_hw_raw_request(hdev, 0xf2, buf, SIXAXIS_REPORT_0xF2_SIZE,
-				 HID_FEATURE_REPORT, HID_REQ_GET_REPORT);
-	if (ret < 0) {
-		hid_err(hdev, "can't set operational mode: step 1\n");
-		goto out;
-	}
+	if (hid_hw_raw_request(hdev, 0xf2, buf, SIXAXIS_REPORT_0xF2_SIZE,
+				 HID_FEATURE_REPORT, HID_REQ_GET_REPORT) < 0)
+		hid_info(hdev, "warning: can't set operational mode: step 1\n");
 
 	/*
 	 * Some compatible controllers like the Speedlink Strike FX and
 	 * Gasia need another query plus an USB interrupt to get operational.
 	 */
-	ret = hid_hw_raw_request(hdev, 0xf5, buf, SIXAXIS_REPORT_0xF5_SIZE,
-				 HID_FEATURE_REPORT, HID_REQ_GET_REPORT);
-	if (ret < 0) {
-		hid_err(hdev, "can't set operational mode: step 2\n");
-		goto out;
-	}
+	if (hid_hw_raw_request(hdev, 0xf5, buf, SIXAXIS_REPORT_0xF5_SIZE,
+				 HID_FEATURE_REPORT, HID_REQ_GET_REPORT) < 0)
+		hid_info(hdev, "warning: can't set operational mode: step 2\n");
 
 	/*
 	 * But the USB interrupt would cause SHANWAN controllers to
 	 * start rumbling non-stop, so skip step 3 for these controllers.
 	 */
-	if (sc->quirks & SHANWAN_GAMEPAD_USB)
-		goto out;
+	if (!(sc->quirks & SHANWAN_GAMEPAD_USB))
+		if (hid_hw_output_report(hdev, buf, 1) < 0)
+			hid_info(hdev, "warning: can't set operational mode: step 3\n");
 
-	ret = hid_hw_output_report(hdev, buf, 1);
-	if (ret < 0) {
-		hid_info(hdev, "can't set operational mode: step 3, ignoring\n");
-		ret = 0;
-	}
-
-out:
 	kfree(buf);
 
-	return ret;
+	return 0;
 }
 
 static int sixaxis_set_operational_bt(struct hid_device *hdev)
@@ -2621,15 +2608,10 @@ static int sony_check_add(struct sony_sc *sc)
 		 * be retrieved with feature report 0xf2. The address begins at
 		 * offset 4.
 		 */
-		ret = hid_hw_raw_request(sc->hdev, 0xf2, buf,
+		if (hid_hw_raw_request(sc->hdev, 0xf2, buf,
 				SIXAXIS_REPORT_0xF2_SIZE, HID_FEATURE_REPORT,
-				HID_REQ_GET_REPORT);
-
-		if (ret != SIXAXIS_REPORT_0xF2_SIZE) {
-			hid_err(sc->hdev, "failed to retrieve feature report 0xf2 with the Sixaxis MAC address\n");
-			ret = ret < 0 ? ret : -EINVAL;
-			goto out_free;
-		}
+				HID_REQ_GET_REPORT) != SIXAXIS_REPORT_0xF2_SIZE)
+			hid_info(sc->hdev, "warning: failed to retrieve feature report 0xf2 with the Sixaxis MAC address\n");
 
 		/*
 		 * The Sixaxis device MAC in the report is big-endian and must
