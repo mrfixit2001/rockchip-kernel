@@ -43,6 +43,17 @@
 
 #define LE_FLOWCTL_MAX_CREDITS 65535
 
+/* 
+ * HCI packet types inverted masks - 
+ * these should really be defined in /include/net/bluetooth/hci.h 
+*/
+#define HCI_2DH1	0x0002
+#define HCI_3DH1	0x0004
+#define HCI_2DH3	0x0100
+#define HCI_3DH3	0x0200
+#define HCI_2DH5	0x1000
+#define HCI_3DH5	0x2000
+
 bool disable_ertm;
 
 static u32 l2cap_feat_mask = L2CAP_FEAT_FIXED_CHAN | L2CAP_FEAT_UCD;
@@ -509,12 +520,12 @@ void l2cap_chan_set_defaults(struct l2cap_chan *chan)
 }
 EXPORT_SYMBOL_GPL(l2cap_chan_set_defaults);
 
-static void l2cap_le_flowctl_init(struct l2cap_chan *chan)
+static void l2cap_le_flowctl_init(struct l2cap_chan *chan, u16 tx_credits)
 {
 	chan->sdu = NULL;
 	chan->sdu_last_frag = NULL;
 	chan->sdu_len = 0;
-	chan->tx_credits = 0;
+	chan->tx_credits = tx_credits;
 	chan->rx_credits = le_max_credits;
 	chan->mps = min_t(u16, chan->imtu, le_default_mps);
 
@@ -1277,6 +1288,11 @@ static void l2cap_le_connect(struct l2cap_chan *chan)
 
 	if (test_and_set_bit(FLAG_LE_CONN_REQ_SENT, &chan->flags))
 		return;
+
+	if (!chan->imtu)
+		chan->imtu = chan->conn->mtu;
+
+	l2cap_le_flowctl_init(chan, 0);
 
 	req.psm     = chan->psm;
 	req.scid    = cpu_to_le16(chan->scid);
@@ -3203,6 +3219,49 @@ static inline void l2cap_txwin_setup(struct l2cap_chan *chan)
 	chan->ack_win = chan->tx_win;
 }
 
+static void l2cap_mtu_auto(struct l2cap_chan *chan)
+{
+	struct hci_conn *conn = chan->conn->hcon;
+
+	chan->imtu = L2CAP_DEFAULT_MIN_MTU;
+
+	/* The 2-DH1 packet has between 2 and 56 information bytes
+	 * (including the 2-byte payload header)
+	 */
+	if (!(conn->pkt_type & HCI_2DH1))
+		chan->imtu = 54;
+
+	/* The 3-DH1 packet has between 2 and 85 information bytes
+	 * (including the 2-byte payload header)
+	 */
+	if (!(conn->pkt_type & HCI_3DH1))
+		chan->imtu = 83;
+
+	/* The 2-DH3 packet has between 2 and 369 information bytes
+	 * (including the 2-byte payload header)
+	 */
+	if (!(conn->pkt_type & HCI_2DH3))
+		chan->imtu = 367;
+
+	/* The 3-DH3 packet has between 2 and 554 information bytes
+	 * (including the 2-byte payload header)
+	 */
+	if (!(conn->pkt_type & HCI_3DH3))
+		chan->imtu = 552;
+
+	/* The 2-DH5 packet has between 2 and 681 information bytes
+	 * (including the 2-byte payload header)
+	 */
+	if (!(conn->pkt_type & HCI_2DH5))
+		chan->imtu = 679;
+
+	/* The 3-DH5 packet has between 2 and 1023 information bytes
+	 * (including the 2-byte payload header)
+	 */
+	if (!(conn->pkt_type & HCI_3DH5))
+		chan->imtu = 1021;
+}
+
 static int l2cap_build_conf_req(struct l2cap_chan *chan, void *data, size_t data_size)
 {
 	struct l2cap_conf_req *req = data;
@@ -3232,8 +3291,12 @@ static int l2cap_build_conf_req(struct l2cap_chan *chan, void *data, size_t data
 	}
 
 done:
-	if (chan->imtu != L2CAP_DEFAULT_MTU)
-		l2cap_add_conf_opt(&ptr, L2CAP_CONF_MTU, 2, chan->imtu, endptr - ptr);
+	if (chan->imtu != L2CAP_DEFAULT_MTU) {
+		if (!chan->imtu)
+			l2cap_mtu_auto(chan);
+		l2cap_add_conf_opt(&ptr, L2CAP_CONF_MTU, 2, chan->imtu,
+				   endptr - ptr);
+	}
 
 	switch (chan->mode) {
 	case L2CAP_MODE_BASIC:
@@ -3402,7 +3465,7 @@ static int l2cap_parse_conf_req(struct l2cap_chan *chan, void *data, size_t data
 			if (hint)
 				break;
 			result = L2CAP_CONF_UNKNOWN;
-			*((u8 *) ptr++) = type;
+			l2cap_add_conf_opt(&ptr, (u8)type, sizeof(u8), type, endptr - ptr);
 			break;
 		}
 	}
@@ -4241,6 +4304,7 @@ static inline int l2cap_config_rsp(struct l2cap_conn *conn,
 		}
 		goto done;
 
+	case L2CAP_CONF_UNKNOWN:
 	case L2CAP_CONF_UNACCEPT:
 		if (chan->num_conf_rsp <= L2CAP_CONF_MAX_CONF_RSP) {
 			char req[64];
@@ -5529,8 +5593,6 @@ static int l2cap_le_connect_req(struct l2cap_conn *conn,
 		goto response_unlock;
 	}
 
-	l2cap_le_flowctl_init(chan);
-
 	bacpy(&chan->src, &conn->hcon->src);
 	bacpy(&chan->dst, &conn->hcon->dst);
 	chan->src_type = bdaddr_src_type(conn->hcon);
@@ -5539,9 +5601,11 @@ static int l2cap_le_connect_req(struct l2cap_conn *conn,
 	chan->dcid = scid;
 	chan->omtu = mtu;
 	chan->remote_mps = mps;
-	chan->tx_credits = __le16_to_cpu(req->credits);
 
 	__l2cap_chan_add(conn, chan);
+
+	l2cap_le_flowctl_init(chan, __le16_to_cpu(req->credits));
+
 	dcid = chan->scid;
 	credits = chan->rx_credits;
 
@@ -7145,7 +7209,6 @@ int l2cap_chan_connect(struct l2cap_chan *chan, __le16 psm, u16 cid,
 	case L2CAP_MODE_BASIC:
 		break;
 	case L2CAP_MODE_LE_FLOWCTL:
-		l2cap_le_flowctl_init(chan);
 		break;
 	case L2CAP_MODE_ERTM:
 	case L2CAP_MODE_STREAMING:
