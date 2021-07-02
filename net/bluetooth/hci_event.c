@@ -4083,7 +4083,6 @@ static void hci_io_capa_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 			     sizeof(cp), &cp);
 	} else {
 		struct hci_cp_io_capability_neg_reply cp;
-
 		bacpy(&cp.bdaddr, &ev->bdaddr);
 		cp.reason = HCI_ERROR_PAIRING_NOT_ALLOWED;
 

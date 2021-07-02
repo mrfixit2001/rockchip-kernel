@@ -377,6 +377,21 @@ static const struct usb_device_id blacklist_table[] = {
 #define BTUSB_DIAG_RUNNING	10
 #define BTUSB_OOB_WAKE_ENABLED	11
 
+struct hci_peer {
+	struct list_head list;
+
+	bdaddr_t bdaddr;
+	__le16 handle;
+	int acl_deferred;
+	struct sk_buff_head acl_deferred_q;
+};
+
+struct hci_peer_hash {
+	struct list_head list;
+
+	unsigned int peer_num;
+};
+
 struct btusb_data {
 	struct hci_dev       *hdev;
 	struct usb_device    *udev;
@@ -404,6 +419,9 @@ struct btusb_data {
 	struct sk_buff *acl_skb;
 	struct sk_buff *sco_skb;
 
+	struct hci_peer_hash peer_hash;
+	int acl_deferred_peer;
+
 	struct usb_endpoint_descriptor *intr_ep;
 	struct usb_endpoint_descriptor *bulk_tx_ep;
 	struct usb_endpoint_descriptor *bulk_rx_ep;
@@ -425,6 +443,88 @@ struct btusb_data {
 	int (*setup_on_usb)(struct hci_dev *hdev);
 };
 
+static inline void hci_peer_hash_add(struct btusb_data *data, struct hci_peer *p)
+{
+	struct hci_peer_hash *h = &data->peer_hash;
+
+	list_add(&p->list, &h->list);
+
+	h->peer_num++;
+}
+
+static inline void hci_peer_hash_del(struct btusb_data *data, struct hci_peer *p)
+{
+	struct hci_peer_hash *h = &data->peer_hash;
+
+	h->peer_num--;
+
+	list_del(&p->list);
+}
+
+static inline struct hci_peer *hci_peer_hash_lookup_ba(struct btusb_data *data, bdaddr_t *bdaddr)
+{
+	struct hci_peer *p;
+	struct hci_peer_hash *h = &data->peer_hash;
+
+	list_for_each_entry(p, &h->list, list)
+	if (!bacmp(&p->bdaddr, bdaddr))
+	return p;
+
+	return NULL;
+}
+
+static inline struct hci_peer *hci_peer_hash_lookup_handle(struct btusb_data *data, __le16 handle)
+{
+	struct hci_peer_hash *h = &data->peer_hash;
+	struct hci_peer *p;
+
+	list_for_each_entry(p, &h->list, list)
+	if (p->handle == handle)
+	return p;
+
+	return NULL;
+}
+
+struct hci_peer *hci_peer_add(struct btusb_data *data, bdaddr_t *bdaddr, __le16 handle)
+{
+	struct hci_peer *peer;
+
+	peer = kzalloc(sizeof(*peer), GFP_KERNEL);
+	if (!peer)
+	return NULL;
+
+	bacpy(&peer->bdaddr, bdaddr);
+	peer->handle = handle;
+
+	skb_queue_head_init(&peer->acl_deferred_q);
+
+	hci_peer_hash_add(data, peer);
+
+	return peer;
+};
+
+void hci_peer_remove(struct btusb_data *data, struct hci_peer *peer)
+{
+	hci_peer_hash_del(data, peer);
+
+	if (peer->acl_deferred)
+	data->acl_deferred_peer--;
+
+	skb_queue_purge(&peer->acl_deferred_q);
+
+	kfree(peer);
+	peer = NULL;
+}
+
+static inline void hci_peer_purge(struct btusb_data *data)
+{
+	struct hci_peer_hash *h = &data->peer_hash;
+	struct hci_peer *p, *next;
+
+	list_for_each_entry_safe(p, next, &h->list, list)
+	hci_peer_remove(data, p);
+}
+
 static inline void btusb_free_frags(struct btusb_data *data)
 {
 	unsigned long flags;
@@ -441,6 +541,116 @@ static inline void btusb_free_frags(struct btusb_data *data)
 	data->sco_skb = NULL;
 
 	spin_unlock_irqrestore(&data->rxlock, flags);
+}
+
+/*
+ * Workaround for a race condition observed with Android phones which makes fail
+ * some connections (30% with my device).
+ *
+ * After link key reply it is expected that HCI_EV_ENCRYPT_CHANGE is received
+ * before any ACL connection request or it will be dropped by bluez L2CAP layer.
+ *
+ * The events are received from usb interrupt transfer and ACL packet from usb
+ * bulk transfer. I guess the bluetooth controller does not handle correctly
+ * write ordering between those two transfer types.
+ *
+ * The connection/disconnection are tracked so the workaround can apply with a
+ * per device logic. It will start queueing ACL packets when link key are
+ * exchanged until the HCI_EV_ENCRYPT_CHANGE event or a disconnection.
+ *
+ * POSSIBLE LIMITATIONS:
+ *
+ * - Connection requests made between LINK_KEY_REQ and ENCRYPT_CHANGE events
+ * will be forwarded to the L2CAP layer and will be seen as legitimate. However,
+ * bluetooth specification says that ACL transfer is paused until encryption is
+ * fully setup. I guess this is the responsability of the controller to filter
+ * any rogue connection request until ENCRYPT_CHANGE event.
+ *
+ * - This workaround is not enough to fix a similar issue with pairing.
+ */
+static void btusb_update_deferred(struct btusb_data *data, struct sk_buff *skb)
+{
+	struct hci_peer *peer = NULL;
+	const int evt = ((struct hci_event_hdr *)skb->data)->evt;
+
+	BT_DBG("%s, event 0x%x, peers %d, deferred peers %d", data->hdev->name, evt, data->peer_hash.peer_num, data->acl_deferred_peer);
+
+	skb_pull(skb, HCI_EVENT_HDR_SIZE);
+
+	switch (evt) {
+		case HCI_EV_CONN_COMPLETE: {
+			struct hci_ev_conn_complete *event;
+			__le16 handle;
+
+			event = (struct hci_ev_conn_complete *)skb->data;
+			handle = hci_handle(__le16_to_cpu(event->handle));
+			peer = hci_peer_hash_lookup_ba(data, &event->bdaddr);
+			if (peer) {
+				hci_peer_remove(data, peer);
+				peer = NULL;
+			}
+
+			/* Track only peers on successful connections */
+			if (event->status == 0)
+				hci_peer_add(data, &event->bdaddr, handle);
+
+			break;
+		}
+
+		case HCI_EV_DISCONN_COMPLETE: {
+			struct hci_ev_disconn_complete *event;
+			__le16 handle;
+
+			event = (struct hci_ev_disconn_complete *)skb->data;
+			handle = hci_handle(__le16_to_cpu(event->handle));
+
+			peer = hci_peer_hash_lookup_handle(data, handle);
+			if (peer) {
+				hci_peer_remove(data, peer);
+				peer = NULL;
+			}
+			break;
+		}
+
+		case HCI_EV_LINK_KEY_REQ: {
+			struct hci_ev_link_key_req *event;
+
+			event = (struct hci_ev_link_key_req *)skb->data;
+
+			peer = hci_peer_hash_lookup_ba(data, &event->bdaddr);
+			if (peer && !peer->acl_deferred) {
+				peer->acl_deferred = 1;
+				data->acl_deferred_peer++;
+			}
+			break;
+		}
+
+		case HCI_EV_ENCRYPT_CHANGE: {
+			struct hci_ev_encrypt_change *event;
+			__le16 handle;
+
+			event = (struct hci_ev_encrypt_change *)skb->data;
+			handle = hci_handle(__le16_to_cpu(event->handle));
+
+			peer = hci_peer_hash_lookup_handle(data, handle);
+			if (peer && peer->acl_deferred) {
+				struct sk_buff *frame;
+
+				while ((frame = skb_dequeue(&peer->acl_deferred_q)))
+					hci_recv_frame(data->hdev, frame);
+
+				frame = NULL;
+
+				peer->acl_deferred = 0;
+				data->acl_deferred_peer--;
+			}
+			break;
+		}
+
+		default:
+			BT_ERR("Unexpected event");
+			break;
+	}
 }
 
 static int btusb_recv_intr(struct btusb_data *data, void *buffer, int count)
@@ -486,9 +696,28 @@ static int btusb_recv_intr(struct btusb_data *data, void *buffer, int count)
 		}
 
 		if (bt_cb(skb)->expect == 0) {
+			struct sk_buff *evt_skb = NULL;
+			struct hci_event_hdr *hdr = (struct hci_event_hdr *)skb->data;
+
+			if (hdr->evt == HCI_EV_CONN_COMPLETE ||
+			  hdr->evt == HCI_EV_DISCONN_COMPLETE ||
+			  hdr->evt == HCI_EV_LINK_KEY_REQ ||
+			  hdr->evt == HCI_EV_ENCRYPT_CHANGE) {
+				evt_skb = skb_clone(skb, GFP_KERNEL);
+				if (!evt_skb)
+					BT_ERR("Out of memory");
+			}
+
 			/* Complete frame */
 			data->recv_event(data->hdev, skb);
 			skb = NULL;
+
+			if (evt_skb) {
+				btusb_update_deferred(data, evt_skb);
+
+				kfree_skb(evt_skb);
+				evt_skb = NULL;
+			}
 		}
 	}
 
@@ -544,7 +773,22 @@ static int btusb_recv_bulk(struct btusb_data *data, void *buffer, int count)
 
 		if (bt_cb(skb)->expect == 0) {
 			/* Complete frame */
-			hci_recv_frame(data->hdev, skb);
+			if (data->acl_deferred_peer) {
+				struct hci_peer *p;
+				struct hci_acl_hdr *hdr;
+				__le16 handle;
+
+				hdr = (struct hci_acl_hdr *)skb->data;
+				handle = hci_handle(__le16_to_cpu(hdr->handle));
+
+				p = hci_peer_hash_lookup_handle(data, handle);
+				if (p && p->acl_deferred)
+					skb_queue_tail(&p->acl_deferred_q, skb);
+				else
+					hci_recv_frame(data->hdev, skb);
+			} else {
+				hci_recv_frame(data->hdev, skb);
+			}
 			skb = NULL;
 		}
 	}
@@ -2922,6 +3166,9 @@ static int btusb_probe(struct usb_interface *intf,
 	data->udev = interface_to_usbdev(intf);
 	data->intf = intf;
 
+	data->acl_deferred_peer = 0;
+	INIT_LIST_HEAD(&data->peer_hash.list);
+
 	INIT_WORK(&data->work, btusb_work);
 	INIT_WORK(&data->waker, btusb_waker);
 	init_usb_anchor(&data->deferred);
@@ -3156,6 +3403,8 @@ static void btusb_disconnect(struct usb_interface *intf)
 
 	if (!data)
 		return;
+
+	hci_peer_purge(data);
 
 	hdev = data->hdev;
 	usb_set_intfdata(data->intf, NULL);

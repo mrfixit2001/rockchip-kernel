@@ -252,6 +252,12 @@ struct l2cap_conn_rsp {
 #define L2CAP_PSM_3DSP		0x0021
 #define L2CAP_PSM_IPSP		0x0023 /* 6LoWPAN */
 
+#define L2CAP_PSM_DYN_START	0x1001
+#define L2CAP_PSM_DYN_END	0xffff
+#define L2CAP_PSM_AUTO_END	0x10ff
+#define L2CAP_PSM_LE_DYN_START  0x0080
+#define L2CAP_PSM_LE_DYN_END	0x00ff
+
 /* channel identifier */
 #define L2CAP_CID_SIGNALING	0x0001
 #define L2CAP_CID_CONN_LESS	0x0002
@@ -615,6 +621,14 @@ struct l2cap_ops {
 					       unsigned long len, int nb);
 };
 
+struct l2cap_pend_conn_req {
+	struct l2cap_cmd_hdr cmd;
+	struct l2cap_conn_req conn_req;
+	u8 rsp_code;
+	u8 amp_id;
+	int attempt;
+};
+
 struct l2cap_conn {
 	struct hci_conn		*hcon;
 	struct hci_chan		*hchan;
@@ -629,6 +643,9 @@ struct l2cap_conn {
 	__u8			info_ident;
 
 	struct delayed_work	info_timer;
+
+	struct delayed_work	retry_timer;
+	struct l2cap_pend_conn_req *p_req;
 
 	struct sk_buff		*rx_skb;
 	__u32			rx_len;

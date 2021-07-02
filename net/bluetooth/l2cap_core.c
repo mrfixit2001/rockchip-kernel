@@ -54,6 +54,8 @@
 #define HCI_2DH5	0x1000
 #define HCI_3DH5	0x2000
 
+#define CONNECT_RETRY msecs_to_jiffies(50)
+
 bool disable_ertm;
 
 static u32 l2cap_feat_mask = L2CAP_FEAT_FIXED_CHAN | L2CAP_FEAT_UCD;
@@ -70,6 +72,8 @@ static void l2cap_send_cmd(struct l2cap_conn *conn, u8 ident, u8 code, u16 len,
 			   void *data);
 static int l2cap_build_conf_req(struct l2cap_chan *chan, void *data, size_t data_size);
 static void l2cap_send_disconn_req(struct l2cap_chan *chan, int err);
+
+static void l2cap_connect_retry(struct work_struct *work);
 
 static void l2cap_tx(struct l2cap_chan *chan, struct l2cap_ctrl *control,
 		     struct sk_buff_head *skbs, u8 event);
@@ -181,11 +185,18 @@ static struct l2cap_chan *l2cap_get_chan_by_ident(struct l2cap_conn *conn,
 	return c;
 }
 
-static struct l2cap_chan *__l2cap_global_chan_by_addr(__le16 psm, bdaddr_t *src)
+static struct l2cap_chan *__l2cap_global_chan_by_addr(__le16 psm, bdaddr_t *src,
+						      u8 src_type)
 {
 	struct l2cap_chan *c;
 
 	list_for_each_entry(c, &chan_list, global_l) {
+		if (src_type == BDADDR_BREDR && c->src_type != BDADDR_BREDR)
+			continue;
+
+		if (src_type != BDADDR_BREDR && c->src_type == BDADDR_BREDR)
+			continue;
+
 		if (c->sport == psm && !bacmp(&c->src, src))
 			return c;
 	}
@@ -198,7 +209,7 @@ int l2cap_add_psm(struct l2cap_chan *chan, bdaddr_t *src, __le16 psm)
 
 	write_lock(&chan_list_lock);
 
-	if (psm && __l2cap_global_chan_by_addr(psm, src)) {
+	if (psm && __l2cap_global_chan_by_addr(psm, src, chan->src_type)) {
 		err = -EADDRINUSE;
 		goto done;
 	}
@@ -208,11 +219,22 @@ int l2cap_add_psm(struct l2cap_chan *chan, bdaddr_t *src, __le16 psm)
 		chan->sport = psm;
 		err = 0;
 	} else {
-		u16 p;
+		u16 p, start, end, incr;
+
+		if (chan->src_type == BDADDR_BREDR) {
+			start = L2CAP_PSM_DYN_START;
+			end = L2CAP_PSM_AUTO_END;
+			incr = 2;
+		} else {
+			start = L2CAP_PSM_LE_DYN_START;
+			end = L2CAP_PSM_LE_DYN_END;
+			incr = 1;
+		}
 
 		err = -EINVAL;
-		for (p = 0x1001; p < 0x1100; p += 2)
-			if (!__l2cap_global_chan_by_addr(cpu_to_le16(p), src)) {
+		for (p = start; p < end; p += incr)
+			if (!__l2cap_global_chan_by_addr(cpu_to_le16(p), src,
+							 chan->src_type)) {
 				chan->psm   = cpu_to_le16(p);
 				chan->sport = cpu_to_le16(p);
 				err = 0;
@@ -1363,8 +1385,14 @@ static bool l2cap_check_enc_key_size(struct hci_conn *hcon)
 	 * that have no key size requirements. Ensure that the link is
 	 * actually encrypted before enforcing a key size.
 	 */
-	return (!test_bit(HCI_CONN_ENCRYPT, &hcon->flags) ||
-		hcon->enc_key_size >= HCI_MIN_ENC_KEY_SIZE);
+	if (!test_bit(HCI_CONN_ENCRYPT, &hcon->flags))
+		return 1;
+
+	/* On FIPS security level, key size must be 16 bytes */
+	if (hcon->sec_level == BT_SECURITY_FIPS)
+		return (hcon->enc_key_size >= 16);
+	else
+		return (hcon->enc_key_size >= HCI_MIN_ENC_KEY_SIZE);
 }
 
 static void l2cap_do_start(struct l2cap_chan *chan)
@@ -1722,6 +1750,10 @@ static void l2cap_conn_del(struct hci_conn *hcon, int err)
 
 	if (work_pending(&conn->id_addr_update_work))
 		cancel_work_sync(&conn->id_addr_update_work);
+
+	if (conn->p_req)
+		cancel_delayed_work(&conn->retry_timer);
+	kfree(conn->p_req);
 
 	l2cap_unregister_all_users(conn);
 
@@ -3878,8 +3910,10 @@ static struct l2cap_chan *l2cap_connect(struct l2cap_conn *conn,
 					u8 *data, u8 rsp_code, u8 amp_id)
 {
 	struct l2cap_conn_req *req = (struct l2cap_conn_req *) data;
+	//struct hci_dev *hdev = conn->hcon->hdev;
 	struct l2cap_conn_rsp rsp;
 	struct l2cap_chan *chan = NULL, *pchan;
+	//struct sk_buff *skb;
 	int result, status = L2CAP_CS_NO_INFO;
 
 	u16 dcid = 0, scid = __le16_to_cpu(req->scid);
@@ -3901,6 +3935,32 @@ static struct l2cap_chan *l2cap_connect(struct l2cap_conn *conn,
 	/* Check if the ACL is secure enough (if not SDP) */
 	if (psm != cpu_to_le16(L2CAP_PSM_SDP) &&
 	    !hci_conn_check_link_mode(conn->hcon)) {
+		/* Delay and retry */
+		if (!conn->p_req) {
+			conn->p_req = kzalloc(sizeof(*conn->p_req), GFP_KERNEL);
+			if (conn->p_req) {
+				memcpy(&conn->p_req->cmd, cmd, sizeof(*cmd));
+				memcpy(&conn->p_req->conn_req, req, sizeof(*req));
+				conn->p_req->rsp_code = rsp_code;
+				conn->p_req->amp_id = amp_id;
+				conn->p_req->attempt = 1;
+
+				schedule_delayed_work(&conn->retry_timer, CONNECT_RETRY);
+
+				l2cap_chan_unlock(pchan);
+				mutex_unlock(&conn->chan_lock);
+				return 0;
+			}
+		} else if (conn->p_req->attempt == 1) {
+			// This is the second attempt, it still failed, maybe do something different eventually, for now just try one last time
+			conn->p_req->attempt = 2;
+
+			schedule_delayed_work(&conn->retry_timer, CONNECT_RETRY);
+
+			l2cap_chan_unlock(pchan);
+			mutex_unlock(&conn->chan_lock);
+			return 0;
+		}
 		conn->disc_reason = HCI_ERROR_AUTH_FAILURE;
 		result = L2CAP_CR_SEC_BLOCK;
 		goto response;
@@ -4098,6 +4158,22 @@ unlock:
 	mutex_unlock(&conn->chan_lock);
 
 	return err;
+}
+
+static void l2cap_connect_retry(struct work_struct *work)
+{
+	struct l2cap_conn *conn = container_of(work, struct l2cap_conn, retry_timer.work);
+
+	if(conn->p_req == NULL)
+		return;
+
+	BT_DBG("conn %p, p_req %p", conn, conn->p_req);
+
+	(void)l2cap_connect(conn, &conn->p_req->cmd, (u8 *)&conn->p_req->conn_req, 
+		conn->p_req->rsp_code, conn->p_req->amp_id);
+
+	kfree(conn->p_req);
+	conn->p_req = NULL;
 }
 
 static inline void set_default_fcs(struct l2cap_chan *chan)
@@ -7151,6 +7227,7 @@ static struct l2cap_conn *l2cap_conn_add(struct hci_conn *hcon)
 	INIT_LIST_HEAD(&conn->users);
 
 	INIT_DELAYED_WORK(&conn->info_timer, l2cap_info_timeout);
+	INIT_DELAYED_WORK(&conn->retry_timer, l2cap_connect_retry);
 
 	skb_queue_head_init(&conn->pending_rx);
 	INIT_WORK(&conn->pending_rx_work, process_pending_rx);
@@ -7545,8 +7622,7 @@ static void l2cap_security_cfm(struct hci_conn *hcon, u8 status, u8 encrypt)
 				l2cap_start_connection(chan);
 			else
 				__set_chan_timer(chan, L2CAP_DISC_TIMEOUT);
-		} else if (chan->state == BT_CONNECT2 &&
-			   chan->mode != L2CAP_MODE_LE_FLOWCTL) {
+		} else if (chan->state == BT_CONNECT2 && chan->mode != L2CAP_MODE_LE_FLOWCTL) {
 			struct l2cap_conn_rsp rsp;
 			__u16 res, stat;
 
