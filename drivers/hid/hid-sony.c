@@ -1617,15 +1617,32 @@ static int sixaxis_set_operational_usb(struct hid_device *hdev)
 
 static int sixaxis_set_operational_bt(struct hid_device *hdev)
 {
-	static const __u8 report[] = { 0xf4, 0x42, 0x03, 0x00, 0x00 };
+	struct sony_sc *sc = hid_get_drvdata(hdev);
 	__u8 *buf;
 	int ret;
-
-	buf = kmemdup(report, sizeof(report), GFP_KERNEL);
+	if ((sc->quirks & GASIA_GAMEPAD)) {
+		static const __u8 report[] = { 
+				0xA2,
+				0x01,
+				0x00, 0x00, 0x00, 0x00, 0x00,   // rumble values [0x00, right-timeout, right-force, left-timeout, left-force]
+				0x00, 0x00, 0x00, 0x00, 0x02,   // 0x02=LED1 .. 0x10=LED4
+				0xff, 0x27, 0x10, 0x00, 0x32,   // LED 4
+				0xff, 0x27, 0x10, 0x00, 0x32,   // LED 3
+				0xff, 0x27, 0x10, 0x00, 0x32,   // LED 2
+				0xff, 0x27, 0x10, 0x00, 0x32,   // LED 1
+				0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00 };
+		buf = kmemdup(report, sizeof(report), GFP_KERNEL);
+	} else {
+		static const __u8 report[] = { 0xf4, 0x42, 0x03, 0x00, 0x00 };
+		buf = kmemdup(report, sizeof(report), GFP_KERNEL);
+	}
 	if (!buf)
 		return -ENOMEM;
 
-	ret = hid_hw_raw_request(hdev, buf[0], buf, sizeof(report),
+	ret = hid_hw_raw_request(hdev, buf[0], buf, sizeof(buf),
 				  HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
 
 	kfree(buf);
@@ -2213,9 +2230,8 @@ static void sixaxis_send_output_report(struct sony_sc *sc)
 	 * Some SHANWAN and Gasia controllers require output reports via intr channel 
 	 * So try hid_hw_output_report first and if it fails then use hid_hw_raw_request
 	 */
-	if (sc->quirks & (SHANWAN_GAMEPAD_USB | GASIA_GAMEPAD))
-		if(hid_hw_output_report(sc->hdev, (u8 *)report,
-				sizeof(struct sixaxis_output_report)) >= 0)
+	if (sc->quirks & (SHANWAN_GAMEPAD_BT | SHANWAN_GAMEPAD_USB | GASIA_GAMEPAD))
+		if(hid_hw_output_report(sc->hdev, (u8 *)report, sizeof(struct sixaxis_output_report)) >= 0)
 			return;
 
 	hid_hw_raw_request(sc->hdev, report->report_id, (u8 *)report,
@@ -2867,10 +2883,7 @@ static int sony_probe(struct hid_device *hdev, const struct hid_device_id *id)
 			quirks |= SHANWAN_GAMEPAD_BT;
 		else if(quirks & SIXAXIS_CONTROLLER_USB)
 			quirks |= SHANWAN_GAMEPAD_USB;
-	}
-
-	if ((strstr(name, "GASIA") || !strcmp(hdev->name, "PLAYSTATION(R)3 Controller")) && 
-	   (quirks & SIXAXIS_CONTROLLER))
+	} else if ((strstr(name, "GASIA") || !strcmp(hdev->name, "PLAYSTATION(R)3 Controller")) && (quirks & SIXAXIS_CONTROLLER))
 		quirks |= GASIA_GAMEPAD;
 
 	if (!strcmp(hdev->name, "FutureMax Dance Mat"))
