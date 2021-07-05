@@ -1384,8 +1384,11 @@ static bool l2cap_check_enc_key_size(struct hci_conn *hcon)
 	 * This check might also be called for unencrypted connections
 	 * that have no key size requirements. Ensure that the link is
 	 * actually encrypted before enforcing a key size.
+	 *
+	 * If Secure Simple Pairing is not enabled, then legacy connection
+	 * setup is used and no encryption or key sizes can be enforced.
 	 */
-	if (!test_bit(HCI_CONN_ENCRYPT, &hcon->flags))
+	if (!hci_conn_ssp_enabled(hcon) || !test_bit(HCI_CONN_ENCRYPT, &hcon->flags))
 		return 1;
 
 	/* On FIPS security level, key size must be 16 bytes */
@@ -3910,10 +3913,8 @@ static struct l2cap_chan *l2cap_connect(struct l2cap_conn *conn,
 					u8 *data, u8 rsp_code, u8 amp_id)
 {
 	struct l2cap_conn_req *req = (struct l2cap_conn_req *) data;
-	//struct hci_dev *hdev = conn->hcon->hdev;
 	struct l2cap_conn_rsp rsp;
 	struct l2cap_chan *chan = NULL, *pchan;
-	//struct sk_buff *skb;
 	int result, status = L2CAP_CS_NO_INFO;
 
 	u16 dcid = 0, scid = __le16_to_cpu(req->scid);
