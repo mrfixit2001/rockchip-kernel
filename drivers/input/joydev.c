@@ -808,6 +808,10 @@ static bool joydev_match(struct input_handler *handler, struct input_dev *dev)
 	if (test_bit(EV_KEY, dev->evbit) && test_bit(BTN_DIGI, dev->keybit))
 		return false;
 
+	/* Avoid accelerometers */
+	if (test_bit(EV_MSC, dev->evbit) && test_bit(INPUT_PROP_ACCELEROMETER, dev->propbit))
+		return false;
+
 	/* Avoid absolute mice */
 	if (joydev_dev_is_absolute_mouse(dev))
 		return false;
