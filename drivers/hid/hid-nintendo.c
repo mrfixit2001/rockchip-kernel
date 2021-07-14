@@ -1937,26 +1937,22 @@ static int joycon_leds_create(struct joycon_ctlr *ctlr)
 		input_num = 1;
 	mutex_unlock(&joycon_input_num_mutex);
 
-	/* configure the home LED */
+	/* configure the home LED, but allow it to fail since not all controllers have one */
 	if (jc_type_has_home(ctlr)) {
 		name = devm_kasprintf(dev, GFP_KERNEL, "%s:%s", d_name, "home");
-		if (!name)
-			return -ENOMEM;
+		if (name) {
+			led = &ctlr->home_led;
+			led->name = name;
+			led->brightness = 0;
+			led->max_brightness = 0xF;
+			led->brightness_set = joycon_home_led_brightness_set;
+			led->flags = LED_CORE_SUSPENDRESUME;
+			if (devm_led_classdev_register(&hdev->dev, led))
+				hid_warn(hdev, "Failed registering home led\n");
 
-		led = &ctlr->home_led;
-		led->name = name;
-		led->brightness = 0;
-		led->max_brightness = 0xF;
-		led->brightness_set = joycon_home_led_brightness_set;
-		led->flags = LED_CORE_SUSPENDRESUME;
-		ret = devm_led_classdev_register(&hdev->dev, led);
-		if (ret) {
-			hid_err(hdev, "Failed registering home led\n");
-			return ret;
+			/* Set the home LED to 0 as default state */
+			joycon_home_led_brightness_set(led, 0);
 		}
-
-		/* Set the home LED to 0 as default state */
-		joycon_home_led_brightness_set(led, 0);
 	}
 
 	return 0;
