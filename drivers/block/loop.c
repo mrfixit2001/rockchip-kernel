@@ -211,13 +211,15 @@ static void __loop_update_dio(struct loop_device *lo, bool dio)
 	 * LO_FLAGS_READ_ONLY, both are set from kernel, and losetup
 	 * will get updated by ioctl(LOOP_GET_STATUS)
 	 */
-	blk_mq_freeze_queue(lo->lo_queue);
+	if (lo->lo_state == Lo_bound)
+		blk_mq_freeze_queue(lo->lo_queue);
 	lo->use_dio = use_dio;
 	if (use_dio)
 		lo->lo_flags |= LO_FLAGS_DIRECT_IO;
 	else
 		lo->lo_flags &= ~LO_FLAGS_DIRECT_IO;
-	blk_mq_unfreeze_queue(lo->lo_queue);
+	if (lo->lo_state == Lo_bound)
+		blk_mq_unfreeze_queue(lo->lo_queue);
 }
 
 static int
@@ -458,19 +460,26 @@ static inline void handle_partial_read(struct loop_cmd *cmd, long bytes)
 	}
 }
 
-static void lo_rw_aio_complete(struct kiocb *iocb, long ret, long ret2)
+static void lo_rw_aio_do_completion(struct loop_cmd *cmd, long ret)
 {
-	struct loop_cmd *cmd = container_of(iocb, struct loop_cmd, iocb);
-	struct request *rq = cmd->rq;
-
-	handle_partial_read(cmd, ret);
+	if (!atomic_dec_and_test(&cmd->ref))
+		return;
 
 	if (ret > 0)
 		ret = 0;
 	else if (ret < 0)
 		ret = -EIO;
 
-	blk_mq_complete_request(rq, ret);
+	blk_mq_complete_request(cmd->rq, ret);
+}
+
+static void lo_rw_aio_complete(struct kiocb *iocb, long ret, long ret2)
+{
+	struct loop_cmd *cmd = container_of(iocb, struct loop_cmd, iocb);
+
+	handle_partial_read(cmd, ret);
+
+	lo_rw_aio_do_completion(cmd, ret);
 }
 
 static int lo_rw_aio(struct loop_device *lo, struct loop_cmd *cmd,
@@ -484,6 +493,8 @@ static int lo_rw_aio(struct loop_device *lo, struct loop_cmd *cmd,
 
 	/* nomerge for loop request queue */
 	WARN_ON(cmd->rq->bio != cmd->rq->biotail);
+
+	atomic_set(&cmd->ref, 2);
 
 	bvec = __bvec_iter_bvec(bio->bi_io_vec, bio->bi_iter);
 	iov_iter_bvec(&iter, ITER_BVEC | rw, bvec,
@@ -504,6 +515,8 @@ static int lo_rw_aio(struct loop_device *lo, struct loop_cmd *cmd,
 		ret = file->f_op->write_iter(&cmd->iocb, &iter);
 	else
 		ret = file->f_op->read_iter(&cmd->iocb, &iter);
+
+	lo_rw_aio_do_completion(cmd, ret);
 
 	if (ret != -EIOCBQUEUED)
 		cmd->iocb.ki_complete(&cmd->iocb, ret, 0);
@@ -1437,16 +1450,16 @@ static int loop_set_block_size(struct loop_device *lo, unsigned long arg)
 	if (arg < 512 || arg > PAGE_SIZE || !is_power_of_2(arg))
 		return -EINVAL;
 
-	if (lo->lo_queue->limits.logical_block_size != arg) {
-		sync_blockdev(lo->lo_device);
-		kill_bdev(lo->lo_device);
-	}
+	if (lo->lo_queue->limits.logical_block_size == arg)
+		return 0;
+
+	sync_blockdev(lo->lo_device);
+	kill_bdev(lo->lo_device);
 
 	blk_mq_freeze_queue(lo->lo_queue);
 
 	/* kill_bdev should have truncated all the pages */
-	if (lo->lo_queue->limits.logical_block_size != arg &&
-			lo->lo_device->bd_inode->i_mapping->nrpages) {
+	if (lo->lo_device->bd_inode->i_mapping->nrpages) {
 		err = -EAGAIN;
 		pr_warn("%s: loop%d (%s) has still dirty pages (nrpages=%lu)\n",
 			__func__, lo->lo_number, lo->lo_file_name,
@@ -1803,11 +1816,10 @@ static int loop_queue_rq(struct blk_mq_hw_ctx *hctx,
 	if (lo->lo_state != Lo_bound)
 		return BLK_MQ_RQ_QUEUE_ERROR;
 
-	if (lo->use_dio && !(cmd->rq->cmd_flags & (REQ_FLUSH |
-					REQ_DISCARD)))
-		cmd->use_aio = true;
-	else
+	if (cmd->rq->cmd_flags & (REQ_FLUSH | REQ_DISCARD))
 		cmd->use_aio = false;
+	else
+		cmd->use_aio = lo->use_dio;
 
 	queue_kthread_work(&lo->worker, &cmd->work);
 
@@ -2099,10 +2111,6 @@ static int __init loop_init(void)
 	struct loop_device *lo;
 	int err;
 
-	err = misc_register(&loop_misc);
-	if (err < 0)
-		return err;
-
 	part_shift = 0;
 	if (max_part > 0) {
 		part_shift = fls(max_part);
@@ -2120,12 +2128,12 @@ static int __init loop_init(void)
 
 	if ((1UL << part_shift) > DISK_MAX_PARTS) {
 		err = -EINVAL;
-		goto misc_out;
+		goto err_out;
 	}
 
 	if (max_loop > 1UL << (MINORBITS - part_shift)) {
 		err = -EINVAL;
-		goto misc_out;
+		goto err_out;
 	}
 
 	/*
@@ -2143,6 +2151,10 @@ static int __init loop_init(void)
 		nr = CONFIG_BLK_DEV_LOOP_MIN_COUNT;
 		range = 1UL << MINORBITS;
 	}
+
+	err = misc_register(&loop_misc);
+	if (err < 0)
+		goto err_out;
 
 	if (register_blkdev(LOOP_MAJOR, "loop")) {
 		err = -EIO;
@@ -2163,6 +2175,7 @@ static int __init loop_init(void)
 
 misc_out:
 	misc_deregister(&loop_misc);
+err_out:
 	return err;
 }
 
