@@ -338,6 +338,7 @@ static const struct xpad_device {
 	{ 0xffff, 0xffff, "Chinese-made Xbox Controller", 0, XTYPE_XBOX },
 	{ 0x2563, 0x0575, "Shanwan 360 Controller", (MAP_TRIGGERS_TO_BUTTONS | NEEDS_CTRL_INIT), XTYPE_XBOX360 },
 	{ 0x2563, 0x0526, "Shanwan 360 Controller", (MAP_TRIGGERS_TO_BUTTONS | NEEDS_CTRL_INIT), XTYPE_XBOX360 },
+	{ 0x05ac, 0x055b, "Xiaoji Gamesir-G3w", NEEDS_CTRL_INIT, XTYPE_XBOX360 },
 	{ 0x0000, 0x0000, "Generic X-Box pad", 0, XTYPE_UNKNOWN }
 };
 
