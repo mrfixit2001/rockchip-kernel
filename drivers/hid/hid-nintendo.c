@@ -2,7 +2,7 @@
 /*
  * HID driver for Nintendo Switch Joy-Cons and Pro Controllers
  *
- * Copyright (c) 2019-2020 Daniel J. Ogorchock <djogorchock@gmail.com>
+ * Copyright (c) 2019-2021 Daniel J. Ogorchock <djogorchock@gmail.com>
  *
  * The following resources/projects were referenced for this driver:
  *   https://github.com/dekuNukem/Nintendo_Switch_Reverse_Engineering
@@ -490,13 +490,23 @@ struct joycon_input_report {
 } __packed;
 
 #define JC_MAX_RESP_SIZE	(sizeof(struct joycon_input_report) + 35)
-#define JC_NUM_LEDS		4
 #define JC_RUMBLE_DATA_SIZE	8
 #define JC_RUMBLE_QUEUE_SIZE	8
 
 static const u16 JC_RUMBLE_DFLT_LOW_FREQ = 160;
 static const u16 JC_RUMBLE_DFLT_HIGH_FREQ = 320;
 static const u16 JC_RUMBLE_PERIOD_MS = 50;
+static const unsigned short JC_RUMBLE_ZERO_AMP_PKT_CNT = 5;
+
+#define LED_FUNCTION_PLAYER "player"
+
+static const char * const joycon_player_led_names[] = {
+	LED_FUNCTION_PLAYER "-1",
+	LED_FUNCTION_PLAYER "-2",
+	LED_FUNCTION_PLAYER "-3",
+	LED_FUNCTION_PLAYER "-4",
+};
+#define JC_NUM_LEDS		ARRAY_SIZE(joycon_player_led_names)
 
 /* Each physical controller is associated with a joycon_ctlr struct */
 struct joycon_ctlr {
@@ -520,6 +530,7 @@ struct joycon_ctlr {
 	u8 usb_ack_match;
 	u8 subcmd_ack_match;
 	bool received_input_report;
+	unsigned int last_subcmd_sent_msecs;
 
 	/* factory calibration data */
 	struct joycon_stick_cal left_stick_cal_x;
@@ -552,7 +563,7 @@ struct joycon_ctlr {
 	u16 rumble_lh_freq;
 	u16 rumble_rl_freq;
 	u16 rumble_rh_freq;
-	bool rumble_zero_amp;
+	unsigned short rumble_zero_countdown;
 
 	/* imu */
 	struct input_dev *imu_input;
@@ -578,25 +589,25 @@ struct joycon_ctlr {
 /* Does this controller have inputs associated with left joycon? */
 #define jc_type_has_left(ctlr) \
 	(ctlr->ctlr_type == JOYCON_CTLR_TYPE_JCL || \
-	ctlr->ctlr_type == JOYCON_CTLR_TYPE_SNES || \
+	 ctlr->ctlr_type == JOYCON_CTLR_TYPE_SNES || \
 	 ctlr->ctlr_type == JOYCON_CTLR_TYPE_PRO)
 
 /* Does this controller have inputs associated with right joycon? */
 #define jc_type_has_right(ctlr) \
 	(ctlr->ctlr_type == JOYCON_CTLR_TYPE_JCR || \
-	ctlr->ctlr_type == JOYCON_CTLR_TYPE_SNES || \
-	ctlr->ctlr_type == JOYCON_CTLR_TYPE_PRO)
+	 ctlr->ctlr_type == JOYCON_CTLR_TYPE_SNES || \
+	 ctlr->ctlr_type == JOYCON_CTLR_TYPE_PRO)
 
 /* Does this controller have a home button? */
 #define jc_type_has_home(ctlr) \
 	(ctlr->ctlr_type == JOYCON_CTLR_TYPE_JCR || \
-	ctlr->ctlr_type == JOYCON_CTLR_TYPE_PRO)
+	 ctlr->ctlr_type == JOYCON_CTLR_TYPE_PRO)
 
 /* Does this controller have gyro? */
 #define jc_type_has_gyro(ctlr) \
 	(ctlr->ctlr_type == JOYCON_CTLR_TYPE_JCR || \
-	ctlr->ctlr_type == JOYCON_CTLR_TYPE_JCL || \
-	ctlr->ctlr_type == JOYCON_CTLR_TYPE_PRO)
+	 ctlr->ctlr_type == JOYCON_CTLR_TYPE_JCL || \
+	 ctlr->ctlr_type == JOYCON_CTLR_TYPE_PRO)
 
 static int __joycon_hid_send(struct hid_device *hdev, u8 *data, size_t len)
 {
@@ -613,6 +624,50 @@ static int __joycon_hid_send(struct hid_device *hdev, u8 *data, size_t len)
 	return ret;
 }
 
+static void joycon_wait_for_input_report(struct joycon_ctlr *ctlr)
+{
+	int ret;
+
+	/*
+	 * If we are in the proper reporting mode, wait for an input
+	 * report prior to sending the subcommand. This improves
+	 * reliability considerably.
+	 */
+	if (ctlr->ctlr_state == JOYCON_CTLR_STATE_READ) {
+		unsigned long flags;
+
+		spin_lock_irqsave(&ctlr->lock, flags);
+		ctlr->received_input_report = false;
+		spin_unlock_irqrestore(&ctlr->lock, flags);
+		ret = wait_event_timeout(ctlr->wait,
+					 ctlr->received_input_report,
+					 HZ / 4);
+		/* We will still proceed, even with a timeout here */
+		if (!ret)
+			hid_warn(ctlr->hdev,
+				 "timeout waiting for input report\n");
+	}
+}
+
+/*
+ * Sending subcommands and/or rumble data at too high a rate can cause bluetooth
+ * controller disconnections.
+ */
+static void joycon_enforce_subcmd_rate(struct joycon_ctlr *ctlr)
+{
+	static const unsigned int max_subcmd_rate_ms = 25;
+	unsigned int current_ms = jiffies_to_msecs(jiffies);
+	unsigned int delta_ms = current_ms - ctlr->last_subcmd_sent_msecs;
+
+	while (delta_ms < max_subcmd_rate_ms &&
+	       ctlr->ctlr_state == JOYCON_CTLR_STATE_READ) {
+		joycon_wait_for_input_report(ctlr);
+		current_ms = jiffies_to_msecs(jiffies);
+		delta_ms = current_ms - ctlr->last_subcmd_sent_msecs;
+	}
+	ctlr->last_subcmd_sent_msecs = current_ms;
+}
+
 static int joycon_hid_send_sync(struct joycon_ctlr *ctlr, u8 *data, size_t len,
 				u32 timeout)
 {
@@ -624,25 +679,7 @@ static int joycon_hid_send_sync(struct joycon_ctlr *ctlr, u8 *data, size_t len,
 	 * doing one retry after a timeout appears to always work.
 	 */
 	while (tries--) {
-		/*
-		 * If we are in the proper reporting mode, wait for an input
-		 * report prior to sending the subcommand. This improves
-		 * reliability considerably.
-		 */
-		if (ctlr->ctlr_state == JOYCON_CTLR_STATE_READ) {
-			unsigned long flags;
-
-			spin_lock_irqsave(&ctlr->lock, flags);
-			ctlr->received_input_report = false;
-			spin_unlock_irqrestore(&ctlr->lock, flags);
-			ret = wait_event_timeout(ctlr->wait,
-						 ctlr->received_input_report,
-						 HZ / 4);
-			/* We will still proceed, even with a timeout here */
-			if (!ret)
-				hid_warn(ctlr->hdev,
-					 "timeout waiting for input report\n");
-		}
+		joycon_enforce_subcmd_rate(ctlr);
 
 		ret = __joycon_hid_send(ctlr->hdev, data, len);
 		if (ret < 0) {
@@ -1243,10 +1280,10 @@ static void joycon_parse_imu_report(struct joycon_ctlr *ctlr,
 			    ctlr->accel_cal.scale[2]) /
 			    ctlr->imu_cal_accel_divisor[2];
 
-		hid_dbg(ctlr->hdev, "raw_gyro: g_x=%hd g_y=%hd g_z=%hd\n",
+		hid_dbg(ctlr->hdev, "raw_gyro: g_x=%d g_y=%d g_z=%d\n",
 			imu_data[i].gyro_x, imu_data[i].gyro_y,
 			imu_data[i].gyro_z);
-		hid_dbg(ctlr->hdev, "raw_accel: a_x=%hd a_y=%hd a_z=%hd\n",
+		hid_dbg(ctlr->hdev, "raw_accel: a_x=%d a_y=%d a_z=%d\n",
 			imu_data[i].accel_x, imu_data[i].accel_y,
 			imu_data[i].accel_z);
 
@@ -1296,8 +1333,17 @@ static void joycon_parse_report(struct joycon_ctlr *ctlr,
 	if (IS_ENABLED(CONFIG_NINTENDO_FF) && rep->vibrator_report &&
 	    (msecs - ctlr->rumble_msecs) >= JC_RUMBLE_PERIOD_MS &&
 	    (ctlr->rumble_queue_head != ctlr->rumble_queue_tail ||
-	     !ctlr->rumble_zero_amp))
+	     ctlr->rumble_zero_countdown > 0)) {
+		/*
+		 * When this value reaches 0, we know we've sent multiple
+		 * packets to the controller instructing it to disable rumble.
+		 * We can safely stop sending periodic rumble packets until the
+		 * next ff effect.
+		 */
+		if (ctlr->rumble_zero_countdown > 0)
+			ctlr->rumble_zero_countdown--;
 		queue_work(ctlr->rumble_queue, &ctlr->rumble_worker);
+	}
 
 	/* Parse the battery status */
 	tmp = rep->bat_con;
@@ -1464,6 +1510,8 @@ static int joycon_send_rumble_data(struct joycon_ctlr *ctlr)
 	if (++ctlr->subcmd_num > 0xF)
 		ctlr->subcmd_num = 0;
 
+	joycon_enforce_subcmd_rate(ctlr);
+
 	ret = __joycon_hid_send(ctlr->hdev, (u8 *)&rumble_output,
 				sizeof(rumble_output));
 	return ret;
@@ -1589,8 +1637,8 @@ static int joycon_set_rumble(struct joycon_ctlr *ctlr, u16 amp_r, u16 amp_l,
 	freq_r_high = ctlr->rumble_rh_freq;
 	freq_l_low = ctlr->rumble_ll_freq;
 	freq_l_high = ctlr->rumble_lh_freq;
-	/* this flag is used to reduce subcommand traffic */
-	ctlr->rumble_zero_amp = (amp_l == 0) && (amp_r == 0);
+	/* limit number of silent rumble packets to reduce traffic */
+	if (amp_l != 0 || amp_r != 0)
 	spin_unlock_irqrestore(&ctlr->lock, flags);
 
 	/* right joy-con */
@@ -1714,7 +1762,7 @@ static int joycon_input_create(struct joycon_ctlr *ctlr)
 					     joycon_button_inputs_l[i]);
 
 		/* configure d-pad differently for joy-con vs pro controller */
-		if (jc_type_is_joycon(ctlr)) {
+		if (!jc_type_is_procon(ctlr)) {
 			for (i = 0; joycon_dpad_inputs_jc[i] > 0; i++)
 				input_set_capability(ctlr->input, EV_KEY,
 						     joycon_dpad_inputs_jc[i]);
@@ -1826,7 +1874,6 @@ static void joycon_player_led_brightness_set(struct led_classdev *led,
 	struct joycon_ctlr *ctlr;
 	int val = 0;
 	int i;
-	int ret;
 	int num;
 
 	ctlr = hid_get_drvdata(hdev);
@@ -1850,7 +1897,7 @@ static void joycon_player_led_brightness_set(struct led_classdev *led,
 		else
 			val |= ctlr->leds[i].brightness << i;
 	}
-	ret = joycon_set_player_leds(ctlr, 0, val);
+	joycon_set_player_leds(ctlr, 0, val);
 	mutex_unlock(&ctlr->output_mutex);
 }
 
@@ -1885,13 +1932,6 @@ static void joycon_home_led_brightness_set(struct led_classdev *led,
 	mutex_unlock(&ctlr->output_mutex);
 }
 
-static const char * const joycon_player_led_names[] = {
-	"player1",
-	"player2",
-	"player3",
-	"player4"
-};
-
 static DEFINE_MUTEX(joycon_input_num_mutex);
 static int joycon_leds_create(struct joycon_ctlr *ctlr)
 {
@@ -1914,15 +1954,17 @@ static int joycon_leds_create(struct joycon_ctlr *ctlr)
 
 	/* configure the player LEDs */
 	for (i = 0; i < JC_NUM_LEDS; i++) {
-		name = devm_kasprintf(dev, GFP_KERNEL, "%s:%s", d_name,
-				      joycon_player_led_names[i]);
+		name = devm_kasprintf(dev, GFP_KERNEL, "%s:%s:%s",
+				      d_name,
+				      "green",
+ 				      joycon_player_led_names[i]);
 		if (!name)
 			return -ENOMEM;
 
 		led = &ctlr->leds[i];
 		led->name = name;
-		led->brightness = ((i + 1) <= input_num) ? LED_ON : LED_OFF;
-		led->max_brightness = LED_ON;
+		led->brightness = ((i + 1) <= input_num) ? 1 : 0;
+		led->max_brightness = 1;
 		led->brightness_set = joycon_player_led_brightness_set;
 		led->flags = LED_CORE_SUSPENDRESUME;
 
@@ -1939,7 +1981,10 @@ static int joycon_leds_create(struct joycon_ctlr *ctlr)
 
 	/* configure the home LED, but allow it to fail since not all controllers have one */
 	if (jc_type_has_home(ctlr)) {
-		name = devm_kasprintf(dev, GFP_KERNEL, "%s:%s", d_name, "home");
+		name = devm_kasprintf(dev, GFP_KERNEL, "%s:%s:%s",
+				      d_name,
+				      "blue",
+				      LED_FUNCTION_PLAYER "-5");
 		if (name) {
 			led = &ctlr->home_led;
 			led->name = name;
@@ -1947,11 +1992,12 @@ static int joycon_leds_create(struct joycon_ctlr *ctlr)
 			led->max_brightness = 0xF;
 			led->brightness_set = joycon_home_led_brightness_set;
 			led->flags = LED_CORE_SUSPENDRESUME;
-			if (devm_led_classdev_register(&hdev->dev, led))
+			if (devm_led_classdev_register(&hdev->dev, led)) {
 				hid_warn(hdev, "Failed registering home led\n");
-
-			/* Set the home LED to 0 as default state */
-			joycon_home_led_brightness_set(led, 0);
+			} else {
+				/* Set the home LED to 0 as default state */
+				joycon_home_led_brightness_set(led, 0);
+			}
 		}
 	}
 
