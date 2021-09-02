@@ -76,11 +76,12 @@
  * xbox d-pads should map to buttons, as is required for DDR pads
  * but we map them to axes when possible to simplify things
  */
-#define MAP_DPAD_TO_BUTTONS		(1 << 0)
-#define MAP_TRIGGERS_TO_BUTTONS		(1 << 1)
-#define MAP_STICKS_TO_NULL		(1 << 2)
-#define DANCEPAD_MAP_CONFIG	(MAP_DPAD_TO_BUTTONS |			\
-				MAP_TRIGGERS_TO_BUTTONS | MAP_STICKS_TO_NULL)
+#define MAP_DPAD_TO_BUTTONS		BIT(0)
+#define MAP_TRIGGERS_TO_BUTTONS		BIT(1)
+#define MAP_STICKS_TO_NULL		BIT(2)
+#define MAP_SELECT_BUTTON		BIT(3)
+#define NEEDS_CTRL_INIT			BIT(4)
+#define DANCEPAD_MAP_CONFIG	(MAP_DPAD_TO_BUTTONS | MAP_TRIGGERS_TO_BUTTONS | MAP_STICKS_TO_NULL)
 
 #define XTYPE_XBOX        0
 #define XTYPE_XBOX360     1
@@ -108,7 +109,7 @@ static const struct xpad_device {
 	u16 idVendor;
 	u16 idProduct;
 	char *name;
-	u8 mapping;
+	unsigned long quirks;
 	u8 xtype;
 } xpad_device[] = {
 	{ 0x0079, 0x18d4, "GPD Win 2 X-Box Controller", 0, XTYPE_XBOX360 },
@@ -130,6 +131,7 @@ static const struct xpad_device {
 	{ 0x045e, 0x02e3, "Microsoft X-Box One Elite pad", 0, XTYPE_XBOXONE },
 	{ 0x045e, 0x02ea, "Microsoft X-Box One S pad", 0, XTYPE_XBOXONE },
 	{ 0x045e, 0x0719, "Xbox 360 Wireless Receiver", MAP_DPAD_TO_BUTTONS, XTYPE_XBOX360W },
+	{ 0x045e, 0x0b12, "Microsoft Xbox One X pad", MAP_SELECT_BUTTON, XTYPE_XBOXONE },
 	{ 0x046d, 0xc21d, "Logitech Gamepad F310", 0, XTYPE_XBOX360 },
 	{ 0x046d, 0xc21e, "Logitech Gamepad F510", 0, XTYPE_XBOX360 },
 	{ 0x046d, 0xc21f, "Logitech Gamepad F710", 0, XTYPE_XBOX360 },
@@ -304,6 +306,7 @@ static const struct xpad_device {
 	{ 0x1bad, 0xfa01, "MadCatz GamePad", 0, XTYPE_XBOX360 },
 	{ 0x1bad, 0xfd00, "Razer Onza TE", 0, XTYPE_XBOX360 },
 	{ 0x1bad, 0xfd01, "Razer Onza", 0, XTYPE_XBOX360 },
+	{ 0x1949, 0x041a, "Amazon Game Controller", 0, XTYPE_XBOX360 },
 	{ 0x20d6, 0x2001, "BDA Xbox Series X Wired Controller", 0, XTYPE_XBOXONE },
 	{ 0x20d6, 0x2009, "PowerA Enhanced Wired Controller for Xbox Series X|S", 0, XTYPE_XBOXONE },
 	{ 0x20d6, 0x281f, "PowerA Wired Controller For Xbox 360", 0, XTYPE_XBOX360 },
@@ -333,6 +336,8 @@ static const struct xpad_device {
 	{ 0x24c6, 0xfafe, "Rock Candy Gamepad for Xbox 360", 0, XTYPE_XBOX360 },
 	{ 0x3767, 0x0101, "Fanatec Speedster 3 Forceshock Wheel", 0, XTYPE_XBOX },
 	{ 0xffff, 0xffff, "Chinese-made Xbox Controller", 0, XTYPE_XBOX },
+	{ 0x2563, 0x0575, "Shanwan 360 Controller", (MAP_TRIGGERS_TO_BUTTONS | NEEDS_CTRL_INIT), XTYPE_XBOX360 },
+	{ 0x2563, 0x0526, "Shanwan 360 Controller", (MAP_TRIGGERS_TO_BUTTONS | NEEDS_CTRL_INIT), XTYPE_XBOX360 },
 	{ 0x0000, 0x0000, "Generic X-Box pad", 0, XTYPE_UNKNOWN }
 };
 
@@ -440,6 +445,7 @@ static const struct usb_device_id xpad_table[] = {
 	XPAD_XBOX360_VENDOR(0x15e4),		/* Numark X-Box 360 controllers */
 	XPAD_XBOX360_VENDOR(0x162e),		/* Joytech X-Box 360 controllers */
 	XPAD_XBOX360_VENDOR(0x1689),		/* Razer Onza */
+	XPAD_XBOX360_VENDOR(0x1949),		/* Amazon controllers */
 	XPAD_XBOX360_VENDOR(0x1bad),		/* Harminix Rock Band Guitar and Drums */
 	XPAD_XBOX360_VENDOR(0x20d6),		/* PowerA Controllers */
 	XPAD_XBOXONE_VENDOR(0x20d6),		/* PowerA Controllers */
@@ -447,6 +453,8 @@ static const struct usb_device_id xpad_table[] = {
 	XPAD_XBOXONE_VENDOR(0x24c6),		/* PowerA Controllers */
 	XPAD_XBOXONE_VENDOR(0x2e24),		/* Hyperkin Duke X-Box One pad */
 	XPAD_XBOX360_VENDOR(0x2f24),		/* GameSir Controllers */
+	{ USB_DEVICE(0x2563, 0x0575) },		/* SHANWAN PS3/PC Android Gamepad */
+	{ USB_DEVICE(0x2563, 0x0526) },		/* SHANWAN PS3/PC Android Gamepad */
 	{ }
 };
 
@@ -600,7 +608,7 @@ struct usb_xpad {
 
 	char phys[64];			/* physical device path */
 
-	int mapping;			/* map d-pad to buttons or to axes */
+	unsigned long quirks;		/* quirks for pad mappings */
 	int xtype;			/* type of xbox device */
 	int pad_nr;			/* the order x360 pads were attached */
 	const char *name;		/* name of the device */
@@ -624,7 +632,7 @@ static void xpad_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned char *d
 {
 	struct input_dev *dev = xpad->dev;
 
-	if (!(xpad->mapping & MAP_STICKS_TO_NULL)) {
+	if (!(xpad->quirks & MAP_STICKS_TO_NULL)) {
 		/* left stick */
 		input_report_abs(dev, ABS_X,
 				 (__s16) le16_to_cpup((__le16 *)(data + 12)));
@@ -639,7 +647,7 @@ static void xpad_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned char *d
 	}
 
 	/* triggers left/right */
-	if (xpad->mapping & MAP_TRIGGERS_TO_BUTTONS) {
+	if (xpad->quirks & MAP_TRIGGERS_TO_BUTTONS) {
 		input_report_key(dev, BTN_TL2, data[10]);
 		input_report_key(dev, BTN_TR2, data[11]);
 	} else {
@@ -648,7 +656,7 @@ static void xpad_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned char *d
 	}
 
 	/* digital pad */
-	if (xpad->mapping & MAP_DPAD_TO_BUTTONS) {
+	if (xpad->quirks & MAP_DPAD_TO_BUTTONS) {
 		/* dpad as buttons (left, right, up, down) */
 		input_report_key(dev, BTN_TRIGGER_HAPPY1, data[2] & 0x04);
 		input_report_key(dev, BTN_TRIGGER_HAPPY2, data[2] & 0x08);
@@ -698,7 +706,7 @@ static void xpad360_process_packet(struct usb_xpad *xpad, struct input_dev *dev,
 		return;
 
 	/* digital pad */
-	if (xpad->mapping & MAP_DPAD_TO_BUTTONS) {
+	if (xpad->quirks & MAP_DPAD_TO_BUTTONS) {
 		/* dpad as buttons (left, right, up, down) */
 		input_report_key(dev, BTN_TRIGGER_HAPPY1, data[2] & 0x04);
 		input_report_key(dev, BTN_TRIGGER_HAPPY2, data[2] & 0x08);
@@ -712,7 +720,7 @@ static void xpad360_process_packet(struct usb_xpad *xpad, struct input_dev *dev,
 	 * made no sense, but now we can not just switch back and have to
 	 * support both behaviors.
 	 */
-	if (!(xpad->mapping & MAP_DPAD_TO_BUTTONS) ||
+	if (!(xpad->quirks & MAP_DPAD_TO_BUTTONS) ||
 	    xpad->xtype == XTYPE_XBOX360W) {
 		input_report_abs(dev, ABS_HAT0X,
 				 !!(data[2] & 0x08) - !!(data[2] & 0x04));
@@ -737,7 +745,7 @@ static void xpad360_process_packet(struct usb_xpad *xpad, struct input_dev *dev,
 	input_report_key(dev, BTN_TR,	data[3] & 0x02);
 	input_report_key(dev, BTN_MODE,	data[3] & 0x04);
 
-	if (!(xpad->mapping & MAP_STICKS_TO_NULL)) {
+	if (!(xpad->quirks & MAP_STICKS_TO_NULL)) {
 		/* left stick */
 		input_report_abs(dev, ABS_X,
 				 (__s16) le16_to_cpup((__le16 *)(data + 6)));
@@ -752,7 +760,7 @@ static void xpad360_process_packet(struct usb_xpad *xpad, struct input_dev *dev,
 	}
 
 	/* triggers left/right */
-	if (xpad->mapping & MAP_TRIGGERS_TO_BUTTONS) {
+	if (xpad->quirks & MAP_TRIGGERS_TO_BUTTONS) {
 		input_report_key(dev, BTN_TL2, data[4]);
 		input_report_key(dev, BTN_TR2, data[5]);
 	} else {
@@ -862,6 +870,8 @@ static void xpadone_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned char
 	/* menu/view buttons */
 	input_report_key(dev, BTN_START,  data[4] & 0x04);
 	input_report_key(dev, BTN_SELECT, data[4] & 0x08);
+	if (xpad->quirks & MAP_SELECT_BUTTON)
+		input_report_key(dev, KEY_RECORD, data[22] & 0x01);
 
 	/* buttons A,B,X,Y */
 	input_report_key(dev, BTN_A,	data[4] & 0x10);
@@ -870,7 +880,7 @@ static void xpadone_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned char
 	input_report_key(dev, BTN_Y,	data[4] & 0x80);
 
 	/* digital pad */
-	if (xpad->mapping & MAP_DPAD_TO_BUTTONS) {
+	if (xpad->quirks & MAP_DPAD_TO_BUTTONS) {
 		/* dpad as buttons (left, right, up, down) */
 		input_report_key(dev, BTN_TRIGGER_HAPPY1, data[5] & 0x04);
 		input_report_key(dev, BTN_TRIGGER_HAPPY2, data[5] & 0x08);
@@ -891,7 +901,7 @@ static void xpadone_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned char
 	input_report_key(dev, BTN_THUMBL, data[5] & 0x40);
 	input_report_key(dev, BTN_THUMBR, data[5] & 0x80);
 
-	if (!(xpad->mapping & MAP_STICKS_TO_NULL)) {
+	if (!(xpad->quirks & MAP_STICKS_TO_NULL)) {
 		/* left stick */
 		input_report_abs(dev, ABS_X,
 				 (__s16) le16_to_cpup((__le16 *)(data + 10)));
@@ -906,7 +916,7 @@ static void xpadone_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned char
 	}
 
 	/* triggers left/right */
-	if (xpad->mapping & MAP_TRIGGERS_TO_BUTTONS) {
+	if (xpad->quirks & MAP_TRIGGERS_TO_BUTTONS) {
 		input_report_key(dev, BTN_TL2,
 				 (__u16) le16_to_cpup((__le16 *)(data + 6)));
 		input_report_key(dev, BTN_TR2,
@@ -1212,6 +1222,48 @@ static int xpad_start_xbox_one(struct usb_xpad *xpad)
 	return retval;
 }
 
+static int xpad_start_xbox_360(struct usb_xpad *xpad)
+{
+	int status, TIMEOUT = 100;
+	char *data = kzalloc(20, GFP_KERNEL);
+	struct device *dev = &xpad->intf->dev;
+
+	status = usb_control_msg(xpad->udev,
+		usb_rcvctrlpipe(xpad->udev, 0),
+		0x1, 0xc1,
+		cpu_to_le16(0x100), cpu_to_le16(0x0), data, cpu_to_le16(20),
+		TIMEOUT);
+
+	if (status < 0)
+		goto err_free_ctrl_data;
+
+	status = usb_control_msg(xpad->udev,
+		usb_rcvctrlpipe(xpad->udev, 0),
+		0x1, 0xc1,
+		cpu_to_le16(0x0), cpu_to_le16(0x0), data, cpu_to_le16(8),
+		TIMEOUT);
+
+	if (status < 0)
+		goto err_free_ctrl_data;
+
+	status = usb_control_msg(xpad->udev,
+		usb_rcvctrlpipe(xpad->udev, 0),
+		0x1, 0xc0,
+		cpu_to_le16(0x0), cpu_to_le16(0x0), data, cpu_to_le16(4),
+		TIMEOUT);
+
+	if (status < 0)
+		goto err_free_ctrl_data;
+
+	status = 0;
+
+err_free_ctrl_data:
+	if (status < 0)
+		dev_err(dev, "%s - failed with result %d\n", __func__, status);
+	kfree(data);
+	return status;
+}
+
 static void xpadone_ack_mode_report(struct usb_xpad *xpad, u8 seq_num)
 {
 	unsigned long flags;
@@ -1500,12 +1552,15 @@ static int xpad_start_input(struct usb_xpad *xpad)
 	if (usb_submit_urb(xpad->irq_in, GFP_KERNEL))
 		return -EIO;
 
-	if (xpad->xtype == XTYPE_XBOXONE) {
+	if (xpad->xtype == XTYPE_XBOX360 && (xpad->quirks & NEEDS_CTRL_INIT))
+		error = xpad_start_xbox_360(xpad);
+
+	if (xpad->xtype == XTYPE_XBOXONE)
 		error = xpad_start_xbox_one(xpad);
-		if (error) {
-			usb_kill_urb(xpad->irq_in);
-			return error;
-		}
+
+	if (error) {
+		usb_kill_urb(xpad->irq_in);
+		return error;
 	}
 
 	return 0;
@@ -1657,7 +1712,7 @@ static int xpad_init_input(struct usb_xpad *xpad)
 		input_dev->close = xpad_close;
 	}
 
-	if (!(xpad->mapping & MAP_STICKS_TO_NULL)) {
+	if (!(xpad->quirks & MAP_STICKS_TO_NULL)) {
 		/* set up axes */
 		for (i = 0; xpad_abs[i] >= 0; i++)
 			xpad_set_up_abs(input_dev, xpad_abs[i]);
@@ -1672,12 +1727,14 @@ static int xpad_init_input(struct usb_xpad *xpad)
 	    xpad->xtype == XTYPE_XBOXONE) {
 		for (i = 0; xpad360_btn[i] >= 0; i++)
 			input_set_capability(input_dev, EV_KEY, xpad360_btn[i]);
+		if (xpad->quirks & MAP_SELECT_BUTTON)
+			input_set_capability(input_dev, EV_KEY, KEY_RECORD);
 	} else {
 		for (i = 0; xpad_btn[i] >= 0; i++)
 			input_set_capability(input_dev, EV_KEY, xpad_btn[i]);
 	}
 
-	if (xpad->mapping & MAP_DPAD_TO_BUTTONS) {
+	if (xpad->quirks & MAP_DPAD_TO_BUTTONS) {
 		for (i = 0; xpad_btn_pad[i] >= 0; i++)
 			input_set_capability(input_dev, EV_KEY,
 					     xpad_btn_pad[i]);
@@ -1689,13 +1746,13 @@ static int xpad_init_input(struct usb_xpad *xpad)
 	 * made no sense, but now we can not just switch back and have to
 	 * support both behaviors.
 	 */
-	if (!(xpad->mapping & MAP_DPAD_TO_BUTTONS) ||
+	if (!(xpad->quirks & MAP_DPAD_TO_BUTTONS) ||
 	    xpad->xtype == XTYPE_XBOX360W) {
 		for (i = 0; xpad_abs_pad[i] >= 0; i++)
 			xpad_set_up_abs(input_dev, xpad_abs_pad[i]);
 	}
 
-	if (xpad->mapping & MAP_TRIGGERS_TO_BUTTONS) {
+	if (xpad->quirks & MAP_TRIGGERS_TO_BUTTONS) {
 		for (i = 0; xpad_btn_triggers[i] >= 0; i++)
 			input_set_capability(input_dev, EV_KEY,
 					     xpad_btn_triggers[i]);
@@ -1726,6 +1783,30 @@ err_destroy_ff:
 err_free_input:
 	input_free_device(input_dev);
 	return error;
+}
+
+bool xpad_is_mfg(struct usb_xpad *xpad, char* mfg)
+{
+	/* 
+	 * Some gamepads switch firmware right after they connect. This causes a device disconnect, and then 
+	 * a re-connect as an x-box pad with a different product/vendor id. As a result, the original 
+	 * product/vendor are lost, and therefore so are the mappings/quirks assigned in the device table.
+	 * So, inspect the udev manufacturer so we can apply these quirks when needed.
+	 *
+	 * When calling this function, send the manufacturer to search for in all capital letters.
+	 */
+	if (xpad->udev->manufacturer) {
+		// Get the manufacturer in all uppercase
+		char name[128];
+		int i;
+		strncpy(name, xpad->udev->manufacturer, 128);
+		for (i = 0; name[i] != '\0'; i++)
+			if(name[i] >= 'a' && name[i] <= 'z')
+				name[i] = name[i] -32;
+		if (strstr(name, mfg))
+			return true;
+	}
+	return false;
 }
 
 static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id)
@@ -1766,7 +1847,7 @@ static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id
 
 	xpad->udev = udev;
 	xpad->intf = intf;
-	xpad->mapping = xpad_device[i].mapping;
+	xpad->quirks = xpad_device[i].quirks;
 	xpad->xtype = xpad_device[i].xtype;
 	xpad->name = xpad_device[i].name;
 	INIT_WORK(&xpad->work, xpad_presence_work);
@@ -1784,11 +1865,11 @@ static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id
 		}
 
 		if (dpad_to_buttons)
-			xpad->mapping |= MAP_DPAD_TO_BUTTONS;
+			xpad->quirks |= MAP_DPAD_TO_BUTTONS;
 		if (triggers_to_buttons)
-			xpad->mapping |= MAP_TRIGGERS_TO_BUTTONS;
+			xpad->quirks |= MAP_TRIGGERS_TO_BUTTONS;
 		if (sticks_to_null)
-			xpad->mapping |= MAP_STICKS_TO_NULL;
+			xpad->quirks |= MAP_STICKS_TO_NULL;
 	}
 
 	if (xpad->xtype == XTYPE_XBOXONE &&
@@ -1800,6 +1881,15 @@ static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id
 		 */
 		error = -ENODEV;
 		goto err_free_in_urb;
+	}
+
+	/*
+	 * Shanwan (3rd party clone) pads needs an init sequence to work and usually have
+	 * buttons for triggers. They also require reset after resume.
+	 */
+	if (xpad_is_mfg(xpad, "SHANWAN")) {
+		xpad->quirks |= NEEDS_CTRL_INIT | MAP_TRIGGERS_TO_BUTTONS;
+		udev->quirks |= USB_QUIRK_RESET_RESUME;
 	}
 
 	ep_irq_in = ep_irq_out = NULL;
@@ -1962,7 +2052,6 @@ static struct usb_driver xpad_driver = {
 	.disconnect	= xpad_disconnect,
 	.suspend	= xpad_suspend,
 	.resume		= xpad_resume,
-	.reset_resume	= xpad_resume,
 	.id_table	= xpad_table,
 };
 
