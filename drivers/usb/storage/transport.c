@@ -1052,6 +1052,17 @@ int usb_stor_Bulk_max_lun(struct us_data *us)
 	usb_stor_dbg(us, "GetMaxLUN command result is %d, data is %d\n",
 		     result, us->iobuf[0]);
 
+	/* 
+	 * Some devices (i.e. Iomega Zip100) need this -- apparently
+	 * the bulk pipes get STALLed when the GetMaxLUN request is
+	 * processed.   This is, in theory, harmless to all other devices
+	 * (regardless of if they stall or not).
+	 */
+	if (result < 0) {
+		usb_stor_clear_halt(us, us->recv_bulk_pipe);
+		usb_stor_clear_halt(us, us->send_bulk_pipe);
+	}
+
 	/*
 	 * If we have a successful request, return the result if valid. The
 	 * CBW LUN field is 4 bits wide, so the value reported by the device
