@@ -369,10 +369,8 @@ static void dw_hdmi_get_edid(struct drm_connector *connector)
 	struct hdr_static_metadata *metadata = &connector->display_info.hdmi.hdr_panel_metadata;
 
 	if (hdmi->phy.ops->read_hpd(hdmi, hdmi->phy.data) != connector_status_connected ||
-	    connector->status != connector_status_connected) {
+	    connector->status != connector_status_connected)
 		dw_hdmi_clear_edid(connector);
-		return;
-	}
 
 	if (!hdmi->ddc || hdmi->cached_edid)
 		return;
