@@ -243,7 +243,6 @@ struct dw_hdmi {
 	struct edid *cached_edid;
 	enum drm_connector_status last_connector_status;
 
-	//u8 edid[HDMI_EDID_LEN];
 	bool cable_plugin;
 
 	struct {
@@ -347,29 +346,53 @@ static void hdmi_mask_writeb(struct dw_hdmi *hdmi, u8 data, unsigned int reg,
 	hdmi_modb(hdmi, data << shift, mask, reg);
 }
 
-static void repo_hpd_event(struct work_struct *p_work)
+static void dw_hdmi_clear_edid(struct drm_connector *connector)
 {
-	struct dw_hdmi *hdmi = container_of(p_work, struct dw_hdmi, work.work);
-	u8 phy_stat = hdmi_readb(hdmi, HDMI_PHY_STAT0);
+	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
+					     connector);
 
-	mutex_lock(&hdmi->mutex);
-	if (!(phy_stat & HDMI_PHY_RX_SENSE))
-		hdmi->rxsense = false;
-	if (phy_stat & HDMI_PHY_HPD)
-		hdmi->rxsense = true;
-	mutex_unlock(&hdmi->mutex);
+	hdmi->sink_is_hdmi = false;
+	hdmi->sink_has_audio = false;
 
-	if (hdmi->bridge.dev) {
-		bool change;
+	if (hdmi->cached_edid) {
+		kfree(hdmi->cached_edid);
+		hdmi->cached_edid = NULL;
+	}
 
-		change = drm_helper_hpd_irq_event(hdmi->bridge.dev);
+	cec_notifier_phys_addr_invalidate(hdmi->cec_notifier);
+}
 
-#ifdef CONFIG_CEC_NOTIFIER
-		if (change)
-			cec_notifier_repo_cec_hpd(hdmi->cec_notifier,
-						  hdmi->hpd_state,
-						  ktime_get());
-#endif
+static void dw_hdmi_get_edid(struct drm_connector *connector)
+{
+	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi, connector);
+	struct edid *edid;
+	struct hdr_static_metadata *metadata = &connector->display_info.hdmi.hdr_panel_metadata;
+
+	if (hdmi->phy.ops->read_hpd(hdmi, hdmi->phy.data) != connector_status_connected ||
+	    connector->status != connector_status_connected) {
+		dw_hdmi_clear_edid(connector);
+		return;
+	}
+
+	if (!hdmi->ddc || hdmi->cached_edid)
+		return;
+
+	edid = drm_get_edid(connector, hdmi->ddc);
+	if (edid) {
+		dev_dbg(hdmi->dev, "got edid: width[%d] x height[%d]\n",
+			edid->width_cm, edid->height_cm);
+
+		hdmi->sink_is_hdmi = drm_detect_hdmi_monitor(edid);
+		hdmi->sink_has_audio = drm_detect_monitor_audio(edid);
+
+		hdmi->cached_edid = edid;
+		drm_edid_to_eld(connector, edid);
+		drm_mode_connector_update_hdr_property(connector, metadata);
+		drm_mode_connector_update_edid_property(connector, edid);
+		cec_notifier_set_phys_addr_from_edid(hdmi->cec_notifier, edid);
+	} else {
+		kfree(edid);
+		edid = NULL;
 	}
 }
 
@@ -394,12 +417,6 @@ static bool check_hdmi_irq(struct dw_hdmi *hdmi, int intr_stat,
 	mod_delayed_work(hdmi->workqueue, &hdmi->work, msecs_to_jiffies(msecs));
 
 	return true;
-}
-
-static void init_hpd_work(struct dw_hdmi *hdmi)
-{
-	hdmi->workqueue = create_workqueue("hpd_queue");
-	INIT_DELAYED_WORK(&hdmi->work, repo_hpd_event);
 }
 
 static void dw_hdmi_i2c_set_divs(struct dw_hdmi *hdmi)
@@ -2609,68 +2626,12 @@ static void dw_hdmi_bridge_nop(struct drm_bridge *bridge)
 	/* do nothing */
 }
 
-static void dw_hdmi_clear_edid(struct drm_connector *connector)
-{
-	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
-					     connector);
-
-	hdmi->sink_is_hdmi = false;
-	hdmi->sink_has_audio = false;
-
-	if (hdmi->cached_edid) {
-		kfree(hdmi->cached_edid);
-		hdmi->cached_edid = NULL;
-	}
-
-	cec_notifier_phys_addr_invalidate(hdmi->cec_notifier);
-}
-
-static void dw_hdmi_get_edid(struct drm_connector *connector)
-{
-	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
-					     connector);
-	struct edid *edid;
-	struct hdr_static_metadata *metedata =
-			&connector->display_info.hdmi.hdr_panel_metadata;
-
-	if (connector->status != connector_status_connected) {
-		dw_hdmi_clear_edid(connector);
-		return;
-	}
-
-	if (!hdmi->ddc || hdmi->cached_edid)
-		return;
-
-	edid = drm_get_edid(connector, hdmi->ddc);
-	if (edid) {
-		dev_dbg(hdmi->dev, "got edid: width[%d] x height[%d]\n",
-			edid->width_cm, edid->height_cm);
-
-		hdmi->sink_is_hdmi = drm_detect_hdmi_monitor(edid);
-		hdmi->sink_has_audio = drm_detect_monitor_audio(edid);
-
-		hdmi->cached_edid = edid;
-		drm_edid_to_eld(connector, edid);
-		drm_mode_connector_update_hdr_property(connector, metedata);
-		drm_mode_connector_update_edid_property(connector, edid);
-		cec_notifier_set_phys_addr_from_edid(hdmi->cec_notifier, edid);
-	} else {
-		kfree(edid);
-		edid = NULL;
-	}
-}
-
 static enum drm_connector_status
 dw_hdmi_connector_detect(struct drm_connector *connector, bool force)
 {
 	enum drm_connector_status status;
 	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
 					     connector);
-
-	mutex_lock(&hdmi->mutex);
-	hdmi->force = DRM_FORCE_UNSPECIFIED;
-	dw_hdmi_update_power(hdmi);
-	mutex_unlock(&hdmi->mutex);
 
 	status = hdmi->phy.ops->read_hpd(hdmi, hdmi->phy.data);
 
@@ -2685,14 +2646,41 @@ dw_hdmi_connector_detect(struct drm_connector *connector, bool force)
 
 	mutex_lock(&hdmi->mutex);
 	if (status != hdmi->last_connector_status) {
-		//if (hdmi->plat_data->plugged_event)
-		//	hdmi->plat_data->plugged_event(hdmi->plat_data->phy_data, status);
-
+		// If a plugged-event is needed, it would be called here, but we don't have one
 		hdmi->last_connector_status = status;
 	}
 	mutex_unlock(&hdmi->mutex);
 
 	return status;
+}
+
+static void repo_hpd_event(struct work_struct *p_work)
+{
+	struct dw_hdmi *hdmi = container_of(p_work, struct dw_hdmi, work.work);
+	u8 phy_stat = hdmi_readb(hdmi, HDMI_PHY_STAT0);
+
+	mutex_lock(&hdmi->mutex);
+	hdmi->rxsense = (phy_stat & HDMI_PHY_RX_SENSE) && (phy_stat & HDMI_PHY_HPD);
+	mutex_unlock(&hdmi->mutex);
+
+	if (hdmi->bridge.dev) {
+		bool change;
+
+		change = drm_helper_hpd_irq_event(hdmi->bridge.dev);
+
+#ifdef CONFIG_CEC_NOTIFIER
+		if (change)
+			cec_notifier_repo_cec_hpd(hdmi->cec_notifier,
+						  hdmi->hpd_state,
+						  ktime_get());
+#endif
+	}
+}
+
+static void init_hpd_work(struct dw_hdmi *hdmi)
+{
+	hdmi->workqueue = create_workqueue("hpd_queue");
+	INIT_DELAYED_WORK(&hdmi->work, repo_hpd_event);
 }
 
 static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
@@ -3082,20 +3070,13 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
 		mutex_lock(&hdmi->mutex);
 		if (!hdmi->bridge_is_on && !hdmi->force) {
 			/*
-			 * If the RX sense status indicates we're disconnected,
-			 * clear the software rxsense status.
-			 */
-			if (!(phy_stat & HDMI_PHY_RX_SENSE))
-				hdmi->rxsense = false;
-
-			/*
 			 * Only set the software rxsense status when both
 			 * rxsense and hpd indicates we're connected.
 			 * This avoids what seems to be bad behaviour in
 			 * at least iMX6S versions of the phy.
 			 */
-			if (phy_stat & HDMI_PHY_HPD)
-				hdmi->rxsense = true;
+			if (!(phy_stat & HDMI_PHY_RX_SENSE) || (phy_stat & HDMI_PHY_HPD))
+				hdmi->rxsense = (phy_stat & HDMI_PHY_RX_SENSE) && (phy_stat & HDMI_PHY_HPD);
 
 			dw_hdmi_update_power(hdmi);
 		}
@@ -3750,6 +3731,7 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
 
 	hdmi->irq = irq;
 	hdmi->mc_clkdis = 0x7f;
+	hdmi->last_connector_status = connector_status_disconnected;
 
 	mutex_init(&hdmi->mutex);
 	mutex_init(&hdmi->audio_mutex);
@@ -3875,6 +3857,7 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
 		 hdmi->phy.name);
 
 	hdmi->initialized = false;
+
 	ret = hdmi_readb(hdmi, HDMI_PHY_STAT0);
 	if ((ret & HDMI_PHY_TX_PHY_LOCK) && (ret & HDMI_PHY_HPD) &&
 	    hdmi_readb(hdmi, HDMI_FC_EXCTRLDUR)) {
@@ -3887,6 +3870,7 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
 		hdmi->phy.ops->disable(hdmi, hdmi->phy.data);
 	}
 	init_hpd_work(hdmi);
+
 	initialize_hdmi_ih_mutes(hdmi);
 
 	ret = devm_request_threaded_irq(dev, irq, dw_hdmi_hardirq,
@@ -3926,6 +3910,9 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
 	if (ret)
 		goto err_iahb;
 
+	/* Unmask HPD, clear transitory interrupts, then unmute */
+	hdmi_writeb(hdmi, hdmi->phy_mask, HDMI_PHY_MASK0);
+
 	if (!hdmi->next_bridge) {
 		hdmi->phy_mask = (u8)~(HDMI_PHY_HPD | HDMI_PHY_RX_SENSE);
 #ifdef CONFIG_SWITCH
@@ -3941,9 +3928,6 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
 		hdmi->sink_has_audio = true;
 		hdmi->phy_mask = 0xff;
 	}
-
-	/* Unmask HPD, clear transitory interrupts, then unmute */
-	hdmi_writeb(hdmi, hdmi->phy_mask, HDMI_PHY_MASK0);
 
 	/* Unmute I2CM interrupts and reset HDMI DDC I2C master controller */
 	if (hdmi->i2c)
@@ -4136,6 +4120,7 @@ EXPORT_SYMBOL_GPL(dw_hdmi_suspend);
 void dw_hdmi_resume(struct device *dev)
 {
 	struct dw_hdmi *hdmi = dev_get_drvdata(dev);
+	enum drm_connector_status connect_status;
 
 	if (!hdmi) {
 		dev_warn(dev, "Hdmi has not been initialized\n");
@@ -4150,19 +4135,14 @@ void dw_hdmi_resume(struct device *dev)
 	if (hdmi->irq)
 		enable_irq(hdmi->irq);
 	/*
-	 * HDMI status maybe incorrect in the following condition:
-	 * HDMI plug in -> system sleep ->  HDMI plug out -> system wake up.
-	 * At this time, cat /sys/class/drm/card 0-HDMI-A-1/status is connected.
-	 * There is no hpd interrupt, because HDMI is powerdown during suspend.
+	 * HDMI status maybe incorrect if plugged/unplugged during suspend
 	 * So we need check the current HDMI status in this case.
 	 */
-	if (hdmi->connector.status == connector_status_connected)
-		if (hdmi->phy.ops->read_hpd(hdmi, hdmi->phy.data) ==
-		    connector_status_disconnected) {
-			hdmi->hpd_state = false;
-			mod_delayed_work(hdmi->workqueue, &hdmi->work,
-					 msecs_to_jiffies(20));
-		}
+	connect_status = hdmi->phy.ops->read_hpd(hdmi, hdmi->phy.data);
+	if (hdmi->connector.status != connect_status) {
+		hdmi->hpd_state = (connect_status == connector_status_connected);
+		mod_delayed_work(hdmi->workqueue, &hdmi->work, msecs_to_jiffies(20));
+	}
 	mutex_unlock(&hdmi->mutex);
 	dw_hdmi_get_edid(&hdmi->connector);
 }
