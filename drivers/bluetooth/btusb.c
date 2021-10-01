@@ -356,6 +356,9 @@ static const struct usb_device_id blacklist_table[] = {
 	/* Additional Realtek 8822CE Bluetooth devices */
 	{ USB_DEVICE(0x04ca, 0x4005), .driver_info = BTUSB_REALTEK },
 
+	/* Bluetooth component of Realtek 8852AE device */
+	{ USB_DEVICE(0x04ca, 0x4006), .driver_info = BTUSB_REALTEK },
+
 	/* Silicon Wave based devices */
 	{ USB_DEVICE(0x0c10, 0x0000), .driver_info = BTUSB_SWAVE },
 
@@ -1710,6 +1713,8 @@ static int btusb_setup_bcm92035(struct hci_dev *hdev)
 
 static int btusb_setup_csr(struct hci_dev *hdev)
 {
+	struct btusb_data *data = hci_get_drvdata(hdev);
+	u16 bcdDevice = le16_to_cpu(data->udev->descriptor.bcdDevice);
 	struct hci_rp_read_local_version *rp;
 	struct sk_buff *skb;
 	bool is_fake = false;
@@ -1759,28 +1764,34 @@ static int btusb_setup_csr(struct hci_dev *hdev)
 	 *      support BT 1.1 only; so it's a dead giveaway when some
 	 *      third-party BT 4.0 dongle reuses it.
 	 */
-	if (le16_to_cpu(rp->lmp_subver) <= 0x034e &&
+	else if (le16_to_cpu(rp->lmp_subver) <= 0x034e &&
 	    le16_to_cpu(rp->hci_ver) > BLUETOOTH_VER_1_1)
 		is_fake = true;
 
-	if (le16_to_cpu(rp->lmp_subver) <= 0x0529 &&
+	else if (le16_to_cpu(rp->lmp_subver) <= 0x0529 &&
 	    le16_to_cpu(rp->hci_ver) > BLUETOOTH_VER_1_2)
 		is_fake = true;
 
-	if (le16_to_cpu(rp->lmp_subver) <= 0x0c5c &&
+	else if (le16_to_cpu(rp->lmp_subver) <= 0x0c5c &&
 	    le16_to_cpu(rp->hci_ver) > BLUETOOTH_VER_2_0)
 		is_fake = true;
 
-	if (le16_to_cpu(rp->lmp_subver) <= 0x1899 &&
+	else if (le16_to_cpu(rp->lmp_subver) <= 0x1899 &&
 	    le16_to_cpu(rp->hci_ver) > BLUETOOTH_VER_2_1)
 		is_fake = true;
 
-	if (le16_to_cpu(rp->lmp_subver) <= 0x22bb &&
+	else if (le16_to_cpu(rp->lmp_subver) <= 0x22bb &&
 	    le16_to_cpu(rp->hci_ver) > BLUETOOTH_VER_4_0)
 		is_fake = true;
 
+	/* Other clones which beat all the above checks */
+	else if (bcdDevice == 0x0134 &&
+	    le16_to_cpu(rp->lmp_subver) == 0x0c5c &&
+	    le16_to_cpu(rp->hci_ver) == BLUETOOTH_VER_2_0)
+		is_fake = true;
+
 	if (is_fake) {
-		bt_dev_warn(hdev, "CSR: Unbranded CSR clone detected; adding workarounds...");
+		bt_dev_warn(hdev, "CSR: Unbranded CSR clone detected; adding workarounds and force-suspending once...");
 
 		/* Generally these clones have big discrepancies between
 		 * advertised features and what's actually supported.
@@ -1795,6 +1806,43 @@ static int btusb_setup_csr(struct hci_dev *hdev)
 		 */
 		clear_bit(HCI_QUIRK_RESET_ON_CLOSE, &hdev->quirks);
 		clear_bit(HCI_QUIRK_SIMULTANEOUS_DISCOVERY, &hdev->quirks);
+
+		/*
+		 * Special workaround for these BT 4.0 chip clones, and potentially more:
+		 *
+		 * - 0x0134: a Barrot 8041a02                 (HCI rev: 0x1012 sub: 0x0810)
+		 * - 0x7558: IC markings FR3191AHAL 749H15143 (HCI rev/sub-version: 0x0709)
+		 *
+		 * These controllers are really messed-up.
+		 *
+		 * 1. Their bulk RX endpoint will never report any data unless
+		 * the device was suspended at least once (yes, really).
+		 * 2. They will not wakeup when autosuspended and receiving data
+		 * on their bulk RX endpoint from e.g. a keyboard or mouse
+		 * (IOW remote-wakeup support is broken for the bulk endpoint).
+		 *
+		 * To fix 1. enable runtime-suspend, force-suspend the
+		 * HCI and then wake-it up by disabling runtime-suspend.
+		 *
+		 * To fix 2. clear the HCI's can_wake flag, this way the HCI
+		 * will still be autosuspended when it is not open.
+		 *
+		 * --
+		 *
+		 * Because these are widespread problems we prefer generic solutions; so
+		 * apply this initialization quirk to every controller that gets here,
+		 * it should be harmless. The alternative is to not work at all.
+		 */
+		pm_runtime_allow(&data->udev->dev);
+
+		if (pm_runtime_suspend(&data->udev->dev) >= 0)
+			msleep(200);
+		else
+			bt_dev_err(hdev, "CSR: Failed to suspend the device for our CSR-clone receive-issue workaround");
+
+		pm_runtime_forbid(&data->udev->dev);
+
+		device_set_wakeup_capable(&data->udev->dev, false);
 	}
 
 	kfree_skb(skb);
