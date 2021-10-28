@@ -53,6 +53,9 @@ KBUILD_CPPFLAGS	+= -mlittle-endian
 AS		+= -EL
 LD		+= -EL
 endif
+ifneq ($(USE_LLD)$(LLVM),)
+LDFLAGS		+= -marmelf
+endif
 
 #
 # The Scalar Replacement of Aggregates (SRA) optimization pass in GCC 4.9 and

@@ -335,6 +335,10 @@ void __init setup_arch(char **cmdline_p)
 	cpu_uninstall_idmap();
 
 	efi_init();
+
+	if (!efi_enabled(EFI_BOOT) && ((u64)_text % MIN_KIMG_ALIGN) != 0)
+	     pr_warn(FW_BUG "Kernel image misaligned at boot, please fix your bootloader!");
+
 	arm64_memblock_init();
 
 	/* Parse the ACPI tables for possible boot-time configuration */

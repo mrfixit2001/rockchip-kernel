@@ -16,7 +16,8 @@ OBJCOPYFLAGS	:=-O binary -R .note -R .note.gnu.build-id -R .comment -S
 GZFLAGS		:=-9
 
 ifneq ($(CONFIG_RELOCATABLE),)
-LDFLAGS_vmlinux		+= -pie -Bsymbolic
+LDFLAGS_vmlinux		+= -shared -Bsymbolic -z notext \
+		$(call ld-option, --no-apply-dynamic-relocs)
 endif
 
 KBUILD_DEFCONFIG := defconfig
@@ -30,13 +31,7 @@ $(warning LSE atomics not supported by binutils)
   endif
 endif
 
-ifeq ($(cc-name),clang)
-# This is a workaround for https://bugs.llvm.org/show_bug.cgi?id=30792.
-# TODO: revert when this is fixed in LLVM.
-KBUILD_CFLAGS	+= -mno-implicit-float
-else
 KBUILD_CFLAGS	+= -mgeneral-regs-only
-endif
 KBUILD_CFLAGS	+= $(lseinstr)
 KBUILD_CFLAGS	+= -fno-pic
 KBUILD_CFLAGS	+= -fno-asynchronous-unwind-tables
@@ -47,10 +42,16 @@ ifeq ($(CONFIG_CPU_BIG_ENDIAN), y)
 KBUILD_CPPFLAGS	+= -mbig-endian
 AS		+= -EB
 LD		+= -EB
+ifneq ($(USE_LLD)$(LLVM),)
+LDFLAGS		+= -maarch64elfb -z norelro # aarch64linuxb
+endif
 else
 KBUILD_CPPFLAGS	+= -mlittle-endian
 AS		+= -EL
 LD		+= -EL
+ifneq ($(USE_LLD)$(LLVM),)
+LDFLAGS		+= -maarch64elf -z norelro # aarch64linux
+endif
 endif
 
 CHECKFLAGS	+= -D__aarch64__
