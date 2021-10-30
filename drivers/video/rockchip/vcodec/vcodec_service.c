@@ -2624,6 +2624,10 @@ static void vcodec_get_reg_freq_rk3328(struct vpu_subdev_data *data,
 			reg->freq = VPU_FREQ_500M;
 		} else if ((rockchip_get_system_status() & SYS_STATUS_VIDEO_1080P) != 0 || reg->session->width == 1920) {
 			reg->freq = VPU_FREQ_400M;
+		} else if (reg_check_fmt(reg) == VPU_DEC_FMT_H264 && reg_probe_width(reg) >= 2560) {
+			reg->freq = VPU_FREQ_600M;
+		} else if (reg_check_interlace(reg)) {
+			reg->freq = VPU_FREQ_400M;
 		}
 	}
 }
