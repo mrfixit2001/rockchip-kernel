@@ -109,6 +109,7 @@ struct rockchip_hdmi {
 	unsigned int phy_bus_width;
 	unsigned int hdmi_quant_range;
 	enum drm_hdmi_output_type hdmi_output;
+	struct dw_hdmi_plat_data *plat_data;
 };
 
 #define to_rockchip_hdmi(x)	container_of(x, struct rockchip_hdmi, x)
@@ -1037,7 +1038,7 @@ dw_hdmi_rockchip_attatch_properties(struct drm_connector *connector,
 		drm_object_attach_property(&connector->base, prop, 0);
 	}
 
-	prop = drm_property_create_range(connector->dev, 0,
+	prop = drm_property_create_range(connector->dev, DRM_MODE_PROP_IMMUTABLE,
 					 "hdmi_color_depth_capacity",
 					 0, 0xff);
 	if (prop) {
@@ -1045,7 +1046,7 @@ dw_hdmi_rockchip_attatch_properties(struct drm_connector *connector,
 		drm_object_attach_property(&connector->base, prop, 0);
 	}
 
-	prop = drm_property_create_range(connector->dev, 0,
+	prop = drm_property_create_range(connector->dev, DRM_MODE_PROP_IMMUTABLE,
 					 "hdmi_output_mode_capacity",
 					 0, 0xf);
 	if (prop) {
@@ -1136,6 +1137,7 @@ dw_hdmi_rockchip_set_property(struct drm_connector *connector,
 		return 0;
 	} else if (property == hdmi->quant_range) {
 		hdmi->hdmi_quant_range = val;
+		dw_hdmi_set_quant_range(hdmi->plat_data->hdmi);
 		return 0;
 	} else if (property == hdmi->outputmode_capacity) {
 		return -EINVAL;
@@ -1390,6 +1392,8 @@ static int dw_hdmi_rockchip_bind(struct device *dev, struct device *master,
 			 DRM_MODE_ENCODER_TMDS, NULL);
 
 	ret = dw_hdmi_bind(dev, master, data, encoder, iores, irq, plat_data);
+
+	hdmi->plat_data = plat_data;
 
 	/*
 	 * If dw_hdmi_bind() fails we'll never call dw_hdmi_unbind(),

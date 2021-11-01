@@ -1692,6 +1692,14 @@ static int vop_plane_atomic_check(struct drm_plane *plane,
 	vop = to_vop(crtc);
 	vop_data = vop->data;
 
+	if (state->src_w >> 16 < 4 || state->src_h >> 16 < 4 ||
+	    state->crtc_w < 4 || state->crtc_h < 4) {
+		DRM_ERROR("Invalid size: %dx%d->%dx%d, min size is 4x4\n",
+			  state->src_w >> 16, state->src_h >> 16,
+			  state->crtc_w, state->crtc_h);
+		return -EINVAL;
+	}
+
 	if (drm_rect_width(src) >> 16 > vop_data->max_input.width ||
 	    drm_rect_height(src) >> 16 > vop_data->max_input.height) {
 		DRM_ERROR("Invalid source: %dx%d. max input: %dx%d\n",
@@ -1769,10 +1777,11 @@ static void vop_plane_atomic_update(struct drm_plane *plane,
 	struct drm_display_mode *mode = NULL;
 	struct vop_win *win = to_vop_win(plane);
 	struct vop_plane_state *vop_plane_state = to_vop_plane_state(state);
+	struct drm_display_mode *adjusted_mode = &crtc->state->adjusted_mode;
 	struct rockchip_crtc_state *s;
 	struct vop *vop;
 	struct drm_framebuffer *fb = state->fb;
-	unsigned int actual_w, actual_h;
+	unsigned int actual_w, actual_h, dsp_w, dsp_h;
 	unsigned int dsp_stx, dsp_sty;
 	uint32_t act_info, dsp_info, dsp_st, ex_vact_st, ex_vact_end;
 	struct drm_rect *src = &vop_plane_state->src;
@@ -1829,10 +1838,30 @@ static void vop_plane_atomic_update(struct drm_plane *plane,
 	if (actual_w == 3840 && is_yuv_support(fb->pixel_format))
 		skip_lines = 1;
 	actual_h = drm_rect_height(src) >> (16 + skip_lines);
+
+	dsp_w = drm_rect_width(dest);
+	if (dest->x1 + dsp_w > adjusted_mode->hdisplay) {
+		DRM_ERROR("win%d dest->x1[%d] + dsp_w[%d] exceed mode hdisplay[%d]\n",
+			  win->win_id, dest->x1, dsp_w, adjusted_mode->hdisplay);
+		dsp_w = adjusted_mode->hdisplay - dest->x1;
+		if (dsp_w < 4)
+			dsp_w = 4;
+		actual_w = dsp_w * actual_w / drm_rect_width(dest);
+	}
+	dsp_h = drm_rect_height(dest);
+	if (dest->y1 + dsp_h > adjusted_mode->vdisplay) {
+		DRM_ERROR("win%d dest->y1[%d] + dsp_h[%d] exceed mode vdisplay[%d]\n",
+			  win->win_id, dest->y1, dsp_h, adjusted_mode->vdisplay);
+		dsp_h = adjusted_mode->vdisplay - dest->y1;
+		if (dsp_h < 4)
+			dsp_h = 4;
+		actual_h = dsp_h * actual_h / drm_rect_height(dest);
+	}
+
 	act_info = (actual_h - 1) << 16 | ((actual_w - 1) & 0xffff);
 
-	dsp_info = (drm_rect_height(dest) - 1) << 16;
-	dsp_info |= (drm_rect_width(dest) - 1) & 0xffff;
+	dsp_info = (dsp_h - 1) << 16;
+	dsp_info |= (dsp_w - 1) & 0xffff;
 
 	dsp_stx = dest->x1 + mode->crtc_htotal - mode->crtc_hsync_start;
 	dsp_sty = dest->y1 + mode->crtc_vtotal - mode->crtc_vsync_start;

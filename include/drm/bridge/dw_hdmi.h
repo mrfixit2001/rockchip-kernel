@@ -170,6 +170,7 @@ struct dw_hdmi_plat_data {
 	unsigned int phy_force_vendor;
 
 	/* Synopsys PHY support */
+	struct dw_hdmi *hdmi;
 	const struct dw_hdmi_mpll_config *mpll_cfg;
 	const struct dw_hdmi_mpll_config *mpll_cfg_420;
 	const struct dw_hdmi_curr_ctrl *cur_ctr;
@@ -192,7 +193,7 @@ void dw_hdmi_unbind(struct device *dev, struct device *master, void *data);
 int dw_hdmi_bind(struct device *dev, struct device *master,
 		 void *data, struct drm_encoder *encoder,
 		 struct resource *iores, int irq,
-		 const struct dw_hdmi_plat_data *plat_data);
+		 struct dw_hdmi_plat_data *plat_data);
 void dw_hdmi_suspend(struct device *dev);
 void dw_hdmi_resume(struct device *dev);
 enum drm_connector_status dw_hdmi_phy_read_hpd(struct dw_hdmi *hdmi,
@@ -201,6 +202,7 @@ void dw_hdmi_set_sample_rate(struct dw_hdmi *hdmi, unsigned int rate);
 void dw_hdmi_audio_enable(struct dw_hdmi *hdmi);
 void dw_hdmi_audio_disable(struct dw_hdmi *hdmi);
 void dw_hdmi_set_high_tmds_clock_ratio(struct dw_hdmi *hdmi);
+void dw_hdmi_set_quant_range(struct dw_hdmi *hdmi);
 
 /* PHY configuration */
 void dw_hdmi_phy_i2c_write(struct dw_hdmi *hdmi, unsigned short data,

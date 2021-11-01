@@ -2617,6 +2617,7 @@ static void vcodec_get_reg_freq_rk3328(struct vpu_subdev_data *data,
 					struct vpu_reg *reg)
 {
 	vcodec_get_reg_freq_default(data, reg);
+
 	if (reg->type == VPU_DEC || reg->type == VPU_DEC_PP) {
 		if ((rockchip_get_system_status() & SYS_STATUS_VIDEO_4K_10B) != 0 || reg->session->width > 3840) {
 			reg->freq = VPU_FREQ_600M;
@@ -2742,17 +2743,17 @@ static void vcodec_set_freq_rk3328(struct vpu_service_info *pservice,
 	if (pservice->dev_id == VCODEC_DEVICE_ID_RKVDEC) {
 		if (reg->reg[1] & 0x00800000) {
 			if (rkv_dec_get_fmt(reg->reg) == FMT_H264D)
-				rkvdec_set_clk(pservice, 600 * MHZ, 250 * MHZ,
+				rkvdec_set_clk(pservice, 500 * MHZ, 250 * MHZ,
 					       400 * MHZ, EVENT_ADJUST);
 			else
 				rkvdec_set_clk(pservice, 600 * MHZ, 250 * MHZ,
 					       400 * MHZ, EVENT_ADJUST);
 		} else {
 			if (rkv_dec_get_fmt(reg->reg) == FMT_H264D)
-				rkvdec_set_clk(pservice, 600 * MHZ, 300 * MHZ,
+				rkvdec_set_clk(pservice, 600 * MHZ, 350 * MHZ,
 					       400 * MHZ, EVENT_ADJUST);
 			else
-				rkvdec_set_clk(pservice, 600 * MHZ, 300 * MHZ,
+				rkvdec_set_clk(pservice, 600 * MHZ, 350 * MHZ,
 					       400 * MHZ, EVENT_ADJUST);
 		}
 	}
