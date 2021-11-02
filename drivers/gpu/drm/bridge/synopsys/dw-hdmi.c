@@ -27,6 +27,7 @@
 
 #include <drm/drm_of.h>
 #include <drm/drmP.h>
+#include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_edid.h>
@@ -45,7 +46,6 @@
 #include "dw-hdmi-cec.h"
 #include "dw-hdmi-hdcp.h"
 
-// define HDMI_EDID_LEN		512
 #define DDC_SEGMENT_ADDR       0x30
 
 enum hdmi_datamap {
@@ -1760,6 +1760,7 @@ static void hdmi_config_AVI(struct dw_hdmi *hdmi, struct drm_display_mode *mode)
 	if (hdmi_bus_fmt_is_yuv420(hdmi->hdmi_data.enc_out_bus_format) ||
 	    hdmi->connector.display_info.hdmi.scdc.supported)
 		is_hdmi2 = true;
+
 	/* Initialise info frame from DRM mode */
 	drm_hdmi_avi_infoframe_from_display_mode(&frame, mode, is_hdmi2);
 
@@ -2322,7 +2323,6 @@ static int dw_hdmi_setup(struct dw_hdmi *hdmi, struct drm_display_mode *mode)
 {
 	int ret;
 	void *data = hdmi->plat_data->phy_data;
-	bool need_delay = false;
 
 	hdmi_disable_overflow_interrupts(hdmi);
 
@@ -2414,8 +2414,6 @@ static int dw_hdmi_setup(struct dw_hdmi *hdmi, struct drm_display_mode *mode)
 		if (ret)
 			return ret;
 		hdmi->phy.enabled = true;
-	} else {
-		need_delay = true;
 	}
 	/* HDMI Initialization Step B.3 */
 	dw_hdmi_enable_video_path(hdmi);
@@ -2451,9 +2449,8 @@ static int dw_hdmi_setup(struct dw_hdmi *hdmi, struct drm_display_mode *mode)
 	if (hdmi->cable_plugin && hdmi->sink_is_hdmi)
 		hdmi_enable_overflow_interrupts(hdmi);
 
-	/* XXX: Add delay to make csc work before unmute video. */
-	if (need_delay)
-		msleep(50);
+	hdmi->hdmi_data.update = false;
+
 	return 0;
 }
 
@@ -2759,54 +2756,50 @@ static void dw_hdmi_connector_destroy(struct drm_connector *connector)
 	drm_connector_cleanup(connector);
 }
 
-static void
-dw_hdmi_connector_atomic_begin(struct drm_connector *connector,
-			       struct drm_connector_state *conn_state)
+static int dw_hdmi_connector_atomic_check(struct drm_connector *connector,
+					  struct drm_atomic_state *state)
 {
-	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
-					    connector);
+	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi, connector);
+	struct drm_connector_state *conn_state = drm_atomic_get_connector_state(state, connector);
+	unsigned int enc_in_bus_format = hdmi->hdmi_data.enc_in_bus_format;
+	unsigned int enc_out_bus_format = hdmi->hdmi_data.enc_out_bus_format;
+	unsigned int enc_in_encoding = hdmi->hdmi_data.enc_in_encoding;
+	unsigned int enc_out_encoding= hdmi->hdmi_data.enc_out_encoding;
 	void *data = hdmi->plat_data->phy_data;
-	unsigned int enc_in_bus_format;
-	unsigned int enc_out_bus_format;
-	unsigned int enc_in_encoding;
-	unsigned int enc_out_encoding;
 
 	if (!conn_state->crtc)
-		return;
-
-	if (!hdmi->hdmi_data.video_mode.mpixelclock)
-		return;
+		return 0;
 
 	if (hdmi->plat_data->get_enc_in_encoding)
 		enc_in_encoding = hdmi->plat_data->get_enc_in_encoding(data);
-	else
-		enc_in_encoding = hdmi->hdmi_data.enc_in_encoding;
 	if (hdmi->plat_data->get_enc_out_encoding)
 		enc_out_encoding = hdmi->plat_data->get_enc_out_encoding(data);
-	else
-		enc_out_encoding = hdmi->hdmi_data.enc_out_encoding;
+
 	if (hdmi->plat_data->get_input_bus_format)
 		enc_in_bus_format =
 			hdmi->plat_data->get_input_bus_format(data);
-	else
-		enc_in_bus_format = hdmi->hdmi_data.enc_in_bus_format;
 	if (hdmi->plat_data->get_output_bus_format)
 		enc_out_bus_format =
 			hdmi->plat_data->get_output_bus_format(data);
-	else
-		enc_out_bus_format = hdmi->hdmi_data.enc_out_bus_format;
 
-	if (enc_in_encoding != hdmi->hdmi_data.enc_in_encoding ||
-	    enc_out_encoding != hdmi->hdmi_data.enc_out_encoding ||
-	    enc_in_bus_format != hdmi->hdmi_data.enc_in_bus_format ||
-	    enc_out_bus_format != hdmi->hdmi_data.enc_out_bus_format) {
+	if(enc_in_encoding != hdmi->hdmi_data.enc_in_encoding ||
+	   enc_out_encoding != hdmi->hdmi_data.enc_out_encoding ||
+	   enc_in_bus_format != hdmi->hdmi_data.enc_in_bus_format ||
+	   enc_out_bus_format != hdmi->hdmi_data.enc_out_bus_format)
 		hdmi->hdmi_data.update = true;
-		hdmi_writeb(hdmi, HDMI_FC_GCP_SET_AVMUTE, HDMI_FC_GCP);
-		/* XXX: Add delay to make av mute work on sink*/
-		msleep(50);
-	} else {
+
+	if (hdmi->hdmi_data.update) {
+		struct drm_crtc_state *crtc_state = drm_atomic_get_crtc_state(state, conn_state->crtc);
+		if (IS_ERR(crtc_state))
+			return PTR_ERR(crtc_state);
+		crtc_state->mode_changed = true;
 		hdmi->hdmi_data.update = false;
+	} else if (connector->state->hdr_metadata_changed && hdmi->sink_is_hdmi) {
+		hdmi_config_hdr_infoframe(hdmi);
 	}
+
+	DRM_DEBUG("%s\n", __func__);
+	return 0;
 }
 
 static void
@@ -2821,11 +2814,8 @@ dw_hdmi_connector_atomic_flush(struct drm_connector *connector,
 	unsigned int in_bus_format = hdmi->hdmi_data.enc_in_bus_format;
 	unsigned int out_bus_format = hdmi->hdmi_data.enc_out_bus_format;
 
-
 	if (!conn_state->crtc)
 		return;
-
-	DRM_DEBUG("%s\n", __func__);
 
 	/*
 	 * If HDMI is enabled in uboot, it's need to record
@@ -2858,22 +2848,6 @@ dw_hdmi_connector_atomic_flush(struct drm_connector *connector,
 		if (in_bus_format != hdmi->hdmi_data.enc_in_bus_format ||
 		    out_bus_format != hdmi->hdmi_data.enc_out_bus_format)
 			hdmi->hdmi_data.update = true;
-		else
-			return;
-	}
-
-	if (hdmi->hdmi_data.update) {
-		dw_hdmi_setup(hdmi, &hdmi->previous_mode);
-		/*
-		 * Before clear AVMUTE, delay is needed to
-		 * prevent display flash.
-		 */
-		msleep(50);
-		hdmi_writeb(hdmi, HDMI_FC_GCP_CLEAR_AVMUTE, HDMI_FC_GCP);
-		hdmi->hdmi_data.update = false;
-	} else if (connector->state->hdr_metadata_changed &&
-		   hdmi->sink_is_hdmi) {
-		hdmi_config_hdr_infoframe(hdmi);
 	}
 }
 
@@ -2921,13 +2895,14 @@ dw_hdmi_connector_set_property(struct drm_connector *connector,
 						     property, val);
 }
 
-void dw_hdmi_set_quant_range(struct dw_hdmi *hdmi)
+void dw_hdmi_set_mode_changed(struct dw_hdmi *hdmi)
 {
-	hdmi_writeb(hdmi, HDMI_FC_GCP_SET_AVMUTE, HDMI_FC_GCP);
-	dw_hdmi_setup(hdmi, &hdmi->previous_mode);
-	hdmi_writeb(hdmi, HDMI_FC_GCP_CLEAR_AVMUTE, HDMI_FC_GCP);
+	if (!hdmi->connector.state->crtc)
+		return;
+
+	hdmi->hdmi_data.update = true;
 }
-EXPORT_SYMBOL_GPL(dw_hdmi_set_quant_range);
+EXPORT_SYMBOL_GPL(dw_hdmi_set_mode_changed);
 
 static void dw_hdmi_connector_force(struct drm_connector *connector)
 {
@@ -2992,7 +2967,8 @@ static const struct drm_connector_helper_funcs dw_hdmi_connector_helper_funcs = 
 	.get_modes = dw_hdmi_connector_get_modes,
 	.mode_valid = dw_hdmi_connector_mode_valid,
 	.best_encoder = dw_hdmi_connector_best_encoder,
-	.atomic_begin = dw_hdmi_connector_atomic_begin,
+	.atomic_check = dw_hdmi_connector_atomic_check,
+//	.atomic_begin = dw_hdmi_connector_atomic_begin,
 	.atomic_flush = dw_hdmi_connector_atomic_flush,
 };
 

@@ -409,12 +409,19 @@ drm_atomic_helper_check_modeset(struct drm_device *dev,
 	}
 
 	for_each_connector_in_state(state, connector, connector_state, i) {
+		const struct drm_connector_helper_funcs *funcs = connector->helper_private;
+
 		/*
 		 * This only sets crtc->mode_changed for routing changes,
 		 * drivers must set crtc->mode_changed themselves when connector
 		 * properties need to be updated.
 		 */
 		ret = update_connector_routing(state, i);
+		if (ret)
+			return ret;
+
+		if (funcs->atomic_check)
+			ret = funcs->atomic_check(connector, state);
 		if (ret)
 			return ret;
 	}

@@ -1371,6 +1371,7 @@
 			      "pclk_mac";
 		resets = <&cru SRST_GMAC2IO_A>;
 		reset-names = "stmmaceth";
+		snps,pbl = <0x4>;
 		snps,force_thresh_dma_mode;
 		status = "disabled";
 	};
@@ -1395,6 +1396,7 @@
 		phy-is-integrated;
 		pinctrl-names = "default";
 		pinctrl-0 = <&fephyled_rxm1 &fephyled_linkm1>;
+		snps,pbl = <0x4>;
 		status = "disabled";
 	};
 

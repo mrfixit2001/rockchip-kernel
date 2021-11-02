@@ -59,6 +59,7 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-evb-android-avb.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-rock64.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-rock64-android.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-rock64-android-avb.dtb
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-rockbox.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-firefly-core.dtsi
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-firefly-port.dtsi
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-roc-pc.dts

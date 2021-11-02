@@ -189,6 +189,8 @@ struct drm_connector_helper_funcs {
 			     struct drm_connector_state *conn_state);
 	void (*atomic_flush)(struct drm_connector *connector,
 			     struct drm_connector_state *conn_state);
+	int (*atomic_check)(struct drm_connector *connector,
+			    struct drm_atomic_state *state);
 };
 
 extern void drm_helper_disable_unused_functions(struct drm_device *dev);
