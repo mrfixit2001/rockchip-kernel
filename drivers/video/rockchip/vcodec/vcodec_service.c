@@ -2193,14 +2193,14 @@ static long compat_vpu_service_ioctl(struct file *file, unsigned int cmd,
 				     unsigned long arg)
 {
 	struct vpu_request req;
-	mm_segment_t oldfs;
 	void __user *up = compat_ptr(arg);
-	int compatible_arg = 1;
+	mm_segment_t oldfs;
 	long err = 0;
 
 	vpu_debug_enter();
 	vpu_debug(DEBUG_IOCTL, "cmd %x, VPU_IOC_SET_CLIENT_TYPE32 %x\n", cmd,
 		  (u32)VPU_IOC_SET_CLIENT_TYPE32);
+
 	/* First, convert the command. */
 	switch (cmd) {
 	case VPU_IOC_SET_CLIENT_TYPE32:
@@ -2232,24 +2232,22 @@ static long compat_vpu_service_ioctl(struct file *file, unsigned int cmd,
 
 		req32 = (struct compat_vpu_request __user *)up;
 		memset(&req, 0, sizeof(req));
-
 		if (get_user(req_ptr, &req32->req) ||
 		    get_user(req.size, &req32->size)) {
 			vpu_err("error: compat get hw status copy_from_user failed\n");
 			return -EFAULT;
 		}
 		req.req = compat_ptr(req_ptr);
-		compatible_arg = 0;
-	} break;
-	}
 
-	oldfs = get_fs();
-	if (compatible_arg) {
-		set_fs(USER_DS);
-		err = native_ioctl(file, cmd, (unsigned long)up);
-	} else {
+		oldfs = get_fs();
 		set_fs(KERNEL_DS);
 		err = native_ioctl(file, cmd, (unsigned long)&req);
+	} break;
+	default:
+		oldfs = get_fs();
+		set_fs(USER_DS);
+		err = native_ioctl(file, cmd, (unsigned long)up);
+		break;
 	}
 	set_fs(oldfs);
 
