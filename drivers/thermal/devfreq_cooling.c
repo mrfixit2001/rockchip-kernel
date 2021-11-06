@@ -122,6 +122,11 @@ static int partition_enable_opps(struct devfreq_cooling_device *dfc,
 		else if (IS_ERR(opp))
 			return PTR_ERR(opp);
 
+		// Do not let thermals disable rockchip_dmc (memory) freqs
+		if(dfc->devfreq->governor)
+			if(!strcmp(dfc->devfreq->governor->name,"dmc_ondemand"))
+				want_enable = true;
+
 		if (want_enable)
 			ret = dev_pm_opp_enable(dev, freq);
 		else

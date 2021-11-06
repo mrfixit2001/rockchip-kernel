@@ -2780,7 +2780,8 @@ static int rockchip_dmcfreq_system_status_notifier(struct notifier_block *nb,
 	}
 
 	if (dmcfreq->reboot_rate && (status & SYS_STATUS_REBOOT)) {
-		devfreq_monitor_stop(dmcfreq->devfreq);
+		if (dmcfreq->auto_freq_en)
+			devfreq_monitor_stop(dmcfreq->devfreq);
 		target_rate = dmcfreq->reboot_rate;
 		goto next;
 	}
