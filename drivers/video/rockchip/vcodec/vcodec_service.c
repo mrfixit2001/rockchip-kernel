@@ -1945,6 +1945,7 @@ static int return_reg(struct vpu_subdev_data *data,
 	struct vpu_hw_info *hw_info = data->hw_info;
 	size_t size = reg->size;
 	u32 base;
+	mm_segment_t oldfs = get_fs();
 
 	vpu_debug_enter();
 	switch (reg->type) {
@@ -1967,10 +1968,12 @@ static int return_reg(struct vpu_subdev_data *data,
 	} break;
 	}
 
+	set_fs(USER_DS);
 	if (copy_to_user(dst, &reg->reg[base], size)) {
 		vpu_err("error: copy_to_user failed\n");
 		return -EFAULT;
 	}
+	set_fs(oldfs);
 
 	reg_deinit(data, reg);
 	vpu_debug_leave();
@@ -1985,6 +1988,7 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 			     struct vpu_subdev_data, cdev);
 	struct vpu_service_info *pservice = data->pservice;
 	struct vpu_session *session = (struct vpu_session *)filp->private_data;
+	mm_segment_t oldfs = get_fs();
 
 	vpu_debug_enter();
 
@@ -2010,6 +2014,7 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 
 		vpu_debug(DEBUG_IOCTL, "pid %d get hw status %d\n",
 			  session->pid, session->type);
+
 		if (copy_from_user(&req, (void __user *)arg, sizeof(req))) {
 			vpu_err("error: get hw status copy_from_user failed\n");
 			return -EFAULT;
@@ -2021,12 +2026,14 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 			size_t size = (session->type != VPU_ENC) ?
 				      (sizeof(struct vpu_dec_config)) :
 				      (sizeof(struct vpu_enc_config));
+			set_fs(USER_DS);
 			if (copy_to_user((void __user *)req.req,
 					 config, size)) {
 				vpu_err("error: get hw status copy_to_user failed type %d\n",
 					session->type);
 				return -EFAULT;
 			}
+			set_fs(oldfs);
 		}
 	} break;
 	case VPU_IOC_SET_REG: {
@@ -2044,13 +2051,11 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 				enable_irq(data->irq_dec);
 			break;
 		}
-
 		if (copy_from_user(&req, (void __user *)arg,
 				   sizeof(struct vpu_request))) {
 			vpu_err("error: set reg copy_from_user failed\n");
 			return -EFAULT;
 		}
-
 		reg = reg_init(data, session, (void __user *)req.req, req.size);
 		if (!reg)
 			return -EFAULT;
@@ -2074,7 +2079,6 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 			pservice->secure_isr = false;
 			break;
 		}
-
 		if (copy_from_user(&req, (void __user *)arg,
 				   sizeof(struct vpu_request))) {
 			vpu_err("error: get reg copy_from_user failed\n");
@@ -2139,22 +2143,21 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 		int iommu_enable = 1;
 
 		vpu_debug(DEBUG_IOCTL, "VPU_IOC_PROBE_IOMMU_STATUS\n");
-
+		set_fs(USER_DS);
 		if (copy_to_user((void __user *)arg,
 				 &iommu_enable, sizeof(int))) {
 			vpu_err("error: iommu status copy_to_user failed\n");
 			return -EFAULT;
 		}
+		set_fs(oldfs);
 	} break;
 	case VPU_IOC_SET_DRIVER_DATA: {
 		u32 val;
-
 		if (copy_from_user(&val, (void __user *)arg,
 				   sizeof(int))) {
 			vpu_err("error: COMPAT_VPU_IOC_SET_DRIVER_DATA copy_from_user failed\n");
 			return -EFAULT;
 		}
-
 		if (pservice->grf)
 			regmap_write(pservice->grf, 0x5d8, val);
 	} break;
