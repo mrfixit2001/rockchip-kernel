@@ -132,7 +132,7 @@ static int cw_read_word(struct i2c_client *client, unsigned char reg, unsigned c
 }
 
 /*CW2015 update profile function, Often called during initialization*/
-int cw_update_config_info(struct cw_battery *cw_bat)
+int cw_fuel_update_config_info(struct cw_battery *cw_bat)
 {
     int ret;
     unsigned char reg_val;
@@ -222,7 +222,7 @@ static int cw_init(struct cw_battery *cw_bat)
 
     if (!(reg_val & CONFIG_UPDATE_FLG)) {
 		cw_printk("update config flg is true, need update config\n");
-        ret = cw_update_config_info(cw_bat);
+        ret = cw_fuel_update_config_info(cw_bat);
         if (ret < 0) {
 			cw_printk("%s : update config fail\n", __func__);
             return ret;
@@ -250,7 +250,7 @@ static int cw_init(struct cw_battery *cw_bat)
 	            return ret;
 			
 			cw_printk("config didn't match, need update config\n");
-        	ret = cw_update_config_info(cw_bat);
+        	ret = cw_fuel_update_config_info(cw_bat);
             if (ret < 0){
                 return ret;
             }
