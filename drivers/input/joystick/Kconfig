@@ -330,4 +330,9 @@ config JOYSTICK_MAPLE
 	  To compile this as a module choose M here: the module will be called
 	  maplecontrol.
 
+config JOYSTICK_SINGLEADCJOY
+	tristate "Single SARADC dual-joystick gamepad driver"
+	help
+	  The 1-in 4-out SARADC joypad driver.
+
 endif

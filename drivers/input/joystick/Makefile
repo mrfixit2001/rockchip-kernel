@@ -22,6 +22,7 @@ obj-$(CONFIG_JOYSTICK_JOYDUMP)		+= joydump.o
 obj-$(CONFIG_JOYSTICK_MAGELLAN)		+= magellan.o
 obj-$(CONFIG_JOYSTICK_MAPLE)		+= maplecontrol.o
 obj-$(CONFIG_JOYSTICK_SIDEWINDER)	+= sidewinder.o
+obj-$(CONFIG_JOYSTICK_SINGLEADCJOY)	+= singleadcjoy.o
 obj-$(CONFIG_JOYSTICK_SPACEBALL)	+= spaceball.o
 obj-$(CONFIG_JOYSTICK_SPACEORB)		+= spaceorb.o
 obj-$(CONFIG_JOYSTICK_STINGER)		+= stinger.o

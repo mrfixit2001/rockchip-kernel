@@ -19,6 +19,7 @@ obj-$(CONFIG_TEST_POWER)	+= test_power.o
 obj-$(CONFIG_BATTERY_88PM860X)	+= 88pm860x_battery.o
 obj-$(CONFIG_BATTERY_EC)	+= ec_battery.o
 obj-$(CONFIG_BATTERY_CW2015)	+= cw2015_battery.o
+obj-$(CONFIG_CW2015_FUEL_GAUGE)	+= cw2015_fuel_gauge.o
 obj-$(CONFIG_BATTERY_DS2760)	+= ds2760_battery.o
 obj-$(CONFIG_BATTERY_DS2780)	+= ds2780_battery.o
 obj-$(CONFIG_BATTERY_DS2781)	+= ds2781_battery.o
