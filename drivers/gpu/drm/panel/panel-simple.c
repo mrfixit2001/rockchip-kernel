@@ -883,7 +883,7 @@ static int panel_simple_probe(struct device *dev, const struct panel_desc *desc)
 	panel->enable2_gpio = devm_gpiod_get_optional(dev, "enable2", 0);
 	if (IS_ERR(panel->enable2_gpio)) {
 		err = PTR_ERR(panel->enable2_gpio);
-		dev_warn(dev, "failed to request optional enable1 GPIO: %d\n", err);
+		dev_warn(dev, "failed to request optional enable2 GPIO: %d\n", err);
 	}
 
 	panel->reset_gpio = devm_gpiod_get_optional(dev, "reset", 0);
@@ -1042,8 +1042,8 @@ static void panel_simple_shutdown(struct device *dev)
 		if (panel->enable_gpio)
 			gpiod_direction_output(panel->enable_gpio, 0);
 
-		if (panel->enable1_gpio)
-			gpiod_direction_output(panel->enable1_gpio, 0);
+		if (panel->enable2_gpio)
+			gpiod_direction_output(panel->enable2_gpio, 0);
 
 		panel_simple_regulator_disable(&panel->base);
 	}
