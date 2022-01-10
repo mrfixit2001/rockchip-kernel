@@ -452,6 +452,7 @@
 		status = "okay";
 	};
 
+/*
 	sdio_pwrseq: sdio-pwrseq {
 		compatible = "mmc-pwrseq-simple";
 		clocks = <&rk808 1>;
@@ -491,6 +492,15 @@
 		BT,wake_gpio     = <&gpio2 RK_PD3 GPIO_ACTIVE_HIGH>;
 		BT,wake_host_irq = <&gpio0 RK_PA4 GPIO_ACTIVE_HIGH>;
 		status = "disabled";
+	};
+*/
+
+	wireless-wlan {
+		compatible = "regulator-fixed";
+		gpio = <&gpio3 RK_PC1 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wifi_pwr>;
+		regulator-name = "wifi_enable";
 	};
 
 	backlight: backlight {
@@ -549,7 +559,6 @@
 	status = "disabled";
 	extcon = <&fusb0>;
 };
-
 
 &cluster0_opp {
 	opp-1512000000 {
@@ -637,12 +646,12 @@
 &dmc_opp_table {
 	compatible = "operating-points-v2";
 
-	/delete-node/opp-200000000;
-	/delete-node/opp-300000000;
-	/delete-node/opp-400000000;
-	/delete-node/opp-528000000;
-	/delete-node/opp-600000000;
-	/delete-node/opp-800000000;
+	/delete-node/ opp-200000000;
+	/delete-node/ opp-300000000;
+	/delete-node/ opp-400000000;
+	/delete-node/ opp-528000000;
+	/delete-node/ opp-600000000;
+	/delete-node/ opp-800000000;
 
 	opp-328000000 {
 		opp-hz = /bits/ 64 <328000000>;
@@ -931,8 +940,6 @@
 		compatible = "cellwise,cw2015";
 		reg = <0x62>;
 	};
-	
-
 };
 
 &i2c1 {
@@ -1078,7 +1085,7 @@
 		enable2-gpios = <&gpio4 25 GPIO_ACTIVE_HIGH>;		
 
 		/* Rev 0.2 LCD reset gpio GPIO3.C0 */
-		reset-gpios = <&gpio0 RK_PB2 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio0 RK_PB2 GPIO_ACTIVE_LOW>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&lcd_en_gpio>;	
@@ -1315,7 +1322,7 @@
 	status = "okay";
 
 	// MRFIXIT NOTE: TO TEST
-	/delete-property/power-domains;
+	/delete-property/ power-domains;
 
 	extcon = <&fusb0>;
 
@@ -1333,7 +1340,7 @@
 	status = "okay";
 
 	// MRFIXIT NOTE: TO TEST
-	/delete-property/power-domains;
+	/delete-property/ power-domains;
 
 	u2phy1_otg: otg-port {
 		status = "okay";
@@ -1446,14 +1453,22 @@
 				<1 RK_PB6 RK_FUNC_GPIO &pcfg_pull_down>;
 		};
 	};
-
+/*
 	sdio-pwrseq {
 		wifi_enable_h: wifi-enable-h {
 			rockchip,pins =
-				<0 RK_PB2 RK_FUNC_GPIO &pcfg_pull_none>;
+				<3 RK_PC1 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 
+
+	wireless-bluetooth {
+		uart0_gpios: uart0-gpios {
+			rockchip,pins =
+				<2 RK_PC3 RK_FUNC_1 &pcfg_pull_up>;
+		};
+	};
+*/
 	usb2 {
 		host_vbus_drv: host-vbus-drv {
 			rockchip,pins =
@@ -1463,14 +1478,7 @@
 
 	wireless-wlan {
 		wifi_pwr: wifi-pwr {
-			rockchip,pins = <0 RK_PB5 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-	};
-
-	wireless-bluetooth {
-		uart0_gpios: uart0-gpios {
-			rockchip,pins =
-				<2 RK_PC3 RK_FUNC_1 &pcfg_pull_up>;
+			rockchip,pins = <3 RK_PC1 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 };
