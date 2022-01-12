@@ -1149,9 +1149,20 @@
 	};
 
 	display_subsystem: display-subsystem {
+		status = "disabled";
 		compatible = "rockchip,display-subsystem";
 		ports = <&vop_out>;
-		status = "disabled";
+		route {
+			route_hdmi: route-hdmi {
+				status = "okay";
+				connect = <&vop_out_hdmi>;
+			};
+
+			route_tve: route-tve {
+				status = "disabled";
+				connect = <&vop_out_tve>;
+			};
+		};
 	};
 
 	codec: codec@ff410000 {
