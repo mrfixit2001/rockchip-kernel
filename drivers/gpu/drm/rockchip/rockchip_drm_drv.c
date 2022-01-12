@@ -460,6 +460,7 @@ static int setup_initial_state(struct drm_device *drm_dev,
 	struct drm_connector_state *conn_state;
 	struct drm_plane_state *primary_state;
 	struct drm_display_mode *mode = NULL;
+	struct rockchip_crtc_state *s = NULL;
 	const struct drm_connector_helper_funcs *funcs;
 	const struct drm_encoder_helper_funcs *encoder_funcs;
 	int pipe = drm_crtc_index(crtc);
@@ -478,7 +479,12 @@ static int setup_initial_state(struct drm_device *drm_dev,
 		return PTR_ERR(conn_state);
 
 	funcs = connector->helper_private;
-	conn_state->best_encoder = funcs->best_encoder(connector);
+
+	if (funcs->best_encoder)
+		conn_state->best_encoder = funcs->best_encoder(connector);
+	else
+		conn_state->best_encoder = drm_atomic_helper_best_encoder(connector);
+
 	if (funcs->loader_protect)
 		funcs->loader_protect(connector, true);
 	connector->loader_protect = true;
@@ -509,6 +515,7 @@ static int setup_initial_state(struct drm_device *drm_dev,
 
 	if (!found) {
 		ret = -EINVAL;
+		connector->status = connector_status_disconnected;
 		goto error_conn;
 	}
 
@@ -581,6 +588,9 @@ static int setup_initial_state(struct drm_device *drm_dev,
 		primary_state->crtc_h = vdisplay;
 	}
 
+	s = to_rockchip_crtc_state(crtc->state);
+	s->output_type = connector->connector_type;
+
 	return 0;
 
 error_crtc:
@@ -640,10 +650,14 @@ static int update_state(struct drm_device *drm_dev,
 		struct drm_encoder *encoder;
 
 		connector_helper_funcs = connector->helper_private;
-		if (!connector_helper_funcs ||
-		    !connector_helper_funcs->best_encoder)
+		if (!connector_helper_funcs)
 			return -ENXIO;
-		encoder = connector_helper_funcs->best_encoder(connector);
+
+		if (connector_helper_funcs->best_encoder)
+			encoder = connector_helper_funcs->best_encoder(connector);
+		else
+			encoder = drm_atomic_helper_best_encoder(connector);
+
 		if (!encoder)
 			return -ENXIO;
 		encoder_helper_funcs = encoder->helper_private;
@@ -653,6 +667,7 @@ static int update_state(struct drm_device *drm_dev,
 							 conn_state);
 		if (ret)
 			return ret;
+
 		if (encoder_helper_funcs->mode_set)
 			encoder_helper_funcs->mode_set(encoder, mode, mode);
 
@@ -877,7 +892,7 @@ static int __init rockchip_clocks_loader_protect(void)
 
 	return 0;
 }
-fs_initcall(rockchip_clocks_loader_protect);
+arch_initcall_sync(rockchip_clocks_loader_protect);
 
 static int __init rockchip_clocks_loader_unprotect(void)
 {
