@@ -236,6 +236,15 @@
 	status = "okay";
 };
 
+&route_tve {
+	status = "okay";
+};
+
+&tve {
+	status = "okay";
+	rockchip,tvemode = <1>;
+};
+
 &emmc {
 	bus-width = <8>;
 	cap-mmc-highspeed;
