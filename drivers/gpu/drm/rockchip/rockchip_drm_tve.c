@@ -55,8 +55,7 @@ rockchip_tve_get_modes(struct drm_connector *connector)
 
 		mode_ptr = drm_mode_duplicate(connector->dev,
 					      &cvbs_mode[count]);
-		if (tve->preferred_mode == count)
-			mode_ptr->type |= DRM_MODE_TYPE_PREFERRED;
+
 		drm_mode_probed_add(connector, mode_ptr);
 	}
 
