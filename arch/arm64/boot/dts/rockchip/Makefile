@@ -60,7 +60,7 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-rock64.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-rock64-android.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-rock64-android-avb.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-rockbox.dtb
-dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-roc-pc.dts
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3328-roc-pc.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3366-fpga.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3366-sheep.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3368-808-evb.dtb
@@ -146,8 +146,8 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399pro-evb-v14-multi-cam-avb.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399pro-npu-evb-v10.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399pro-npu-evb-v10-multi-cam.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-rg552-linux.dtb
-dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-roc-pc-mezzanine.dts
-dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-roc-pc-plus.dts
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-roc-pc-mezzanine.dtb
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-roc-pc-plus.dtb
 
 
 always		:= $(dtb-y)
