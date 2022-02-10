@@ -43,16 +43,13 @@
 /dts-v1/;
 #include "rk3328.dtsi"
 #include <dt-bindings/input/input.h>
-#include "rk3328-box-plus-dram-timing.dtsi"
 
 / {
 	model = "Firefly ROC-RK3328-PC";
 	compatible = "firefly,roc-rk3328-pc", "rockchip,rk3328";
 
 	chosen {
-		bootargs = "earlycon=uart8250-32bit,0xff130000 swiotlb=1 kpti=0 coherent_pool=1m no_console_suspend=1 usbcore.autosuspend=-1";
-		stdout-path = "serial2:1500000n8";
-
+		bootargs = "swiotlb=1 kpti=0 coherent_pool=1m no_console_suspend=1 usbcore.autosuspend=-1";
 	};
 
 	xin32k: xin32k {
@@ -100,11 +97,11 @@
 
 	vcc_sdio: sdmmcio-regulator {
 		compatible = "regulator-gpio";
-		gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;
+		gpios = <&gpio0 RK_PD3 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&sdio_per_pin>;
-		states = <1800000 0x1
-			  3300000 0x0>;
+		states = <1800000 0x1>,
+			 <3300000 0x0>;
 		regulator-name = "vcc_sdio";
 		regulator-type = "voltage";
 		regulator-min-microvolt = <1800000>;
@@ -117,58 +114,39 @@
 	vcc_host_5v: vcc-host-5v-regulator {
 		compatible = "regulator-fixed";
 		enable-active-high;
-		gpio = <&gpio0 0 GPIO_ACTIVE_HIGH>;
+		gpio = <&gpio0 RK_PA0 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&usb_host_drv>;
 		regulator-name = "vcc_host_5v";
 		regulator-always-on;
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
 		vin-supply = <&vcc_sys>;
 	};
 
 	adc-keys {
-		u-boot,dm-pre-reloc;
 		compatible = "adc-keys";
 		io-channels = <&saradc 0>;
+		io-channel-names = "buttons";
+		keyup-threshold-microvolt = <1750000>;
 	};
 
 	leds {
 		compatible = "gpio-leds";
-		
-		power {
-			label = "firefly:blue:power";
-			linux,default-trigger = "ir-power-click";
-			gpios = <&rk805 1 GPIO_ACTIVE_LOW>;
-			default-state = "on";
-			mode = <0x23>;
-		};
 
-		user {
-			label = "firefly:yellow:user";
-            		linux,default-trigger = "ir-user-click";
+		power {
+			label = "firefly:blue";
 			gpios = <&rk805 0 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 			mode = <0x05>;
 		};
 
-		ir {
-			status = "disabled";
-			/* gpios = <&gpio2 GPIO_C2 GPIO_ACTIVE_HIGH>; */
-			linux,default-trigger = "ir";
-			default-state = "off";
-			mode = <0x00>;
-		};
-	};
-
-	headphone-sound {
-		compatible = "simple-audio-card";
-		simple-audio-card,format = "i2s";
-		simple-audio-card,mclk-fs = <256>;
-		simple-audio-card,name = "ANALOG";
-		simple-audio-card,cpu {
-			sound-dai = <&i2s1>;
-		};
-		simple-audio-card,codec {
-			sound-dai = <&codec>;
+		disk {
+			label = "firefly:red";
+			linux,default-trigger = "disk-activity";
+			gpios = <&rk805 1 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+			mode = <0x23>;
 		};
 	};
 
@@ -182,6 +160,19 @@
 		};
 		simple-audio-card,codec {
 			sound-dai = <&hdmi>;
+		};
+	};
+
+	headphone-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,mclk-fs = <256>;
+		simple-audio-card,name = "ANALOG";
+		simple-audio-card,cpu {
+			sound-dai = <&i2s1>;
+		};
+		simple-audio-card,codec {
+			sound-dai = <&codec>;
 		};
 	};
 
@@ -204,8 +195,8 @@
 	wireless_bluetooth: wireless-bluetooth {
 		compatible = "bluetooth-platdata";
 		//uart_rts_gpios = ?? uart2 doesn't have rts :(
-		BT,power_gpio = <&gpio1 RK_PD0 GPIO_ACTIVE_HIGH>;
-		//BT,wake_host_irq  = <&gpio1 RK_PD2 GPIO_ACTIVE_LOW>;
+		BT,reset_gpio = <&gpio1 RK_PD0 GPIO_ACTIVE_LOW>;
+		BT,wake_host_irq  = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 };
@@ -251,6 +242,19 @@
 	>;
 };
 
+&dmc_opp_table {
+	// Unstable
+	opp-800000000 {
+		status = "disabled";
+	};
+	opp-850000000 {
+		status = "disabled";
+	};
+	opp-933000000 {
+		status = "disabled";
+	};
+};
+
 &emmc {
 	bus-width = <8>;
 	cap-mmc-highspeed;
@@ -260,6 +264,7 @@
 	pinctrl-0 = <&emmc_clk &emmc_cmd &emmc_bus8>;
 	supports-emmc;
 	disable-wp;
+	max-frequency = <200000000>;
 	num-slots = <1>;
 	vmmc-supply = <&vcc_io>;
 	vqmmc-supply = <&vcc18_emmc>;
@@ -533,7 +538,7 @@
 
 	vccio1-supply = <&vcc_io>;
 	vccio2-supply = <&vcc18_emmc>;
-	vccio3-supply = <&vcc_io>;
+	vccio3-supply = <&vcc_sdio>;
 	vccio4-supply = <&vcc_18>;
 	vccio5-supply = <&vcc_io>;
 	vccio6-supply = <&vcc_io>;
@@ -563,7 +568,7 @@
 	supports-sd;
 	status = "okay";
 	vmmc-supply = <&vcc_sd>;
-	vqmmc-supply = <&vcc_sd>;
+	vqmmc-supply = <&vcc_sdio>;
 };
 
 &sdmmc_ext {
@@ -573,6 +578,7 @@
 	disable-wp;
 	keep-power-in-suspend;
 	mmc-pwrseq = <&sdio_pwrseq>;
+	max-frequency = <100000000>;
 	non-removable;
 	num-slots = <1>;
 	pinctrl-names = "default";
@@ -595,7 +601,6 @@
 };
 
 &u2phy_host {
-	phy-supply = <&vcc_host_5v>;
 	status = "okay";
 };
 
@@ -604,7 +609,6 @@
 };
 
 &u3phy {
-	phy-supply = <&vcc_host_5v>;
 	status = "okay";
 };
 
@@ -617,7 +621,7 @@
 };
 
 &usb20_otg {
-	dr_mode = "device";
+	dr_mode = "host";
 	status = "okay";
 };
 
@@ -748,23 +752,22 @@
 &pinctrl {
 	pmic {
 		pmic_int_l: pmic-int-l {
-			rockchip,pins = <0 2 RK_FUNC_GPIO &pcfg_pull_up>;
+			rockchip,pins = <0 RK_PA2 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 	};
 
 	sdio-pwrseq {
 		wifi_enable_h: wifi-enable-h {
+			// WIFI_REG_ON_H, WIFI_HOST_WAKE_L
 			rockchip,pins = <3 RK_PB0 RK_FUNC_GPIO &pcfg_pull_none>,
-				<3 RK_PA1 RK_FUNC_GPIO &pcfg_pull_none_4ma>,
-				<1 RK_PD4 RK_FUNC_1 &pcfg_pull_down>,
-				<1 RK_PD0 RK_FUNC_GPIO &pcfg_pull_down>;
+				<3 RK_PA1 RK_FUNC_GPIO &pcfg_pull_none_4ma>;
 
 		};
 	};
 
 	usb {
 		usb_host_drv: usb-host-drv {
-			rockchip,pins =	<0 0 RK_FUNC_GPIO &pcfg_pull_up>;
+			rockchip,pins =	<0 RK_PA0 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 	};
 
