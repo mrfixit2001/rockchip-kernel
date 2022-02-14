@@ -43,20 +43,15 @@
 /dts-v1/;
 #include "rk3328.dtsi"
 #include <dt-bindings/input/input.h>
+#include "rk3328-dram-box-plus-timing.dtsi"
 
 / {
 	model = "Firefly ROC-RK3328-PC";
 	compatible = "firefly,roc-rk3328-pc", "rockchip,rk3328";
 
 	chosen {
-		bootargs = "swiotlb=1 kpti=0 coherent_pool=1m no_console_suspend=1 usbcore.autosuspend=-1";
-	};
-
-	xin32k: xin32k {
-		compatible = "fixed-clock";
-		clock-frequency = <32768>;
-		clock-output-names = "xin32k";
-		#clock-cells = <0>;
+		bootargs = "earlycon=uart8250-32bit,0xff110000 swiotlb=1 kpti=0 coherent_pool=1m no_console_suspend=1 usbcore.autosuspend=-1";
+		stdout-path = "serial0:1500000n8";
 	};
 
 	gmac_clkin: external-gmac-clock {
@@ -95,20 +90,15 @@
 		vin-supply = <&vcc_io>;
 	};
 
-	vcc_sdio: sdmmcio-regulator {
-		compatible = "regulator-gpio";
-		gpios = <&gpio0 RK_PD3 GPIO_ACTIVE_HIGH>;
+	vcc_sdio: vcc-sdio {
+		compatible = "regulator-fixed";
+		enable-active-high;
+		gpio = <&gpio1 RK_PD0 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&sdio_per_pin>;
-		states = <1800000 0x1>,
-			 <3300000 0x0>;
+		pinctrl-0 = <&sdio_per_pin &bt_wake>;
 		regulator-name = "vcc_sdio";
-		regulator-type = "voltage";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
-		vin-supply = <&vcc_sys>;
-		status="okay";
+		vin-supply = <&vcc_io>;
 	};
 
 	vcc_host_5v: vcc-host-5v-regulator {
@@ -122,13 +112,6 @@
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 		vin-supply = <&vcc_sys>;
-	};
-
-	adc-keys {
-		compatible = "adc-keys";
-		io-channels = <&saradc 0>;
-		io-channel-names = "buttons";
-		keyup-threshold-microvolt = <1750000>;
 	};
 
 	leds {
@@ -185,17 +168,15 @@
 
 	wireless_wlan: wireless-wlan {
 		compatible = "wlan-platdata";
-		keep_wifi_power_on;
 		rockchip,grf = <&grf>;
-		wifi_chip_type = "ap6255";
+		wifi_chip_type = "ap6255"; // "rtl8723bs";
 		WIFI,host_wake_irq = <&gpio3 RK_PA1 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 
 	wireless_bluetooth: wireless-bluetooth {
 		compatible = "bluetooth-platdata";
-		//uart_rts_gpios = ?? uart2 doesn't have rts :(
-		BT,reset_gpio = <&gpio1 RK_PD0 GPIO_ACTIVE_LOW>;
+		BT,power_gpio = <&gpio1 RK_PD0 GPIO_ACTIVE_HIGH>;
 		BT,wake_host_irq  = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
@@ -243,7 +224,6 @@
 };
 
 &dmc_opp_table {
-	// Unstable
 	opp-800000000 {
 		status = "disabled";
 	};
@@ -259,12 +239,13 @@
 	bus-width = <8>;
 	cap-mmc-highspeed;
 	mmc-hs200-1_8v;
+	mmc-ddr-1_8v;
 	non-removable;
 	pinctrl-names = "default";
 	pinctrl-0 = <&emmc_clk &emmc_cmd &emmc_bus8>;
 	supports-emmc;
 	disable-wp;
-	max-frequency = <200000000>;
+	max-frequency = <150000000>;
 	num-slots = <1>;
 	vmmc-supply = <&vcc_io>;
 	vqmmc-supply = <&vcc18_emmc>;
@@ -376,7 +357,7 @@
 	rk805: rk805@18 {
 		compatible = "rockchip,rk805";
 		interrupt-parent = <&gpio0>;
-		interrupts = <2 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <RK_PA2 IRQ_TYPE_LEVEL_LOW>;
 		status = "okay";
 		reg = <0x18>;
 		pinctrl-names = "default";
@@ -386,7 +367,7 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 		#clock-cells = <1>;
-		clock-output-names = "rk805-clkout1", "rk805-clkout2";
+		clock-output-names = "xin32k", "rk805-clkout2";
 
 		vcc1-supply = <&vcc_sys>;
 		vcc2-supply = <&vcc_sys>;
@@ -432,6 +413,7 @@
 			vdd_arm: RK805_DCDC2@1 {
 				regulator-compatible = "RK805_DCDC2";
 				regulator-name = "vdd_arm";
+				regulator-init-microvolt = <1225000>;
 				regulator-min-microvolt = <712500>;
 				regulator-max-microvolt = <1450000>;
 				regulator-initial-mode = <0x1>;
@@ -498,11 +480,11 @@
 				};
 			};
 
-			vdd_11: RK805_LDO3@6 {
+			vdd_10: RK805_LDO3@6 {
 				regulator-compatible = "RK805_LDO3";
-				regulator-name = "vdd_11";
-				regulator-min-microvolt = <1100000>;
-				regulator-max-microvolt = <1100000>;
+				regulator-name = "vdd_10";
+				regulator-min-microvolt = <1000000>;
+				regulator-max-microvolt = <1000000>;
 				regulator-boot-on;
 				regulator-always-on;
 				regulator-state-mem {
@@ -538,10 +520,10 @@
 
 	vccio1-supply = <&vcc_io>;
 	vccio2-supply = <&vcc18_emmc>;
-	vccio3-supply = <&vcc_sdio>;
+	vccio3-supply = <&vcc_io>;
 	vccio4-supply = <&vcc_18>;
 	vccio5-supply = <&vcc_io>;
-	vccio6-supply = <&vcc_io>;
+	vccio6-supply = <&vcc_sdio>;
 	pmuio-supply = <&vcc_io>;
 };
 
@@ -550,17 +532,11 @@
 	rockchip,virtual-poweroff = <1>;
 };
 
-&saradc {
-	vref-supply = <&vcc_18>;
-	status = "okay";
-};
-
 &sdmmc {
 	bus-width = <4>;
 	cap-mmc-highspeed;
 	cap-sd-highspeed;
 	disable-wp;
-	sd-uhs-sdr104;
 	max-frequency = <150000000>;
 	num-slots = <1>;
 	pinctrl-names = "default";
@@ -568,7 +544,6 @@
 	supports-sd;
 	status = "okay";
 	vmmc-supply = <&vcc_sd>;
-	vqmmc-supply = <&vcc_sdio>;
 };
 
 &sdmmc_ext {
@@ -576,20 +551,47 @@
 	cap-sd-highspeed;
 	cap-sdio-irq;
 	disable-wp;
+	sd-uhs-sdr104;
 	keep-power-in-suspend;
 	mmc-pwrseq = <&sdio_pwrseq>;
 	max-frequency = <100000000>;
 	non-removable;
 	num-slots = <1>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&sdmmc0ext_bus4 &sdmmc0ext_cmd &sdmmc0ext_clk>;
+	pinctrl-0 = <&sdmmc0ext_bus4 &sdmmc0ext_cmd &sdmmc0ext_clk &clk_32k_out>;
 	supports-sdio;
-	vmmc-supply = <&vcc_sdio>;
 	status = "okay";
 };
 
+&threshold {
+	temperature = <80000>;
+};
+
+&target {
+	temperature = <90000>;
+};
+
+&soc_crit {
+	temperature = <95000>;
+};
+
 &tsadc {
+	rockchip,hw-tshut-mode = <0>;
+	rockchip,hw-tshut-polarity = <0>;
+	rockchip,hw-tshut-temp = <110000>;
 	status = "okay";
+};
+
+/*
+ * NOTE: Enabling uart0 kills eth0 and enabling uart1 kills wlan0.
+ *  Enabling uart2 conflicts with debug output and causes instability.
+ *  Hack time: use uart0 without pins so std-out isn't on the monitor
+ *  This will likely mean debug output doesn't work. Oh well.
+ */
+&uart0 {
+	status = "okay";
+	/delete-property/ pinctrl-names;
+	/delete-property/ pinctrl-0;
 };
 
 &uart2 {
@@ -601,10 +603,12 @@
 };
 
 &u2phy_host {
+	phy-supply = <&vcc_host_5v>;
 	status = "okay";
 };
 
 &u2phy_otg {
+	phy-supply = <&vcc_host_5v>;
 	status = "okay";
 };
 
@@ -613,10 +617,12 @@
 };
 
 &u3phy_utmi {
+	phy-supply = <&vcc_host_5v>;
 	status = "okay";
 };
 
 &u3phy_pipe {
+	phy-supply = <&vcc_host_5v>;
 	status = "okay";
 };
 
@@ -750,16 +756,30 @@
 };
 
 &pinctrl {
+	clk_32k {
+		clk_32k_out: clk-32k-out {
+			rockchip,pins = <1 RK_PD4 RK_FUNC_1 &pcfg_pull_none>;
+		};
+	};
+
 	pmic {
 		pmic_int_l: pmic-int-l {
 			rockchip,pins = <0 RK_PA2 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 	};
 
-	sdio-pwrseq {
+	sdio {
+		sdio_per_pin: sdio-per-pin {
+			rockchip,pins = <0 RK_PD3 RK_FUNC_GPIO &pcfg_pull_down>;
+		};
+
+		bt_wake: bt-wake {
+			rockchip,pins = <1 RK_PD0 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
 		wifi_enable_h: wifi-enable-h {
 			// WIFI_REG_ON_H, WIFI_HOST_WAKE_L
-			rockchip,pins = <3 RK_PB0 RK_FUNC_GPIO &pcfg_pull_none>,
+			rockchip,pins =	<3 RK_PB0 RK_FUNC_GPIO &pcfg_pull_none_4ma>,
 				<3 RK_PA1 RK_FUNC_GPIO &pcfg_pull_none_4ma>;
 
 		};
@@ -767,13 +787,7 @@
 
 	usb {
 		usb_host_drv: usb-host-drv {
-			rockchip,pins =	<0 RK_PA0 RK_FUNC_GPIO &pcfg_pull_up>;
-		};
-	};
-
-	sdmmcio {
-		sdio_per_pin: sdio-per-pin {
-			rockchip,pins = <0 RK_PD3 RK_FUNC_GPIO &pcfg_pull_down>;
+			rockchip,pins =	<0 RK_PA0 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 };
