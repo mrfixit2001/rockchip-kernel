@@ -134,10 +134,9 @@ int hci_uart_tx_wakeup(struct hci_uart *hu)
 	if (!test_bit(HCI_UART_PROTO_READY, &hu->flags))
 		goto no_schedule;
 
-	if (test_and_set_bit(HCI_UART_SENDING, &hu->tx_state)) {
-		set_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
+	set_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
+	if (test_and_set_bit(HCI_UART_SENDING, &hu->tx_state))
 		goto no_schedule;
-	}
 
 	BT_DBG("");
 
@@ -186,13 +185,14 @@ restart:
 		kfree_skb(skb);
 	}
 
+	clear_bit(HCI_UART_SENDING, &hu->tx_state);
 	if (test_bit(HCI_UART_TX_WAKEUP, &hu->tx_state))
 		goto restart;
 
-	clear_bit(HCI_UART_SENDING, &hu->tx_state);
+	wake_up_bit(&hu->tx_state, HCI_UART_SENDING);
 }
 
-static void hci_uart_init_work(struct work_struct *work)
+void hci_uart_init_work(struct work_struct *work)
 {
 	struct hci_uart *hu = container_of(work, struct hci_uart, init_ready);
 	int err;
@@ -542,6 +542,7 @@ static void hci_uart_tty_close(struct tty_struct *tty)
 	if (hdev)
 		hci_uart_close(hdev);
 
+	cancel_work_sync(&hu->init_ready);
 	cancel_work_sync(&hu->write_work);
 
 	if (test_bit(HCI_UART_PROTO_READY, &hu->flags)) {

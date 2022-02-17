@@ -94,9 +94,10 @@ static void hci_uart_write_work(struct work_struct *work)
 			hci_uart_tx_complete(hu, hci_skb_pkt_type(skb));
 			kfree_skb(skb);
 		}
-	} while (test_bit(HCI_UART_TX_WAKEUP, &hu->tx_state));
 
-	clear_bit(HCI_UART_SENDING, &hu->tx_state);
+		clear_bit(HCI_UART_SENDING, &hu->tx_state);
+
+	} while (test_bit(HCI_UART_TX_WAKEUP, &hu->tx_state));
 }
 
 /* ------- Interface to HCI layer ------ */
@@ -124,7 +125,17 @@ static int hci_uart_flush(struct hci_dev *hdev)
 /* Initialize device */
 static int hci_uart_open(struct hci_dev *hdev)
 {
+	struct hci_uart *hu = hci_get_drvdata(hdev);
+	int err;
+
 	BT_DBG("%s %p", hdev->name, hdev);
+
+	if (!test_bit(HCI_UART_PROTO_READY, &hu->flags)) {
+		err = serdev_device_open(hu->serdev);
+		if (err)
+			return err;
+		set_bit(HCI_UART_PROTO_READY, &hu->flags);
+	}
 
 	/* Undo clearing this from hci_uart_close() */
 	hdev->flush = hci_uart_flush;
@@ -135,10 +146,15 @@ static int hci_uart_open(struct hci_dev *hdev)
 /* Close device */
 static int hci_uart_close(struct hci_dev *hdev)
 {
+	struct hci_uart *hu = hci_get_drvdata(hdev);
+
 	BT_DBG("hdev %p", hdev);
 
 	hci_uart_flush(hdev);
 	hdev->flush = NULL;
+
+	clear_bit(HCI_UART_PROTO_READY, &hu->flags);
+	serdev_device_close(hu->serdev);
 
 	return 0;
 }
@@ -286,9 +302,13 @@ int hci_uart_register_device(struct hci_uart *hu,
 
 	serdev_device_set_client_ops(hu->serdev, &hci_serdev_client_ops);
 
-	err = p->open(hu);
+	err = serdev_device_open(hu->serdev);
 	if (err)
 		return err;
+
+	err = p->open(hu);
+	if (err)
+		goto err_open;
 
 	hu->proto = p;
 	set_bit(HCI_UART_PROTO_READY, &hu->flags);
@@ -306,8 +326,9 @@ int hci_uart_register_device(struct hci_uart *hu,
 	hdev->bus = HCI_UART;
 	hci_set_drvdata(hdev, hu);
 
+	INIT_WORK(&hu->init_ready, hci_uart_init_work);
 	INIT_WORK(&hu->write_work, hci_uart_write_work);
-	// percpu_init_rwsem(&hu->proto_lock);
+	rwlock_init(&hu->proto_lock);
 
 	/* Only when vendor specific setup callback is provided, consider
 	 * the manufacturer information valid. This avoids filling in the
@@ -328,9 +349,6 @@ int hci_uart_register_device(struct hci_uart *hu,
 
 	if (test_bit(HCI_UART_EXT_CONFIG, &hu->hdev_flags))
 		set_bit(HCI_QUIRK_EXTERNAL_CONFIG, &hdev->quirks);
-
-	if (!test_bit(HCI_UART_RESET_ON_INIT, &hu->hdev_flags))
-		set_bit(HCI_QUIRK_RESET_ON_CLOSE, &hdev->quirks);
 
 	if (test_bit(HCI_UART_CREATE_AMP, &hu->hdev_flags))
 		hdev->dev_type = HCI_AMP;
@@ -355,6 +373,8 @@ err_register:
 err_alloc:
 	clear_bit(HCI_UART_PROTO_READY, &hu->flags);
 	p->close(hu);
+err_open:
+	serdev_device_close(hu->serdev);
 	return err;
 }
 EXPORT_SYMBOL_GPL(hci_uart_register_device);
@@ -363,11 +383,18 @@ void hci_uart_unregister_device(struct hci_uart *hu)
 {
 	struct hci_dev *hdev = hu->hdev;
 
-	hci_unregister_dev(hdev);
+	cancel_work_sync(&hu->init_ready);
+	if (test_bit(HCI_UART_REGISTERED, &hu->flags))
+		hci_unregister_dev(hdev);
 	hci_free_dev(hdev);
 
 	cancel_work_sync(&hu->write_work);
 
 	hu->proto->close(hu);
+
+	if (test_bit(HCI_UART_PROTO_READY, &hu->flags)) {
+		clear_bit(HCI_UART_PROTO_READY, &hu->flags);
+		serdev_device_close(hu->serdev);
+	}
 }
 EXPORT_SYMBOL_GPL(hci_uart_unregister_device);

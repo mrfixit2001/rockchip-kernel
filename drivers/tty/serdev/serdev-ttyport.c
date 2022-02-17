@@ -197,6 +197,9 @@ struct device *serdev_tty_port_register(struct tty_port *port,
 
 	ctrl->ops = &ctrl_ops;
 
+	port->client_ops = &client_ops;
+	port->client_data = ctrl;
+
 	ret = serdev_controller_add(ctrl);
 	if (ret)
 		goto err_controller_put;
@@ -209,16 +212,59 @@ err_controller_put:
 	return ERR_PTR(ret);
 }
 
-void serdev_tty_port_unregister(struct tty_port *port)
+// MRFIXIT: everything about tty_port_default_client_ops actually belong in tty_port.c, 
+// but they will only be used here for this backport
+static int tty_port_default_receive_buf(struct tty_port *port,
+					const unsigned char *p,
+					const unsigned char *f, size_t count)
+{
+	int ret;
+	struct tty_struct *tty;
+	struct tty_ldisc *disc;
+
+	tty = READ_ONCE(port->itty);
+	if (!tty)
+		return 0;
+
+	disc = tty_ldisc_ref(tty);
+	if (!disc)
+		return 0;
+
+	ret = tty_ldisc_receive_buf(disc, p, (char *)f, count);
+
+	tty_ldisc_deref(disc);
+
+	return ret;
+}
+
+static void tty_port_default_wakeup(struct tty_port *port)
+{
+	struct tty_struct *tty = tty_port_tty_get(port);
+
+	if (tty) {
+		tty_wakeup(tty);
+		tty_kref_put(tty);
+	}
+}
+
+const struct tty_port_client_operations tty_port_default_client_ops = {
+	.receive_buf = tty_port_default_receive_buf,
+	.write_wakeup = tty_port_default_wakeup,
+};
+EXPORT_SYMBOL_GPL(tty_port_default_client_ops);
+
+int serdev_tty_port_unregister(struct tty_port *port)
 {
 	struct serdev_controller *ctrl = port->client_data;
 	struct serport *serport = serdev_controller_get_drvdata(ctrl);
 
 	if (!serport)
-		return;
+		return -ENODEV;
 
 	serdev_controller_remove(ctrl);
-	port->client_ops = NULL;
 	port->client_data = NULL;
+	port->client_ops = &tty_port_default_client_ops;
 	serdev_controller_put(ctrl);
+
+	return 0;
 }
