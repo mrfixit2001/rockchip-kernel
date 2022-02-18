@@ -97,6 +97,8 @@ struct h5 {
 
 	const struct h5_vnd *vnd;
 	const char *id;
+	u32 oper_speed;
+	u32 flow_control;
 
 	struct gpio_desc *enable_gpio;
 	struct gpio_desc *device_wake_gpio;
@@ -813,6 +815,7 @@ static int h5_serdev_probe(struct serdev_device *serdev)
 	struct device *dev = &serdev->dev;
 	struct h5 *h5;
 	const struct h5_device_data *data;
+	u32 prop;
 
 	h5 = devm_kzalloc(dev, sizeof(*h5), GFP_KERNEL);
 	if (!h5)
@@ -854,6 +857,20 @@ static int h5_serdev_probe(struct serdev_device *serdev)
 						       GPIOD_OUT_LOW);
 	if (IS_ERR(h5->device_wake_gpio))
 		return PTR_ERR(h5->device_wake_gpio);
+
+	if(device_property_read_u32(dev, "oper-speed", &prop) == 0) {
+		h5->oper_speed = prop;
+	} else {
+		h5->oper_speed = -1;
+		bt_dev_info(h5->hu->hdev, "driver will pick default operating speed");
+	}
+
+	if(device_property_read_u32(dev, "flow-control", &prop) == 0) {
+		h5->flow_control = prop;
+	} else {
+		h5->flow_control = -1;
+		bt_dev_info(h5->hu->hdev, "driver will pick default flow control");
+	}
 
 	return hci_uart_register_device(&h5->serdev_hu, &h5p);
 }
@@ -897,6 +914,11 @@ static int h5_btrtl_setup(struct h5 *h5)
 	bool flow_control;
 	int err;
 
+	/* Enable the GPIOs */
+	gpiod_set_value(h5->enable_gpio, true);
+	gpiod_set_value(h5->device_wake_gpio, false);
+	msleep(500);
+
 	btrtl_dev = btrtl_initialize(h5->hu->hdev, h5->id);
 	if (IS_ERR(btrtl_dev))
 		return PTR_ERR(btrtl_dev);
@@ -920,7 +942,14 @@ static int h5_btrtl_setup(struct h5 *h5)
 	/* Give the device some time to set up the new baudrate. */
 	usleep_range(10000, 20000);
 
+	if (h5->oper_speed)
+		controller_baudrate = (unsigned int)h5->oper_speed;
+
 	serdev_device_set_baudrate(h5->hu->serdev, controller_baudrate);
+
+	if(h5->flow_control != -1)
+		flow_control = (h5->flow_control == 1);
+
 	serdev_device_set_flow_control(h5->hu->serdev, flow_control);
 
 	if (flow_control)

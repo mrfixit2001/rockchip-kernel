@@ -115,12 +115,12 @@ static inline struct sk_buff *hci_uart_dequeue(struct hci_uart *hu)
 	struct sk_buff *skb = hu->tx_skb;
 
 	if (!skb) {
-		percpu_down_read(&hu->proto_lock);
+		down_read(&hu->proto_lock);
 
 		if (test_bit(HCI_UART_PROTO_READY, &hu->flags))
 			skb = hu->proto->dequeue(hu);
 
-		percpu_up_read(&hu->proto_lock);
+		up_read(&hu->proto_lock);
 	} else {
 		hu->tx_skb = NULL;
 	}
@@ -136,13 +136,23 @@ int hci_uart_tx_wakeup(struct hci_uart *hu)
 	 * acquired. If, however, at some point in the future the write lock
 	 * is also acquired in other situations, then this must be revisited.
 	 */
-	if (!percpu_down_read_trylock(&hu->proto_lock))
+	if (!down_read_trylock(&hu->proto_lock))
 		return 0;
 
 	if (!test_bit(HCI_UART_PROTO_READY, &hu->flags))
 		goto no_schedule;
 
 	set_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
+
+	if (!in_interrupt() && !in_atomic()) {
+		if (down_timeout(&hu->tx_sem, msecs_to_jiffies(50)) == -ETIME) {
+			pr_warn("%s: Something went wrong with wait\n",
+				__func__);
+			goto no_schedule;
+		}
+		up(&hu->tx_sem);
+	}
+
 	if (test_and_set_bit(HCI_UART_SENDING, &hu->tx_state))
 		goto no_schedule;
 
@@ -151,7 +161,7 @@ int hci_uart_tx_wakeup(struct hci_uart *hu)
 	schedule_work(&hu->write_work);
 
 no_schedule:
-	percpu_up_read(&hu->proto_lock);
+	up_read(&hu->proto_lock);
 
 	return 0;
 }
@@ -192,6 +202,12 @@ restart:
 		hci_uart_tx_complete(hu, bt_cb(skb)->pkt_type);
 		kfree_skb(skb);
 	}
+
+	if (down_timeout(&hu->tx_sem, msecs_to_jiffies(50))) {
+		pr_warn("%s: Something went wrong with wait\n", __func__);
+		goto restart;
+	}
+	up(&hu->tx_sem);
 
 	clear_bit(HCI_UART_SENDING, &hu->tx_state);
 	if (test_bit(HCI_UART_TX_WAKEUP, &hu->tx_state))
@@ -247,15 +263,21 @@ static int hci_uart_flush(struct hci_dev *hdev)
 	}
 
 	/* Flush any pending characters in the driver and discipline. */
-	tty_ldisc_flush(tty);
-	tty_driver_flush_buffer(tty);
+	//tty_ldisc_flush(tty);
+	//tty_driver_flush_buffer(tty);
 
-	percpu_down_read(&hu->proto_lock);
+	/* Don't flush the tty. Sometime, the hdev is closed abnormally.
+	 * There may be cmd complete event in rx buf or the sent ack in tx buf.
+	 * tty flush will result in hciX: command 0xXXXX tx timeout
+	 */
+	tty_wait_until_sent(tty, msecs_to_jiffies(500));
+
+	down_read(&hu->proto_lock);
 
 	if (test_bit(HCI_UART_PROTO_READY, &hu->flags))
 		hu->proto->flush(hu);
 
-	percpu_up_read(&hu->proto_lock);
+	up_read(&hu->proto_lock);
 
 	return 0;
 }
@@ -288,15 +310,15 @@ static int hci_uart_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 
 	BT_DBG("%s: type %d len %d", hdev->name, bt_cb(skb)->pkt_type, skb->len);
 
-	percpu_down_read(&hu->proto_lock);
+	down_read(&hu->proto_lock);
 
 	if (!test_bit(HCI_UART_PROTO_READY, &hu->flags)) {
-		percpu_up_read(&hu->proto_lock);
+		up_read(&hu->proto_lock);
 		return -EUNATCH;
 	}
 
 	hu->proto->enqueue(hu, skb);
-	percpu_up_read(&hu->proto_lock);
+	up_read(&hu->proto_lock);
 
 	hci_uart_tx_wakeup(hu);
 
@@ -527,15 +549,17 @@ static int hci_uart_tty_open(struct tty_struct *tty)
 
 	INIT_WORK(&hu->init_ready, hci_uart_init_work);
 	INIT_WORK(&hu->write_work, hci_uart_write_work);
-	percpu_init_rwsem(&hu->proto_lock);
+	init_rwsem(&hu->proto_lock);
+	sema_init(&hu->tx_sem, 1);
 
 	/* Flush any pending characters in the driver and line discipline. */
 
 	/* FIXME: why is this needed. Note don't use ldisc_ref here as the
 	   open path is before the ldisc is referencable */
 
-	if (tty->ldisc->ops->flush_buffer)
+	if (tty->ldisc && tty->ldisc->ops && tty->ldisc->ops->flush_buffer)
 		tty->ldisc->ops->flush_buffer(tty);
+
 	tty_driver_flush_buffer(tty);
 
 	return 0;
@@ -564,9 +588,9 @@ static void hci_uart_tty_close(struct tty_struct *tty)
 		hci_uart_close(hdev);
 
 	if (test_bit(HCI_UART_PROTO_READY, &hu->flags)) {
-		percpu_down_write(&hu->proto_lock);
+		down_write(&hu->proto_lock);
 		clear_bit(HCI_UART_PROTO_READY, &hu->flags);
-		percpu_up_write(&hu->proto_lock);
+		up_write(&hu->proto_lock);
 
 		cancel_work_sync(&hu->init_ready);
 		cancel_work_sync(&hu->write_work);
@@ -580,7 +604,7 @@ static void hci_uart_tty_close(struct tty_struct *tty)
 	}
 	clear_bit(HCI_UART_PROTO_SET, &hu->flags);
 
-	percpu_free_rwsem(&hu->proto_lock);
+	//percpu_free_rwsem(&hu->proto_lock);
 
 	kfree(hu);
 }
@@ -631,10 +655,10 @@ static void hci_uart_tty_receive(struct tty_struct *tty, const u8 *data,
 	if (!hu || tty != hu->tty)
 		return;
 
-	percpu_down_read(&hu->proto_lock);
+	down_read(&hu->proto_lock);
 
 	if (!test_bit(HCI_UART_PROTO_READY, &hu->flags)) {
-		percpu_up_read(&hu->proto_lock);
+		up_read(&hu->proto_lock);
 		return;
 	}
 
@@ -642,7 +666,7 @@ static void hci_uart_tty_receive(struct tty_struct *tty, const u8 *data,
 	 * tty caller
 	 */
 	hu->proto->recv(hu, data, count);
-	percpu_up_read(&hu->proto_lock);
+	up_read(&hu->proto_lock);
 
 	if (hu->hdev)
 		hu->hdev->stat.byte_rx += count;

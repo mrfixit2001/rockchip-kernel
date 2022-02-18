@@ -84,7 +84,8 @@ struct hci_uart {
 	struct work_struct	write_work;
 
 	const struct hci_uart_proto *proto;
-	struct percpu_rw_semaphore   proto_lock;	/* Stop work for proto close */
+	struct rw_semaphore	proto_lock;	/* Stop work for proto close */
+	struct semaphore 	tx_sem;	/* semaphore for tx */
 	void			*priv;
 
 	struct sk_buff		*tx_skb;
