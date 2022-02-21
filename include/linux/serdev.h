@@ -247,7 +247,7 @@ static inline int serdev_device_set_tiocm(struct serdev_device *serdev, int set,
 {
 	return -ENOTSUPP;
 }
-static inline int serdev_device_set_parity(struct serdev_device *serdev, enum serdev_parity parity);
+static inline int serdev_device_set_parity(struct serdev_device *serdev, enum serdev_parity parity)
 {
 	return -ENODEV;
 }
@@ -284,7 +284,7 @@ static inline struct device *serdev_tty_port_register(struct tty_port *port,
 {
 	return ERR_PTR(-ENODEV);
 }
-static inline int serdev_tty_port_unregister(struct tty_port *port) {}
+static inline int serdev_tty_port_unregister(struct tty_port *port) {return 0;}
 #endif /* CONFIG_SERIAL_DEV_CTRL_TTYPORT */
 
 #endif /*_LINUX_SERDEV_H */
