@@ -717,7 +717,7 @@ rtt_alloc_getset_buf(wl_proxd_method_t method, wl_proxd_session_id_t session_id,
 	wl_proxd_cmd_t cmdid, uint16 tlvs_bufsize, uint16 *p_out_bufsize)
 {
 	uint16 proxd_iovsize;
-	uint16 kflags;
+	gfp_t kflags;
 	wl_proxd_tlv_t *p_tlv;
 	wl_proxd_iov_t *p_proxd_iov = (wl_proxd_iov_t *) NULL;
 
@@ -1611,7 +1611,7 @@ dhd_rtt_convert_results_to_host(rtt_report_t *rtt_report, uint8 *p_data, uint16 
 	wl_proxd_session_state_t session_state;
 	wl_proxd_status_t proxd_status;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39))
-	struct timespec ts;
+	struct osl_timespec ts;
 #endif /* LINUX_VER >= 2.6.39 */
 	uint32 ratespec;
 	uint32 avg_dist;
@@ -1708,7 +1708,7 @@ dhd_rtt_convert_results_to_host(rtt_report_t *rtt_report, uint8 *p_data, uint16 
 	/* time stamp */
 	/* get the time elapsed from boot time */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39))
-	get_monotonic_boottime(&ts);
+	osl_get_monotonic_boottime(&ts);
 	rtt_report->ts = (uint64)TIMESPEC_TO_US(ts);
 #endif /* LINUX_VER >= 2.6.39 */
 

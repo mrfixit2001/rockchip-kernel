@@ -472,7 +472,6 @@
 				(CHIPID(chipid) == BCM43570_CHIP_ID) || \
 				(CHIPID(chipid) == BCM4358_CHIP_ID)) /* 4350 variations */
 
-#define BCMA9BE_CHIP_ID		0xa9be		/* a9be chipcommon chipid */
 #define BCM4345_CHIP_ID		0x4345		/* 4345 chipcommon chipid */
 #define BCM43454_CHIP_ID	43454		/* 43454 chipcommon chipid */
 #define BCM43455_CHIP_ID	43455		/* 43455 chipcommon chipid */
