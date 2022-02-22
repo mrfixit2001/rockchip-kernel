@@ -370,6 +370,7 @@
 
 &display_subsystem {
 	status = "okay";
+	/delete-property/ logo-memory-region;
 
 	route {
 		route_hdmi: route-hdmi {
@@ -381,6 +382,10 @@
 			connect = <&vopl_out_dp>;
 		};
 	};
+};
+
+&reserved_memory {
+	/delete-node/ drm_logo; 
 };
 
 &emmc_phy {

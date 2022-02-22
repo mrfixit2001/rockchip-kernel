@@ -314,6 +314,7 @@
 
 &display_subsystem {
 	status = "okay";
+	/delete-property/ logo-memory-region;
 
 	route {
 		route_hdmi: route-hdmi {
@@ -651,6 +652,10 @@
 	audio-supply = <&vcca3v0_codec>; /* audio_gpio3d4a_ms */
 	sdmmc-supply = <&vcc_sdio>; /* sdmmc_gpio4b_ms */
 	gpio1830-supply = <&vcc_3v0>; /* gpio1833_gpio4cd_ms */
+};
+
+&reserved_memory {
+	/delete-node/ drm_logo;	
 };
 
 &sdmmc {
