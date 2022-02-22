@@ -13359,9 +13359,7 @@ dhd_module_init(void)
 	if (err) {
 		DHD_ERROR(("%s: Failed to load driver max retry reached**\n", __FUNCTION__));
 	} else {
-		if (!dhd_download_fw_on_driverload) {
-			dhd_driver_init_done = TRUE;
-		}
+		dhd_driver_init_done = TRUE;
 	}
 
 	printf("%s: Exit err=%d\n", __FUNCTION__, err);
@@ -13404,19 +13402,20 @@ int rockchip_wifi_init_module_rkwifi(void)
 
 void rockchip_wifi_exit_module_rkwifi(void)
 {
+	if(!dhd_driver_init_done)
+		return;
 	dhd_module_exit();
 }
-#ifdef CONFIG_WIFI_BUILD_MODULE
-module_init(rockchip_wifi_init_module_rkwifi);
-module_exit(rockchip_wifi_exit_module_rkwifi);
-#else
-#ifdef CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP
+#if defined(CONFIG_WIFI_LOAD_DRIVER_WHEN_KERNEL_BOOTUP) && !defined(CONFIG_WIFI_BUILD_MODULE)
 late_initcall(rockchip_wifi_init_module_rkwifi);
 module_exit(rockchip_wifi_exit_module_rkwifi);
 #else
 module_init(rockchip_wifi_init_module_rkwifi);
 module_exit(rockchip_wifi_exit_module_rkwifi);
 #endif
+#if IS_BUILTIN(CONFIG_BCMDHD)
+EXPORT_SYMBOL(rockchip_wifi_init_module_rkwifi);
+EXPORT_SYMBOL(rockchip_wifi_exit_module_rkwifi);
 #endif
 #if 0
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
