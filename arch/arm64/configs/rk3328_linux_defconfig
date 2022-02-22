@@ -2002,8 +2002,8 @@ CONFIG_WL_ROCKCHIP=y
 CONFIG_WIFI_BUILD_MODULE=y
 # CONFIG_WIFI_GENERATE_RANDOM_MAC_ADDR is not set
 CONFIG_BCMDHD=m
-CONFIG_BCMDHD_FW_PATH="/lib/firmware/fw_bcmdhd.bin"
-CONFIG_BCMDHD_NVRAM_PATH="/lib/firmware/nvram.txt"
+CONFIG_BCMDHD_FW_PATH="/lib/firmware/brcm/fw_bcmdhd.bin"
+CONFIG_BCMDHD_NVRAM_PATH="/lib/firmware/brcm/nvram.txt"
 # CONFIG_BCMDHD_SDIO is not set
 # CONFIG_BCMDHD_PCIE is not set
 CONFIG_BCMDHD_USB=y
