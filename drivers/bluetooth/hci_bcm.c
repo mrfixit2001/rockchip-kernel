@@ -68,6 +68,7 @@ struct bcm_device {
 	u32			oper_speed;
 	int			irq;
 	u8			irq_polarity;
+	bool			irq_acquired;
 
 #ifdef CONFIG_PM
 	struct hci_uart		*hu;
@@ -166,17 +167,34 @@ static bool bcm_device_exists(struct bcm_device *device)
 
 static int bcm_gpio_set_power(struct bcm_device *dev, bool powered)
 {
-	if (powered && !IS_ERR(dev->clk) && !dev->clk_enabled)
-		clk_prepare_enable(dev->clk);
+	return 0;
+}
 
-	gpiod_set_value(dev->shutdown, powered);
-	gpiod_set_value(dev->device_wakeup, powered);
+static int _bcm_gpio_set_power(struct bcm_device *dev, bool powered)
+{
+	if (powered && !IS_ERR(dev->clk) && !dev->clk_enabled) {
+		int err;
+
+		/* Clock needs to be 32.768 kHz */
+		err = clk_set_rate(dev->clk, 32768);
+		if (err)
+			bt_dev_dbg(dev, "Failed to set clock speed to 32.768 kHz");
+
+		err = clk_prepare_enable(dev->clk);
+		if (err)
+			return err;
+	}
+
+	if (dev->device_wakeup)
+		gpiod_set_value(dev->device_wakeup, powered);
+	if (dev->device_wakeup)
+		gpiod_set_value(dev->device_wakeup, powered);
 
 	if (!powered && !IS_ERR(dev->clk) && dev->clk_enabled)
 		clk_disable_unprepare(dev->clk);
 
 	/* wait for device to power on and come out of reset */
-	usleep_range(10000, 20000);
+	usleep_range(100000, 120000);
 
 	dev->clk_enabled = powered;
 
@@ -209,21 +227,28 @@ static int bcm_request_irq(struct bcm_data *bcm)
 		goto unlock;
 	}
 
-	if (bdev->irq > 0) {
-		err = devm_request_irq(&bdev->pdev->dev, bdev->irq,
-				       bcm_host_wake, IRQF_TRIGGER_RISING,
-				       "host_wake", bdev);
-		if (err)
-			goto unlock;
-
-		device_init_wakeup(&bdev->pdev->dev, true);
-
-		pm_runtime_set_autosuspend_delay(&bdev->pdev->dev,
-						 BCM_AUTOSUSPEND_DELAY);
-		pm_runtime_use_autosuspend(&bdev->pdev->dev);
-		pm_runtime_set_active(&bdev->pdev->dev);
-		pm_runtime_enable(&bdev->pdev->dev);
+	if (bdev->irq <= 0) {
+		err = -EOPNOTSUPP;
+		goto unlock;
 	}
+
+	err = devm_request_irq(&bdev->pdev->dev, bdev->irq,
+			       bcm_host_wake, IRQF_TRIGGER_RISING,
+			       "host_wake", bdev);
+	if (err) {
+		bdev->irq = err;
+		goto unlock;
+	}
+
+	bdev->irq_acquired = true;
+
+	device_init_wakeup(&bdev->pdev->dev, true);
+
+	pm_runtime_set_autosuspend_delay(&bdev->pdev->dev,
+					 BCM_AUTOSUSPEND_DELAY);
+	pm_runtime_use_autosuspend(&bdev->pdev->dev);
+	pm_runtime_set_active(&bdev->pdev->dev);
+	pm_runtime_enable(&bdev->pdev->dev);
 
 unlock:
 	mutex_unlock(&bcm_device_lock);
@@ -300,6 +325,7 @@ static int bcm_open(struct hci_uart *hu)
 {
 	struct bcm_data *bcm;
 	struct list_head *p;
+	int err;
 
 	bt_dev_dbg(hu->hdev, "hu %p", hu);
 
@@ -314,16 +340,16 @@ static int bcm_open(struct hci_uart *hu)
 
 	hu->priv = bcm;
 
-	/* If this is a serdev defined device, then only use
-	* serdev open primitive and skip the rest.
-	*/
-	if (hu->serdev)
+	mutex_lock(&bcm_device_lock);
+
+	if (hu->serdev) {
+		bcm->dev = serdev_device_get_drvdata(hu->serdev);
 		goto out;
+	}
 
 	if (!hu->tty->dev)
 		goto out;
 
-	mutex_lock(&bcm_device_lock);
 	list_for_each(p, &bcm_device_list) {
 		struct bcm_device *dev = list_entry(p, struct bcm_device, list);
 
@@ -333,43 +359,76 @@ static int bcm_open(struct hci_uart *hu)
 		 */
 		if (hu->tty->dev->parent == dev->pdev->dev.parent) {
 			bcm->dev = dev;
-			hu->init_speed = dev->init_speed;
-			hu->oper_speed = dev->oper_speed;
 #ifdef CONFIG_PM
 			dev->hu = hu;
 #endif
-			bcm_gpio_set_power(bcm->dev, true);
 			break;
 		}
 	}
 
-	mutex_unlock(&bcm_device_lock);
 out:
+	if (bcm->dev) {
+		//hci_uart_set_flow_control(hu, true);
+
+		hu->init_speed = bcm->dev->init_speed;
+		hu->oper_speed = bcm->dev->oper_speed;
+		err = bcm_gpio_set_power(bcm->dev, true);
+
+		//hci_uart_set_flow_control(hu, false);
+
+		if (err)
+			goto err_unset_hu;
+	}
+
+	mutex_unlock(&bcm_device_lock);
 	return 0;
+
+err_unset_hu:
+#ifdef CONFIG_PM
+	if (!hu->serdev)
+		bcm->dev->hu = NULL;
+#endif
+	mutex_unlock(&bcm_device_lock);
+	hu->priv = NULL;
+	kfree(bcm);
+	return err;
 }
 
 static int bcm_close(struct hci_uart *hu)
 {
 	struct bcm_data *bcm = hu->priv;
-	struct bcm_device *bdev = bcm->dev;
+	struct bcm_device *bdev = NULL;
+	int err;
 
 	bt_dev_dbg(hu->hdev, "hu %p", hu);
 
 	/* Protect bcm->dev against removal of the device or driver */
 	mutex_lock(&bcm_device_lock);
-	if (bcm_device_exists(bdev)) {
-		bcm_gpio_set_power(bdev, false);
+
+	if (hu->serdev) {
+		bdev = serdev_device_get_drvdata(hu->serdev);
+	} else if (bcm_device_exists(bcm->dev)) {
+		bdev = bcm->dev;
 #ifdef CONFIG_PM
-		pm_runtime_disable(&bdev->pdev->dev);
-		pm_runtime_set_suspended(&bdev->pdev->dev);
-
-		if (device_can_wakeup(&bdev->pdev->dev)) {
-			devm_free_irq(&bdev->pdev->dev, bdev->irq, bdev);
-			device_init_wakeup(&bdev->pdev->dev, false);
-		}
-
 		bdev->hu = NULL;
 #endif
+	}
+
+	if (bdev) {
+		if (IS_ENABLED(CONFIG_PM) && bdev->irq_acquired) {
+			devm_free_irq(&bdev->pdev->dev, bdev->irq, bdev);
+
+			if (device_can_wakeup(&bdev->pdev->dev))
+				device_init_wakeup(&bdev->pdev->dev, false);
+
+			pm_runtime_disable(&bdev->pdev->dev);
+		}
+
+		err = bcm_gpio_set_power(bdev, false);
+		if (err)
+			bt_dev_err(hu->hdev, "Failed to power down");
+		else if (IS_ENABLED(CONFIG_PM))
+			pm_runtime_set_suspended(&bdev->pdev->dev);
 	}
 	mutex_unlock(&bcm_device_lock);
 
@@ -395,8 +454,7 @@ static int bcm_flush(struct hci_uart *hu)
 static int bcm_setup(struct hci_uart *hu)
 {
 	struct bcm_data *bcm = hu->priv;
-	char fw_name[64];
-	const struct firmware *fw;
+	bool fw_load_done = false;
 	unsigned int speed;
 	int err;
 
@@ -405,21 +463,12 @@ static int bcm_setup(struct hci_uart *hu)
 	hu->hdev->set_diag = bcm_set_diag;
 	hu->hdev->set_bdaddr = btbcm_set_bdaddr;
 
-	err = btbcm_initialize(hu->hdev, fw_name, sizeof(fw_name));
+	err = btbcm_initialize(hu->hdev, &fw_load_done);
 	if (err)
 		return err;
 
-	err = request_firmware(&fw, fw_name, &hu->hdev->dev);
-	if (err < 0) {
-		bt_dev_info(hu->hdev, "BCM: Patch %s not found", fw_name);
+	if (!fw_load_done)
 		return 0;
-	}
-
-	err = btbcm_patchram(hu->hdev, fw);
-	if (err) {
-		bt_dev_info(hu->hdev, "BCM: Patch failed (%d)", err);
-		goto finalize;
-	}
 
 	/* Init speed if any */
 	if (hu->init_speed)
@@ -446,10 +495,7 @@ static int bcm_setup(struct hci_uart *hu)
 			host_set_baudrate(hu, speed);
 	}
 
-finalize:
-	release_firmware(fw);
-
-	err = btbcm_finalize(hu->hdev);
+	err = btbcm_finalize(hu->hdev, &fw_load_done);
 	if (err)
 		return err;
 
