@@ -208,7 +208,6 @@
         };
 
 	aliases {
-		ethernet0 = &gmac;
 		uart0 = &uart0;
 	};
 
@@ -219,29 +218,12 @@
 		#clock-cells = <0>;
 	};
 
-	clkin_gmac: external-gmac-clock {
-		compatible = "fixed-clock";
-		clock-frequency = <125000000>;
-		clock-output-names = "clkin_gmac";
-		#clock-cells = <0>;
-	};
-
-	dc_12v: dc-12v {
-		compatible = "regulator-fixed";
-		regulator-name = "dc_12v";
-		regulator-always-on;
-		regulator-boot-on;
-		regulator-min-microvolt = <12000000>;
-		regulator-max-microvolt = <12000000>;
-	};
-
 	vcc_sys: vcc-sys {
 		compatible = "regulator-fixed";
 		regulator-name = "vcc_sys";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 		regulator-always-on;
-		vin-supply = <&dc_12v>;
 	};
 
 	vcc_phy: vcc-phy-regulator {
@@ -416,10 +398,13 @@
 
 	wireless_wlan: wireless-wlan {
 		compatible = "regulator-fixed";
+		enable-active-high;
 		gpio = <&gpio3 RK_PC1 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&wifi_pwr>;
 		regulator-name = "wifi_enable";
+		regulator-always-on;
+		regulator-boot-on;
 	};
 
 	backlight: backlight {
@@ -486,7 +471,6 @@
 		clock-latency-ns = <40000>;
 	};
 };
-
 
 &cpu_l0 {
 	cpu-supply = <&vdd_cpu_l>;
@@ -574,6 +558,13 @@
 	};
 };
 
+/*
+&cdn_dp {
+	status = "okay";
+	extcon = <&fusb0>;
+};
+*/
+
 &display_subsystem {
 	status = "okay";
 
@@ -585,6 +576,12 @@
 		route_dsi: route-dsi {
 			status = "okay";
 		};
+
+		/*
+		route_dp: route-dp {
+			connect = <&vopl_out_dp>;
+		};
+		*/
 	};
 };
 
@@ -888,26 +885,6 @@
 	status = "okay";
 };
 
-/*
-&gmac {
-	phy-supply = <&vcc_phy>;
-	phy-mode = "rgmii";
-	clock_in_out = "input";
-	rockchip,bugged_tx_coe;
-	snps,reset-gpio = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
-	snps,reset-active-low;
-	snps,reset-delays-us = <0 10000 50000>;
-	assigned-clocks = <&cru SCLK_RMII_SRC>;
-	assigned-clock-parents = <&clkin_gmac>;
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&rgmii_pins>;
-	pinctrl-1 = <&rgmii_sleep_pins>;
-	tx_delay = <0x28>;
-	rx_delay = <0x20>;
-	status = "disabled";
-};
-*/
-
 &gpu {
 	status = "okay";
 	mali-supply = <&vdd_gpu>;
@@ -932,6 +909,7 @@
 	panel@0 {
 		compatible = "elida,kd35t133", "simple-panel-dsi";
 		reg = <0>;
+		rotation = <90>;
 
 		/* pwm0 backlight */
 		backlight = <&backlight>;

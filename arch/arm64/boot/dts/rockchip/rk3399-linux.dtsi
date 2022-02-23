@@ -202,6 +202,15 @@
 			charge_logo,mode = "center";
 			connect = <&vopl_out_edp>;
 		};
+
+		route_dp: route-dp {
+			status = "disabled";
+			logo,uboot = "logo.bmp";
+			logo,kernel = "logo_kernel.bmp";
+			logo,mode = "center";
+			charge_logo,mode = "center";
+			connect = <&vopl_out_dp>;
+		};
 	};
 };
 
