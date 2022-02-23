@@ -270,7 +270,7 @@
 		reset-gpios = <&gpio0 RK_PB2 GPIO_ACTIVE_LOW>;
 	};
 
-	wireless-wlan {
+	wireless_wlan: wireless-wlan {
 		compatible = "wlan-platdata";
 		rockchip,grf = <&grf>;
 		wifi_chip_type = "ap6359sa";
@@ -279,7 +279,7 @@
 		status = "okay";
 	};
 
-	wireless-bluetooth {
+	wireless_bluetooth: wireless-bluetooth {
 		compatible = "bluetooth-platdata";
 		clocks = <&rk808 1>;
 		clock-names = "ext_clock";
@@ -287,8 +287,6 @@
 		pinctrl-names = "default", "rts_gpio";
 		pinctrl-0 = <&uart0_rts>;
 		pinctrl-1 = <&uart0_gpios>;
-		// wifi-bt-power-toggle;
-		// BT,power_gpio    = <&gpio0 RK_PB5 GPIO_ACTIVE_HIGH>;
 		BT,reset_gpio    = <&gpio0 RK_PB1 GPIO_ACTIVE_HIGH>;
 		BT,wake_gpio     = <&gpio2 RK_PD3 GPIO_ACTIVE_HIGH>;
 		BT,wake_host_irq = <&gpio0 RK_PA4 GPIO_ACTIVE_HIGH>;
