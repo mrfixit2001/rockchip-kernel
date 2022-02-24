@@ -207,10 +207,6 @@
                 };
         };
 
-	aliases {
-		uart0 = &uart0;
-	};
-
 	xin32k: xin32k {
 		compatible = "fixed-clock";
 		clock-frequency = <32768>;
@@ -358,6 +354,15 @@
 		};
 	};
 
+/*
+	hdmi_dp_sound: hdmi-dp-sound {
+		status = "okay";
+		compatible = "rockchip,rk3399-hdmi-dp";
+		rockchip,cpu = <&i2s2>;
+		rockchip,codec = <&hdmi>, <&cdn_dp>;
+	};
+*/
+
 	hdmi-sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,format = "i2s";
@@ -370,31 +375,6 @@
 			sound-dai = <&hdmi>;
 		};
 	};
-
-/*
-	sdio_pwrseq: sdio-pwrseq {
-		compatible = "mmc-pwrseq-simple";
-		clocks = <&rk808 1>;
-		clock-names = "ext_clock";
-		pinctrl-names = "default";
-		pinctrl-0 = <&wifi_enable_h>;
-
-		// * On the module itself this is one of these (depending
-		// * on the actual card populated):
-		// * - SDIO_RESET_L_WL_REG_ON
-		// * - PDN (power down when low)
-		reset-gpios = <&gpio2 RK_PC1 GPIO_ACTIVE_LOW>;
-	};
-
-	wireless-wlan {
-		compatible = "wlan-platdata";
-		rockchip,grf = <&grf>;
-		wifi_chip_type = "rtl8189fs";
-		sdio_vref = <1800>;
-		WIFI,host_wake_irq = <&gpio0 RK_PA3 GPIO_ACTIVE_HIGH>;
-		status = "okay";
-	};
-*/
 
 	wireless_wlan: wireless-wlan {
 		compatible = "regulator-fixed";
@@ -496,74 +476,10 @@
 	cpu-supply = <&vdd_cpu_b>;
 };
 
-&dfi {
-	status = "okay";
-};
-
-&dmc {
-        status = "okay";
-        center-supply = <&vdd_center>;
-        upthreshold = <40>;
-        downdifferential = <20>;
-        system-status-freq = <
-                /*system status         freq(KHz)*/
-                SYS_STATUS_NORMAL       666000
-                SYS_STATUS_REBOOT       666000
-                SYS_STATUS_SUSPEND      328000
-                SYS_STATUS_VIDEO_1080P  666000
-                SYS_STATUS_VIDEO_4K     856000
-                SYS_STATUS_VIDEO_4K_10B 856000
-                SYS_STATUS_PERFORMANCE  856000
-                SYS_STATUS_BOOST        856000
-                SYS_STATUS_DUALVIEW     856000
-                SYS_STATUS_ISP          856000
-        >;
-        vop-bw-dmc-freq = <
-        /* min_bw(MB/s) max_bw(MB/s) freq(KHz) */
-                0       762      416000
-                763     3012     666000
-                3013    99999    856000
-        >;
-
-        auto-min-freq = <328000>;
-        auto-freq-en = <0>;
-};
-
-&dmc_opp_table {
-	compatible = "operating-points-v2";
-
-	/delete-node/ opp-200000000;
-	/delete-node/ opp-300000000;
-	/delete-node/ opp-400000000;
-	/delete-node/ opp-528000000;
-	/delete-node/ opp-600000000;
-	/delete-node/ opp-800000000;
-
-	opp-328000000 {
-		opp-hz = /bits/ 64 <328000000>;
-		opp-microvolt = <900000>;
-	};
-	opp-416000000 {
-		opp-hz = /bits/ 64 <416000000>;
-		opp-microvolt = <900000>;
-	};
-
-	opp-666000000 {
-		opp-hz = /bits/ 64 <666000000>;
-		opp-microvolt = <900000>;
-	};
-	opp-856000000 {
-		opp-hz = /bits/ 64 <856000000>;
-		opp-microvolt = <900000>;
-	};
-};
-
-/*
 &cdn_dp {
 	status = "okay";
 	extcon = <&fusb0>;
 };
-*/
 
 &display_subsystem {
 	status = "okay";
@@ -577,11 +493,10 @@
 			status = "okay";
 		};
 
-		/*
 		route_dp: route-dp {
+			status = "okay";
 			connect = <&vopl_out_dp>;
 		};
-		*/
 	};
 };
 
@@ -1072,7 +987,6 @@
 	cap-sd-highspeed;
 	cap-sdio-irq;
 	keep-power-in-suspend;
-//	mmc-pwrseq = <&sdio_pwrseq>;
 	card-detect-delay = <800>;
 	cd-gpios = <&gpio2 RK_PC1 GPIO_ACTIVE_LOW>; /*[> CD GPIO <]*/
 	num-slots = <1>;
@@ -1095,12 +1009,6 @@
 	non-removable;
 	keep-power-in-suspend;
 	status = "disabled";
-};
-
-&spdif {
-	status = "disabled";
-	pinctrl-0 = <&spdif_bus_1>;
-	#sound-dai-cells = <0>;
 };
 
 &threshold {
@@ -1155,7 +1063,7 @@
 	status = "okay";
 
 	// MRFIXIT NOTE: TO TEST
-	/delete-property/ power-domains;
+//	/delete-property/ power-domains;
 
 	extcon = <&fusb0>;
 
@@ -1173,7 +1081,7 @@
 	status = "okay";
 
 	// MRFIXIT NOTE: TO TEST
-	/delete-property/ power-domains;
+//	/delete-property/ power-domains;
 
 	u2phy1_otg: otg-port {
 		status = "okay";
@@ -1183,12 +1091,6 @@
 		phy-supply = <&vcc5v0_host>;
 		status = "okay";
 	};
-};
-
-&uart0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart0_xfer &uart0_cts>;
-	status = "disabled";
 };
 
 &uart2 {
@@ -1275,15 +1177,6 @@
 				<4 RK_PD2 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
-
-/*
-	sdio-pwrseq {
-		wifi_enable_h: wifi-enable-h {
-			rockchip,pins =
-				<3 RK_PC1 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-	};
-*/
 
 	wireless-wlan {
 		wifi_pwr: wifi-pwr {
@@ -1403,8 +1296,4 @@
 	rockchip,pins =
 		<2 25 RK_FUNC_1 &pcfg_pull_none>,
 		<2 17 RK_FUNC_GPIO &pcfg_pull_up>;
-};
-
-&uart0_xfer {
-	rockchip,pins =	<2 16 RK_FUNC_1 &pcfg_pull_up>;
 };
