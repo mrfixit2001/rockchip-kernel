@@ -927,12 +927,19 @@ static const struct i2c_device_id cw_bat_id_table[] = {
 	{}
 };
 
+static struct of_device_id cw201x_match_table[] = {
+	{ .compatible = "cw201x", },
+	{ },
+};
+
 static struct i2c_driver cw_bat_driver = {
 	.driver = {
 		.name = "cw201x",
 #ifdef CONFIG_PM
 		.pm = &cw_bat_pm_ops,
 #endif
+		.owner	= THIS_MODULE,
+		.of_match_table = cw201x_match_table,
 	},
 	.probe = cw_bat_probe,
 	.remove = cw_bat_remove,
