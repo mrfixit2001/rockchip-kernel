@@ -16,20 +16,25 @@
 	compatible = "anbernic,rg552", "rockchip,rk3399";
 
 	gpio_keys: volume-keys {
-			compatible = "gpio-keys";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			autorepeat;
-			button@0 {
-				label = "GPIO BTN-VOLUP";
-				linux,code = <KEY_VOLUMEUP>;
-				gpios = <&gpio3 RK_PB5 GPIO_ACTIVE_LOW>;
-			};
-			button@1 {
-				label = "GPIO BTN-VOLDN";
-				linux,code = <KEY_VOLUMEDOWN>;
-				gpios = <&gpio3 RK_PB6 GPIO_ACTIVE_LOW>;
-			};
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		autorepeat;
+		button@0 {
+			label = "GPIO BTN-VOLUP";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&gpio3 RK_PB5 GPIO_ACTIVE_LOW>;
+		};
+		button@1 {
+			label = "GPIO BTN-VOLDN";
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpios = <&gpio3 RK_PB6 GPIO_ACTIVE_LOW>;
+		};
+		button@2 {
+			label = "GPIO BTN-POWER";
+			linux,code = <KEY_POWER>;
+			gpios = <&gpio0 RK_PA5 GPIO_ACTIVE_LOW>;
+		};
 	};
 
 	joypad: singleadc-joypad {
@@ -315,23 +320,21 @@
 	}; 
 
 	leds: gpio-leds {
-			compatible = "gpio-leds";
-			pinctrl-names = "default";
-			pinctrl-0 =<&leds_gpio>;
-
-			led@1 {
-					gpios = <&gpio1 RK_PC4 GPIO_ACTIVE_HIGH>;
-					label = "battery_green";
-					default-state= "on";
-				//	retain-state-suspended;
-			};
-			
-			led@2 {
-					gpios = <&gpio3 RK_PD5 GPIO_ACTIVE_HIGH>;
-					label = "battery_red";
-				//	retain-state-suspended;
-			};
-			
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 =<&leds_gpio>;
+		led@1 {
+				gpios = <&gpio1 RK_PC4 GPIO_ACTIVE_HIGH>;
+				label = "battery_green";
+				default-state= "on";
+			//	retain-state-suspended;
+		};
+		
+		led@2 {
+				gpios = <&gpio3 RK_PD5 GPIO_ACTIVE_HIGH>;
+				label = "battery_red";
+			//	retain-state-suspended;
+		};
 	};
 
 	es8316-sound {
@@ -836,7 +839,7 @@
 		reset-gpios = <&gpio0 RK_PB2 GPIO_ACTIVE_LOW>;
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&lcd_en_gpio>;	
+		pinctrl-0 = <&lcd_en_gpio>;
 
 		prepare-delay-ms = <2>;
 		reset-delay-ms = <150>;
@@ -872,13 +875,6 @@
 			05 78 01 11
 			05 78 01 29
 		];
-		
-		/*
-			39 00 05 BA 03 82 A0 ED
-			39 00 04 BF CF 00 46
-			05 78 01 11
-			05 78 01 29
-		*/
 
 		/* 28: DisplayOff */
 		/* 10: SleepIn */
