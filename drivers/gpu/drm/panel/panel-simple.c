@@ -2518,6 +2518,64 @@ static const struct panel_desc_dsi panasonic_vvx10f004b00 = {
 	.lanes = 4,
 };
 
+static const struct drm_display_mode elida_kd35t133_mode = {
+	.clock		= 17000,
+	.hdisplay	= 320,
+	.hsync_start	= 320 + 130,
+	.hsync_end	= 320 + 130 + 4,
+	.htotal		= 320 + 130 + 4 + 130,
+	.vdisplay	= 480,
+	.vsync_start	= 480 + 2,
+	.vsync_end	= 480 + 2 + 1,
+	.vtotal		= 480 + 2 + 1 + 2,
+	.vrefresh 	= 60,
+};
+
+static const struct panel_desc_dsi elida_kd35t133 = {
+	.desc = {
+		.modes = &elida_kd35t133_mode,
+		.num_modes = 1,
+		.bpc = 8,
+		.size = {
+			.width = 42,
+			.height = 82,
+		},
+	},
+	.flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+		 MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET |
+		 MIPI_DSI_CLOCK_NON_CONTINUOUS,
+	.format = MIPI_DSI_FMT_RGB888,
+	.lanes = 4,
+};
+
+static const struct drm_display_mode sharp_ls054b3sx01_mode = {
+	.clock		= 150000,
+	.hdisplay	= 1152,
+	.hsync_start	= 1152 + 64,
+	.hsync_end	= 1152 + 64 + 4,
+	.htotal		= 1152 + 64 + 4 + 32,
+	.vdisplay	= 1920,
+	.vsync_start	= 1920 + 3,
+	.vsync_end	= 1920 + 3 + 3,
+	.vtotal		= 1920 + 3 + 3 + 4,
+	.vrefresh 	= 60,
+};
+
+static const struct panel_desc_dsi sharp_ls054b3sx01 = {
+	.desc = {
+		.modes = &sharp_ls054b3sx01_mode,
+		.num_modes = 1,
+		.bpc = 8,
+		.size = {
+			.width = 69,
+			.height = 116,
+		},
+	},
+	.flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+		 MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET | MIPI_DSI_CLOCK_NON_CONTINUOUS,
+	.format = MIPI_DSI_FMT_RGB888,
+	.lanes = 4,
+};
 
 static const struct of_device_id dsi_of_match[] = {
 	{
@@ -2538,6 +2596,12 @@ static const struct of_device_id dsi_of_match[] = {
 	}, {
 		.compatible = "panasonic,vvx10f004b00",
 		.data = &panasonic_vvx10f004b00
+	}, {
+		.compatible = "elida,kd35t133",
+		.data = &elida_kd35t133
+	}, {
+		.compatible = "sharp,ls054b3sx01",
+		.data = &sharp_ls054b3sx01
 	}, {
 		/* sentinel */
 	}
