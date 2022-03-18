@@ -77,12 +77,31 @@ static int rockchip_drm_fbdev_create(struct drm_fb_helper *helper,
 	struct fb_info *fbi;
 	size_t size;
 	int ret;
+	char *options = NULL;
 
 	bytes_per_pixel = DIV_ROUND_UP(sizes->surface_bpp, 8);
 
 	mode_cmd.width = sizes->surface_width;
 	mode_cmd.height = sizes->surface_height;
-	mode_cmd.pitches[0] = sizes->surface_width * bytes_per_pixel;
+
+	// Allow framebuffer size to be specified in kernel options as "video=rkfb:800x600" (for example)
+	if (!fb_get_options("rkfb", &options)) {
+		if(options != NULL) {
+			char *x;
+			long xval, yval;
+			DRM_DEBUG_KMS("RKFB VIDEO OPTION: %s\n", options);
+			x = strsep(&options,"x");
+			if(x != NULL && kstrtol(x, 0, &xval) == 0 && kstrtol(options, 0, &yval) == 0) {
+				mode_cmd.width = xval;
+				mode_cmd.height = yval;
+				sizes->fb_width = xval;
+				sizes->fb_height = yval;
+				DRM_DEBUG_KMS("RKFB WIDTH x HEIGHT: %d x %d\n", mode_cmd.width, mode_cmd.height);
+			}
+		}
+	}
+
+	mode_cmd.pitches[0] = mode_cmd.width * bytes_per_pixel;
 	mode_cmd.pixel_format = drm_mode_legacy_fb_format(sizes->surface_bpp,
 		sizes->surface_depth);
 
