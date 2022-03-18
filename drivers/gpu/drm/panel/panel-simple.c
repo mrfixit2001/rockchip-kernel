@@ -2559,6 +2559,7 @@ static const struct drm_display_mode sharp_ls054b3sx01_mode = {
 	.vsync_end	= 1920 + 3 + 3,
 	.vtotal		= 1920 + 3 + 3 + 4,
 	.vrefresh 	= 60,
+	.flags		= DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC,
 };
 
 static const struct panel_desc_dsi sharp_ls054b3sx01 = {
@@ -2572,7 +2573,7 @@ static const struct panel_desc_dsi sharp_ls054b3sx01 = {
 		},
 	},
 	.flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
-		 MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET | MIPI_DSI_CLOCK_NON_CONTINUOUS,
+		 MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET,
 	.format = MIPI_DSI_FMT_RGB888,
 	.lanes = 4,
 };
