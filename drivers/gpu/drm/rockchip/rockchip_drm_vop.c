@@ -1483,9 +1483,9 @@ static int vop_initial(struct drm_crtc *crtc, bool reset)
 		VOP_WIN_SET(vop, win, channel, (channel + 1) << 4 | channel);
 		spin_unlock(&vop->reg_lock);
 	}
+
 	VOP_CTRL_SET(vop, afbdc_en, 0);
 	vop_enable_debug_irq(crtc);
-
 	vop_cfg_done(vop);
 
 	if (reset) {
@@ -1564,8 +1564,9 @@ static void vop_crtc_disable(struct drm_crtc *crtc)
 
 	spin_unlock(&vop->reg_lock);
 
-	WARN_ON(!wait_for_completion_timeout(&vop->dsp_hold_completion,
-					     msecs_to_jiffies(50)));
+	if (!wait_for_completion_timeout(&vop->dsp_hold_completion,
+					 msecs_to_jiffies(200)))
+		dev_warn(vop->dev, "timed out waiting for DSP hold\n");
 
 	vop_dsp_hold_valid_irq_disable(vop);
 
@@ -2705,17 +2706,20 @@ static bool vop_crtc_mode_fixup(struct drm_crtc *crtc,
 {
 	struct vop *vop = to_vop(crtc);
 	const struct vop_data *vop_data = vop->data;
+	unsigned long rate;
 
 	if (mode->hdisplay > vop_data->max_output.width)
 		return false;
 
-	drm_mode_set_crtcinfo(adj_mode,
-			      CRTC_INTERLACE_HALVE_V | CRTC_STEREO_DOUBLE);
+	drm_mode_set_crtcinfo(adj_mode, CRTC_INTERLACE_HALVE_V | CRTC_STEREO_DOUBLE);
 
 	if (mode->flags & DRM_MODE_FLAG_DBLCLK)
 		adj_mode->crtc_clock *= 2;
 
-	adj_mode->crtc_clock = clk_round_rate(vop->dclk, adj_mode->crtc_clock * 1000) / 1000;
+	rate = clk_round_rate(vop->dclk, adj_mode->crtc_clock * 1000);
+	if (rate / 1000 != adj_mode->crtc_clock)
+		rate = clk_round_rate(vop->dclk, adj_mode->crtc_clock * 1000) / 1000;
+	adj_mode->crtc_clock = DIV_ROUND_UP(rate, 1000);
 
 	return true;
 }
@@ -2866,10 +2870,9 @@ static void vop_crtc_enable(struct drm_crtc *crtc)
 	u16 vsync_len = adjusted_mode->crtc_vsync_end - adjusted_mode->crtc_vsync_start;
 	u16 vact_st = adjusted_mode->crtc_vtotal - adjusted_mode->crtc_vsync_start;
 	u16 vact_end = vact_st + vdisplay;
-	int sys_status = drm_crtc_index(crtc) ?
-				SYS_STATUS_LCDC1 : SYS_STATUS_LCDC0;
+	int sys_status = drm_crtc_index(crtc) ? SYS_STATUS_LCDC1 : SYS_STATUS_LCDC0;
 	uint32_t val;
-	int act_end;
+	int act_end, i;
 	bool interlaced = !!(adjusted_mode->flags & DRM_MODE_FLAG_INTERLACE);
 	int for_ddr_freq = 0;
 	bool dclk_inv;
@@ -2881,8 +2884,14 @@ static void vop_crtc_enable(struct drm_crtc *crtc)
 		     adjusted_mode->vrefresh, s->output_type);
 	if (vop_initial(crtc, false) < 0) {
 		DRM_DEV_ERROR(vop->dev, "vop initial failed\n");
+		vop_unlock(vop);
 		return;
 	}
+
+
+	for (i = 0; i < vop->len; i += 4)
+		writel_relaxed(vop->regsbak[i / 4], vop->regs + i);
+
 	vop_disable_allwin(vop);
 	VOP_CTRL_SET(vop, standby, 0);
 	vop->mode_update = vop_crtc_mode_update(crtc);
@@ -3667,6 +3676,7 @@ static void vop_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	vop_cfg_update(crtc, old_crtc_state);
 
+	spin_lock_irqsave(&vop->irq_lock, flags);
 	if (!vop->is_iommu_enabled && vop->is_iommu_needed) {
 		bool need_wait_vblank;
 		int ret;
@@ -3735,9 +3745,9 @@ static void vop_crtc_atomic_flush(struct drm_crtc *crtc,
 			VOP_CTRL_SET(vop, frame_st, 1);
 	}
 
-	spin_lock_irqsave(&vop->irq_lock, flags);
 	vop->pre_overlay = s->hdr.pre_overlay;
 	vop_cfg_done(vop);
+
 	/*
 	 * rk322x and rk332x odd-even field will mistake when in interlace mode.
 	 * we must switch to frame effect before switch screen and switch to
@@ -4665,8 +4675,9 @@ static void vop_backlight_config_done(struct device *dev, bool async)
 
 	if (vop && vop->is_enabled) {
 		int dle;
-
+		spin_lock(&vop->reg_lock);
 		vop_cfg_done(vop);
+		spin_unlock(&vop->reg_lock);
 		if (!async) {
 			#define CTRL_GET(name) VOP_CTRL_GET(vop, name)
 			readx_poll_timeout(CTRL_GET, cfg_done,
