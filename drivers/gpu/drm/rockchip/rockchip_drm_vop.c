@@ -1565,7 +1565,7 @@ static void vop_crtc_disable(struct drm_crtc *crtc)
 	spin_unlock(&vop->reg_lock);
 
 	if (!wait_for_completion_timeout(&vop->dsp_hold_completion,
-					 msecs_to_jiffies(200)))
+					 msecs_to_jiffies(50)))
 		dev_warn(vop->dev, "timed out waiting for DSP hold\n");
 
 	vop_dsp_hold_valid_irq_disable(vop);
@@ -2706,7 +2706,6 @@ static bool vop_crtc_mode_fixup(struct drm_crtc *crtc,
 {
 	struct vop *vop = to_vop(crtc);
 	const struct vop_data *vop_data = vop->data;
-	unsigned long rate;
 
 	if (mode->hdisplay > vop_data->max_output.width)
 		return false;
@@ -2716,10 +2715,7 @@ static bool vop_crtc_mode_fixup(struct drm_crtc *crtc,
 	if (mode->flags & DRM_MODE_FLAG_DBLCLK)
 		adj_mode->crtc_clock *= 2;
 
-	rate = clk_round_rate(vop->dclk, adj_mode->crtc_clock * 1000);
-	if (rate / 1000 != adj_mode->crtc_clock)
-		rate = clk_round_rate(vop->dclk, adj_mode->crtc_clock * 1000) / 1000;
-	adj_mode->crtc_clock = DIV_ROUND_UP(rate, 1000);
+	adj_mode->crtc_clock = clk_round_rate(vop->dclk, adj_mode->crtc_clock * 1000) / 1000;
 
 	return true;
 }
@@ -2887,7 +2883,6 @@ static void vop_crtc_enable(struct drm_crtc *crtc)
 		vop_unlock(vop);
 		return;
 	}
-
 
 	for (i = 0; i < vop->len; i += 4)
 		writel_relaxed(vop->regsbak[i / 4], vop->regs + i);
