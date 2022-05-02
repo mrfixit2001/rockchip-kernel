@@ -5,6 +5,7 @@
  */
 
 /dts-v1/;
+#include <dt-bindings/soc/rockchip-io-domain.h>
 #include <dt-bindings/pwm/pwm.h>
 #include <dt-bindings/input/input.h>
 #include "rk3399.dtsi"
@@ -647,7 +648,8 @@
 
 &io_domains {
 	status = "okay";
-
+	uboot-set = <(RK3399_BT656_VDD_1V8 | RK3399_AUDIO_VDD_1V8 |
+				RK3399_GPIO1833_VDD_3V3)>;
 	bt656-supply = <&vcc1v8_dvp>; /* bt656_gpio2ab_ms */
 	audio-supply = <&vcca3v0_codec>; /* audio_gpio3d4a_ms */
 	sdmmc-supply = <&vcc_sdio>; /* sdmmc_gpio4b_ms */
@@ -904,6 +906,7 @@
 
 &pmu_io_domains {
 	status = "okay";
+	uboot-set = <RK3399_PMU1830_VDD_3V0>;
 	pmu1830-supply = <&vcc_3v0>;
 };
 
