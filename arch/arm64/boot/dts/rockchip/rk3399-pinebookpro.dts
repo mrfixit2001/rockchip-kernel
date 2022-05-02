@@ -111,6 +111,9 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&host_vbus_drv>;
 		regulator-name = "vcc5v0_host";
+		regulator-always-on;
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
 
 		regulator-state-mem {
 			regulator-off-in-suspend;
@@ -146,20 +149,6 @@
 		rockchip,pwm_voltage = <900000>;
 
 		pwm-supply = <&vcc_sys>;
-	};
-
-	vcc1v8_sdio: vcca1v8_sdio: vcc1v8-sdio {
-		compatible = "regulator-fixed";
-		regulator-name = "vcc1v8_sdio";
-		regulator-always-on;
-		regulator-boot-on;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-		vin-supply = <&vcc_1v8>;
-
-		regulator-state-mem {
-			regulator-off-in-suspend;
-		};
 	};
 
 	vcc3v0_sdio: vcc3v0-sdio {
@@ -468,8 +457,8 @@
 	rk808: pmic@1b {
 		compatible = "rockchip,rk808";
 		reg = <0x1b>;
-		interrupt-parent = <&gpio1>;
-		interrupts = <21 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <10 IRQ_TYPE_LEVEL_LOW>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pmic_int_l>;
 		rockchip,system-power-controller;
@@ -665,6 +654,8 @@
 
 &i2c4 {
 	status = "okay";
+	i2c-scl-falling-time-ns = <20>;
+	i2c-scl-rising-time-ns = <600>;
 
 	fusb0: fusb30x@22 {
 		compatible = "fairchild,fusb302";
@@ -738,7 +729,6 @@
 };
 
 &sdmmc {
-	//clock-frequency = <50000000>;
 	max-frequency = <100000000>;
 	supports-sd;
 	bus-width = <4>;
@@ -771,8 +761,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&sdio0_bus4 &sdio0_cmd &sdio0_clk>;
 	sd-uhs-sdr104;
-	vqmmc-supply = <&vcc1v8_sdio>;		/* IO line */
-	vmmc-supply = <&vcc3v0_sdio>;		/* card's power */
+	vqmmc-supply = <&vcc_1v8>;		/* IO line */
 	status = "okay";
 };
 
@@ -857,7 +846,6 @@
 };
 
 &usbdrd3_0 {
-	//extcon = <&fusb0>;
 	status = "okay";
 };
 
@@ -920,8 +908,7 @@
 
 	pmic {
 		pmic_int_l: pmic-int-l {
-			rockchip,pins =
-				<1 RK_PC5 RK_FUNC_GPIO &pcfg_pull_up>;
+			rockchip,pins = <3 RK_PB2 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 
 		vsel1_gpio: vsel1-gpio {
