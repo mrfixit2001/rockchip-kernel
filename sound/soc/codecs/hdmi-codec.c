@@ -652,8 +652,8 @@ static int hdmi_codec_set_fmt(struct snd_soc_dai *dai,
 			cf.fmt = HDMI_AC97;
 			break;
 		default:
-			dev_err(dai->dev, "Invalid DAI interface format\n");
-			return -EINVAL;
+			dev_info(dai->dev, "Invalid DAI interface format, falling back to spdif\n");
+			cf.fmt = HDMI_SPDIF;
 		}
 	}
 
